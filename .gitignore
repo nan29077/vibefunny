@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.env
+.env*.local
+npm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+
+# 로컬 JSON 데이터 스토어 (개발용 런타임 데이터)
+/data/db.json

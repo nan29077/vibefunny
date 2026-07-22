@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: #faf7ff;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 숫자/표 가독성 */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 홈(랜딩) 페이지 애니메이션/유틸 — 이전에는 page.tsx의 인라인 <style>에 있었음.
+   인라인 <style>에 '>' 같은 문자가 있으면 React SSR이 '&gt;'로 escape하여
+   하이드레이션 불일치가 발생하므로 전역 CSS로 분리함. */
+@keyframes vf-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.vf-marquee {
+  display: flex;
+  width: max-content;
+  animation: vf-marquee 30s linear infinite;
+}
+.vf-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: vf-marquee 50s linear infinite;
+}
+.vf-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.vf-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+details.vf-faq > summary {
+  list-style: none;
+}
+details.vf-faq > summary::-webkit-details-marker {
+  display: none;
+}
+.vf-plus {
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+details[open] .vf-plus {
+  transform: rotate(45deg);
+}

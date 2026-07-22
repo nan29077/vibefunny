@@ -4,6 +4,7 @@ import {
   IconMegaphone, IconBuilding, IconBarChart, IconUsers, IconGlobe,
   IconZap, IconShield, IconGem, IconCheckCircle, IconDollarSign,
   IconTrendingUp, IconFilm, IconStar, IconPlay,
+  IconHome, IconLogIn,
 } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -164,7 +165,7 @@ function LogoDark() {
 
 export default function ForAdvertisersPage() {
   return (
-    <>
+    <div className="vf-marketing vf-advertisers">
       <style>{`
         @keyframes vfa-marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .vfa-marquee { display:flex; width:max-content; animation: vfa-marquee 40s linear infinite; }
@@ -182,13 +183,15 @@ export default function ForAdvertisersPage() {
         style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}
       >
         <Link href="/"><LogoLight /></Link>
-        <div className="hidden items-center gap-2 text-xs font-semibold text-gray-500 md:flex">
-          <span className="rounded-full border border-yellow-300 bg-yellow-50 px-3 py-1 text-yellow-700">광고주 전용</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/" className="hidden text-sm font-medium text-gray-500 transition hover:text-gray-800 md:block">← 홈으로</Link>
-          <Link href="/login" className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">로그인</Link>
-          <Link href="/signup?role=advertiser" className="rounded-full px-5 py-2 text-sm font-bold text-black transition hover:opacity-80" style={{ background: "#f59e0b" }}>광고주 가입</Link>
+        <nav className="vfa-header-nav hidden items-center md:flex" aria-label="광고주 페이지 메뉴">
+          <Link href="/"><IconHome size={14} />홈</Link>
+          <Link href="#types">광고 유형</Link>
+          <Link href="#benefits">주요 혜택</Link>
+          <Link href="#process">진행 과정</Link>
+        </nav>
+        <div className="vfa-header-actions flex items-center gap-3">
+          <Link href="/login" className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"><IconLogIn size={16} />로그인</Link>
+          <Link href="/signup?role=advertiser" className="rounded-full px-5 py-2 text-sm font-bold text-black transition hover:opacity-80" style={{ background: "#f59e0b" }}><IconBuilding size={16} />광고주 가입</Link>
         </div>
       </header>
 
@@ -494,7 +497,7 @@ export default function ForAdvertisersPage() {
       </section>
 
       {/* -------------- BENEFITS (dark image bg) -------------- */}
-      <FullBg src={BG.benefits} overlay="rgba(0,0,0,0.80)">
+      <FullBg id="benefits" src={BG.benefits} overlay="rgba(0,0,0,0.80)">
         <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-16 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Why VIBEFUNNY</p>
@@ -517,7 +520,7 @@ export default function ForAdvertisersPage() {
       </FullBg>
 
       {/* -------------- PROCESS (white bg) -------------- */}
-      <section className="px-6 py-24 md:px-16" style={{ background: "#fafafa" }}>
+      <section id="process" className="px-6 py-24 md:px-16" style={{ background: "#fafafa" }}>
         <div className="mx-auto max-w-5xl">
           <div className="mb-16 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">How It Works</p>
@@ -744,6 +747,6 @@ export default function ForAdvertisersPage() {
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

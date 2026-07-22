@@ -1679,6 +1679,7 @@ export function seedDatabase(): Database {
   const demoOrders = seedDemoOrders(demoProducts, creatorTest.id, creatorTest.name);
 
   return {
+    profile_character_migration_version: 0,
     profiles,
     settings: defaultSettings(),
     referral_rewards: [],
@@ -1722,5 +1723,7 @@ export function seedDatabase(): Database {
     creator_youtube_channels: [],
     creator_shorts_links: [],
     product_orders: demoOrders,
+    support_threads: [],
+    support_messages: [],
   };
 }

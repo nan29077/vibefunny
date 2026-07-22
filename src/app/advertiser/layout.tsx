@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function AdvertiserLayout({ children }: { children: React.ReactNode }) {
   const user = requireRole("advertiser");
   return (
-    <AppShell nav={navForRole("advertiser", user.advertiser_type)} userName={displayName(user)} roleLabel={ROLE_LABELS.advertiser}>
+    <AppShell nav={navForRole("advertiser", user.advertiser_type)} userName={displayName(user)} roleLabel={ROLE_LABELS.advertiser} avatarUrl={user.avatar_url}>
       {children}
     </AppShell>
   );

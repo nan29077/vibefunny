@@ -101,7 +101,7 @@ function SignupForm() {
   const refCode = searchParams.get("ref") ?? "";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-10">
+    <main className="vf-auth-page mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-10">
       <Link href="/" className="mb-6 block text-center text-2xl font-black tracking-tight">
         <span className="text-gray-900">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
       </Link>

@@ -7,9 +7,9 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          purple: "#7c3aed",
-          pink: "#ec4899",
-          yellow: "#facc15",
+          purple: "#171717",
+          pink: "#f4b000",
+          yellow: "#ffc928",
         },
       },
       fontFamily: {

@@ -6,17 +6,23 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/cn";
 import type { NavItem } from "@/lib/nav";
 import { logoutAction } from "@/lib/actions/auth-actions";
-import { NavIcon, IconMenu, IconX, IconLogOut } from "@/components/icons";
+import { NavIcon, IconHome, IconMenu, IconX, IconLogOut } from "@/components/icons";
+import { MobilePublicNav } from "@/components/marketing/mobile-main-menu";
+import { SupportWidget } from "@/components/support/support-widget";
 
 export function AppShell({
   nav,
   userName,
   roleLabel,
+  avatarUrl,
+  sidebarSide = "right",
   children,
 }: {
   nav: NavItem[];
   userName: string;
   roleLabel: string;
+  avatarUrl?: string | null;
+  sidebarSide?: "left" | "right";
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -37,11 +43,9 @@ export function AppShell({
 
   const isActive = (href: string) => href !== "" && href === activeHref;
 
-  const bottomItems = nav.slice(0, 5);
-
   const Logo = (
-    <Link href="/" className="flex items-center gap-1 text-xl font-black tracking-tight">
-      <span className="text-gray-900">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
+    <Link href="/" className="vf-site-logo vf-shell-logo">
+      <span>VIBE</span><b>FUNNY</b>
     </Link>
   );
 
@@ -68,14 +72,14 @@ export function AppShell({
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
                   active
-                    ? "bg-gradient-to-r from-brand-purple/10 to-brand-pink/10 text-brand-purple"
-                    : "text-gray-600 hover:bg-gray-100"
+                    ? "bg-brand-yellow text-gray-950 shadow-sm"
+                    : "text-gray-600 hover:bg-amber-50"
                 )}
               >
                 <NavIcon
                   name={item.icon}
                   size={16}
-                  className={active ? "text-brand-purple" : "text-gray-400"}
+                  className={active ? "text-gray-950" : "text-amber-500"}
                 />
                 {item.label}
               </Link>
@@ -87,16 +91,27 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className={`vf-app-shell vf-app-shell-${sidebarSide} min-h-screen bg-[#fffdf5]`}>
       {/* 데스크탑 사이드바 */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white p-4 lg:flex">
+      <aside className={cn(
+        "fixed bottom-0 top-0 z-30 hidden w-64 flex-col bg-white p-4 lg:flex",
+        sidebarSide === "left" ? "left-0 border-r border-amber-200 shadow-[12px_0_30px_rgba(38,30,8,.08)]" : "right-0 border-l border-amber-200 shadow-[-12px_0_30px_rgba(38,30,8,.08)]"
+      )}>
         <div className="px-2 py-2">{Logo}</div>
         <div className="mt-4 flex-1 overflow-y-auto">
           <SidebarNav />
         </div>
         <div className="mt-4 border-t border-gray-100 pt-4">
-          <div className="px-2 text-sm font-semibold text-gray-800">{userName}</div>
-          <div className="px-2 text-xs text-gray-400">{roleLabel}</div>
+          <div className="flex items-center gap-2 px-2">
+            {avatarUrl ? <img src={avatarUrl} alt={`${userName} 프로필 캐릭터`} className="h-11 w-11 rounded-full border-2 border-amber-300 bg-amber-50 object-cover shadow-sm" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-amber-100 text-xs">🐝</span>}
+            <div><div className="text-sm font-semibold text-gray-800">{userName}</div><div className="text-xs text-gray-400">{roleLabel}</div></div>
+          </div>
+          {sidebarSide === "left" && (
+            <Link href="/" className="vf-sidebar-home">
+              <IconHome size={16} />
+              메인으로
+            </Link>
+          )}
           <form action={logoutAction} className="mt-2">
             <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-100">
               <IconLogOut size={14} className="text-gray-400" />
@@ -107,8 +122,8 @@ export function AppShell({
       </aside>
 
       {/* 모바일 상단바 */}
-      <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+      <div className={cn("flex min-h-screen flex-col", sidebarSide === "left" ? "lg:pl-64" : "lg:pr-64")}>
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-amber-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
           {Logo}
           <button
             onClick={() => setOpen(true)}
@@ -123,7 +138,10 @@ export function AppShell({
         {open && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-0 h-full w-72 animate-fade-in bg-white p-4 shadow-xl">
+            <div className={cn(
+              "absolute top-0 h-full w-72 animate-fade-in bg-white p-4 shadow-xl",
+              sidebarSide === "left" ? "left-0" : "right-0"
+            )}>
               <div className="flex items-center justify-between">
                 {Logo}
                 <button onClick={() => setOpen(false)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
@@ -136,6 +154,12 @@ export function AppShell({
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <div className="text-sm font-semibold text-gray-800">{userName}</div>
                 <div className="text-xs text-gray-400">{roleLabel}</div>
+                {sidebarSide === "left" && (
+                  <Link href="/" onClick={() => setOpen(false)} className="vf-sidebar-home">
+                    <IconHome size={16} />
+                    메인으로
+                  </Link>
+                )}
                 <form action={logoutAction} className="mt-2">
                   <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-100">
                     <IconLogOut size={14} className="text-gray-400" />
@@ -148,31 +172,11 @@ export function AppShell({
         )}
 
         {/* 메인 콘텐츠 */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-20 lg:p-7">{children}</main>
 
         {/* 모바일 하단탭 */}
-        <nav className="sticky bottom-0 z-20 flex border-t border-gray-200 bg-white lg:hidden">
-          {bottomItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition",
-                  active ? "text-brand-purple" : "text-gray-400"
-                )}
-              >
-                <NavIcon
-                  name={item.icon}
-                  size={20}
-                  className={active ? "text-brand-purple" : "text-gray-400"}
-                />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <MobilePublicNav myPageHref={nav[0]?.href ?? "/login"} />
+        <SupportWidget isAuthenticated />
       </div>
     </div>
   );

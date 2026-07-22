@@ -1,0 +1,8 @@
+{
+  "/login/page": "app/login/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/page": "app/page.js",
+  "/for-advertisers/page": "app/for-advertisers/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/creator/page": "app/creator/page.js"
+}

@@ -9,6 +9,7 @@ import { audit, createReferralRewardRecord } from "../services";
 import type { AdvertiserType, Payment, Profile, Role } from "../schema";
 import type { ActionState } from "@/components/form";
 import { roleHome } from "../routes";
+import { randomProfileAvatar } from "../profile-avatars";
 
 const now = () => new Date().toISOString();
 
@@ -118,7 +119,7 @@ export async function signupAction(
       referred_by_user_id: referredBy?.id ?? null,
       // 가입비 없음 -> 즉시 active / 있음 -> 결제 대기 pending
       status: needsSignupFee ? "pending" : "active",
-      avatar_url: null,
+      avatar_url: randomProfileAvatar(),
       subscription_active_until: null,
       created_at: now(),
       updated_at: now(),

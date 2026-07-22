@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Isolate this app's Next output from stale files held by a previous local preview.
+  distDir: process.env.VF_NEXT_DIST_DIR || ".next-vibefunny",
 
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
@@ -21,6 +23,12 @@ const nextConfig = {
     },
   },
 
+  webpack: (config, { dev }) => {
+    // Prevent stale Fast Refresh module records in tunnel/mobile development previews.
+    if (dev) config.cache = false;
+    return config;
+  },
+
   async headers() {
     return [
       {
@@ -33,7 +41,9 @@ const nextConfig = {
       },
       {
         source: "/_next/static/(.*)",
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        // Dev preview URLs keep the same chunk paths between hot reloads.
+        // Do not let mobile browsers retain an outdated module factory.
+        headers: [{ key: "Cache-Control", value: process.env.NODE_ENV === "production" ? "public, max-age=31536000, immutable" : "no-store, max-age=0" }],
       },
     ];
   },

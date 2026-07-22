@@ -64,6 +64,23 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface SupportThread {
+  id: string;
+  user_id: string;
+  status: "open" | "waiting" | "resolved";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  thread_id: string;
+  sender: "user" | "admin" | "bot";
+  sender_id: string | null;
+  content: string;
+  created_at: string;
+}
+
 /** 화면 표시용 이름: 닉네임이 있으면 닉네임, 없으면 실제 이름 */
 export function displayName(p: { nickname?: string | null; name: string } | null | undefined): string {
   if (!p) return "";
@@ -929,6 +946,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 // 전체 DB 스냅샷 (로컬 JSON 스토어) --------------------------------------
 export interface Database {
 
+  profile_character_migration_version?: number;
+
   profiles: Profile[];
   settings: AppSettings;
   referral_rewards: ReferralReward[];
@@ -964,4 +983,6 @@ export interface Database {
   creator_youtube_channels: CreatorYoutubeChannel[];
   creator_shorts_links: CreatorShortsLink[];
   product_orders: ProductOrder[];
+  support_threads: SupportThread[];
+  support_messages: SupportMessage[];
 }

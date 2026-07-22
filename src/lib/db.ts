@@ -3,6 +3,9 @@ import path from "path";
 import type { Database, AdCampaign } from "./schema";
 import { seedDatabase, seedProductCategories, seedDemoProducts, seedDemoOrders, defaultCafe24Settings, defaultAiStorySettings } from "./seed";
 import { syncAllCampaignVideos } from "./distribution";
+import { profileAvatarForSeed, randomProfileAvatar } from "./profile-avatars";
+
+const PROFILE_CHARACTER_MIGRATION_VERSION = 2;
 
 /**
  * 누락된 컬렉션/설정을 채운다 (구버전 db.json 마이그레이션). @returns 변경 여부
@@ -23,6 +26,22 @@ function ensureCommerceCollections(db: Database): boolean {
       ? seedDemoOrders(db.products ?? [], creator.id, creator.name)
       : [];
     dirty = true;
+  }
+  if (!db.support_threads) { db.support_threads = []; dirty = true; }
+  if (!db.support_messages) { db.support_messages = []; dirty = true; }
+  if (db.profile_character_migration_version !== PROFILE_CHARACTER_MIGRATION_VERSION) {
+    for (const profile of db.profiles ?? []) {
+      profile.avatar_url = randomProfileAvatar();
+    }
+    db.profile_character_migration_version = PROFILE_CHARACTER_MIGRATION_VERSION;
+    dirty = true;
+  } else {
+    for (const profile of db.profiles ?? []) {
+      if (!profile.avatar_url) {
+        profile.avatar_url = profileAvatarForSeed(profile.id || profile.email);
+        dirty = true;
+      }
+    }
   }
   if (db.settings) {
     if (!db.settings.cafe24) { db.settings.cafe24 = defaultCafe24Settings(); dirty = true; }

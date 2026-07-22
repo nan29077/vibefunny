@@ -80,6 +80,14 @@ export function IconChevronRight(p: IconProps) {
   );
 }
 
+export function IconChevronLeft(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <polyline points="15 18 9 12 15 6" />
+    </Svg>
+  );
+}
+
 export function IconChevronDown(p: IconProps) {
   return (
     <Svg {...p}>
@@ -126,6 +134,16 @@ export function IconLogOut(p: IconProps) {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
+    </Svg>
+  );
+}
+
+export function IconLogIn(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <polyline points="10 17 15 12 10 7" />
+      <line x1="15" y1="12" x2="3" y2="12" />
     </Svg>
   );
 }
@@ -553,8 +571,8 @@ export function VibeFunnyLogoMark({ size = 28 }: { size?: number }) {
     >
       <defs>
         <linearGradient id="vf-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#ec4899" />
+          <stop offset="0%" stopColor="#171717" />
+          <stop offset="100%" stopColor="#f4b000" />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="8" fill="url(#vf-bg)" />
@@ -676,7 +694,7 @@ export function IconPartyPopper(p: IconProps) {
 
 const ICON_MAP: Record<string, (p: IconProps) => ReactNode> = {
   IconDashboard, IconHome, IconMenu, IconX, IconChevronRight, IconChevronDown,
-  IconUser, IconUsers, IconUserCheck, IconLogOut, IconSettings, IconTag,
+  IconUser, IconUsers, IconUserCheck, IconLogIn, IconLogOut, IconSettings, IconTag,
   IconShield, IconFilm, IconVideo, IconPlay, IconMegaphone, IconShoppingBag,
   IconGem, IconCreditCard, IconWallet, IconDollarSign, IconPackage,
   IconFileText, IconClipboard, IconReceipt, IconBuilding, IconLink, IconBell,
@@ -684,7 +702,7 @@ const ICON_MAP: Record<string, (p: IconProps) => ReactNode> = {
   IconPlus, IconCheck, IconCheckCircle, IconAlertCircle, IconInfo, IconStar,
   IconZap, IconRefresh, IconSearch, IconEye, IconUpload, IconDownload,
   IconArrowUp, IconArrowDown, IconMoreVertical, IconHeartHandshake, IconRss,
-  IconXCircle, IconSend, IconPenLine, IconClipboardList, IconTarget, IconPartyPopper,
+  IconXCircle, IconSend, IconMessageSquare, IconPenLine, IconClipboardList, IconTarget, IconPartyPopper,
 };
 
 export function NavIcon({ name, size = 16, className }: { name: string; size?: number; className?: string }) {

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { roleHome } from "@/lib/routes";
-import { displayName } from "@/lib/schema";
+import { logoutAction } from "@/lib/actions/auth-actions";
+import { HoneyHeroCarousel } from "@/components/marketing/honey-hero-carousel";
+import { MobileMainMenu, MobilePublicNav } from "@/components/marketing/mobile-main-menu";
+import { SupportWidget } from "@/components/support/support-widget";
+import { IconBarChart, IconCalendar, IconGlobe, IconHome, IconInfo, IconLogIn, IconLogOut, IconMegaphone, IconPieChart } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -249,6 +253,10 @@ const EXPERT_STEPS = [
   { Icon: IcoGear,     step: "STEP 4", title: "수익 자동화 완성",  desc: "추천 네트워크 구축 + 배포 루틴화로 직접 영상을 만들지 않아도 수익이 들어오는 파이프라인을 완성합니다." },
 ];
 
+function MobileFixedBackground({ src }: { src: string }) {
+  return <div className="vf-mobile-fixed-section-bg" style={{ backgroundImage: `url('${src}')` }} aria-hidden />;
+}
+
 function FullBg({
   src, overlay = "rgba(0,0,0,0.62)", children, className = "", id,
 }: {
@@ -257,9 +265,10 @@ function FullBg({
   return (
     <section
       id={id}
-      className={`relative flex min-h-screen items-center overflow-hidden ${className}`}
+      className={`vf-fixed-photo-section relative flex min-h-screen items-center overflow-hidden ${className}`}
       style={{ backgroundImage: `url('${src}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
     >
+      <MobileFixedBackground src={src} />
       <div className="absolute inset-0 z-0" style={{ background: overlay }} />
       <div className="relative z-10 w-full">{children}</div>
     </section>
@@ -294,7 +303,14 @@ export default function HomePage() {
   const stats = revenueStats.length > 0 ? revenueStats : defaultStats;
 
   return (
-    <>
+    <div className="vf-marketing vf-home">
+      <div className="vf-site-topbar">
+        <MobileMainMenu myPageHref={dashHref ?? "/login"} />
+        <Link href="/" className="vf-site-logo"><span>VIBE</span><b>FUNNY</b></Link>
+        {currentUser ? (
+          <form action={logoutAction}><button type="submit" className="vf-topbar-action"><IconLogOut size={16} />로그아웃</button></form>
+        ) : <Link href="/login" className="vf-topbar-action"><IconLogIn size={16} />로그인</Link>}
+      </div>
       <header
         className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
         style={{ background: "rgba(6,6,6,0.88)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
@@ -303,31 +319,25 @@ export default function HomePage() {
           <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
         </Link>
         <nav className="hidden items-center gap-8 text-sm font-medium text-gray-400 md:flex">
-          <Link href="#income"    className="transition-colors hover:text-white">수익 구조</Link>
-          <Link href="#roadmap"   className="transition-colors hover:text-white">수익 로드맵</Link>
-          <Link href="#simulate"  className="transition-colors hover:text-white">수익 시뮬레이션</Link>
-          <Link href="#platforms" className="transition-colors hover:text-white">플랫폼</Link>
-          <Link href="#faq"       className="transition-colors hover:text-white">FAQ</Link>
-          <Link href="/for-advertisers" className="transition-colors hover:text-white">광고주</Link>
+          <Link href="/" className="vf-side-link"><IconHome size={18} /><span>홈</span></Link>
+          <Link href="#income" className="vf-side-link"><IconBarChart size={18} /><span>수익구조</span></Link>
+          <Link href="#roadmap" className="vf-side-link"><IconCalendar size={18} /><span>로드맵</span></Link>
+          <Link href="#simulate" className="vf-side-link"><IconPieChart size={18} /><span>시뮬</span></Link>
+          <Link href="#platforms" className="vf-side-link"><IconGlobe size={18} /><span>플랫폼</span></Link>
+          <Link href="#faq" className="vf-side-link"><IconInfo size={18} /><span>FAQ</span></Link>
+          <Link href="/for-advertisers" className="vf-side-link"><IconMegaphone size={18} /><span>광고주</span></Link>
         </nav>
-        <div className="flex items-center gap-3">
-          {currentUser && dashHref ? (
-            <>
-              <span className="hidden text-sm font-medium text-gray-300 md:block">
-                {displayName(currentUser)}님
-              </span>
-              <Link href={dashHref} className="rounded-full px-5 py-2 text-sm font-bold text-black transition-opacity hover:opacity-80" style={{ background: "#f59e0b" }}>
-                내 대시보드
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link href="/login"  className="hidden text-sm font-medium text-gray-400 transition-colors hover:text-white md:block">로그인</Link>
-              <Link href="/signup" className="rounded-full px-5 py-2 text-sm font-bold text-black transition-opacity hover:opacity-80" style={{ background: "#f59e0b" }}>시작하기</Link>
-            </>
-          )}
-        </div>
+        {currentUser && dashHref && (
+          <div className="flex items-center gap-3">
+            <Link href={dashHref} className="rounded-full px-4 py-2 text-xs font-bold text-black" style={{ background: "#ffc928" }}>
+              마이페이지
+            </Link>
+          </div>
+        )}
       </header>
+
+      <MobilePublicNav myPageHref={dashHref ?? "/login"} />
+      <SupportWidget isAuthenticated={Boolean(currentUser)} />
 
       {announcement && (
         <div className="fixed left-0 right-0 z-40 py-2 text-center text-sm font-semibold text-black" style={{ top: 64, background: "#f59e0b" }}>
@@ -335,7 +345,8 @@ export default function HomePage() {
         </div>
       )}
 
-      <FullBg
+      <HoneyHeroCarousel />
+      {/* <FullBg
         src={BG.hero}
         overlay="linear-gradient(160deg, rgba(0,0,0,0.75) 0%, rgba(10,0,30,0.7) 100%)"
         className="pt-16"
@@ -369,10 +380,10 @@ export default function HomePage() {
           </div>
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <Link href="/signup" className="rounded-full px-8 py-4 text-base font-black text-black transition-all hover:scale-105 active:scale-95" style={{ background: "#f59e0b" }}>
-              지금 무료로 시작하기
+              지금 바로 시작하기
             </Link>
             <Link href="#roadmap" className="text-sm font-medium transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.55)" }}>
-              수익 로드맵 보기 ↓
+              로드맵
             </Link>
             <a
               href="/vibefunny-guide-creator.pdf"
@@ -419,13 +430,14 @@ export default function HomePage() {
             )}
           </div>
         </div>
-      </FullBg>
+      </FullBg> */}
 
       <section
         id="roadmap"
-        className="relative overflow-hidden"
+        className="vf-fixed-photo-section relative overflow-hidden"
         style={{ backgroundImage: `url('${BG.roadmap}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
       >
+        <MobileFixedBackground src={BG.roadmap} />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(2,2,8,0.90)" }} />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-16">
@@ -730,9 +742,10 @@ export default function HomePage() {
 
 
       <section
-        className="relative overflow-hidden"
+        className="vf-fixed-photo-section relative overflow-hidden"
         style={{ backgroundImage: "url('https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1920&q=85&fit=crop&auto=format')", backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
       >
+        <MobileFixedBackground src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1920&q=85&fit=crop&auto=format" />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(2,2,12,0.88)" }} />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-14 text-center">
@@ -834,9 +847,10 @@ export default function HomePage() {
 
       <section
         id="simulate"
-        className="relative overflow-hidden"
+        className="vf-fixed-photo-section relative overflow-hidden"
         style={{ backgroundImage: `url('${BG.income}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
       >
+        <MobileFixedBackground src={BG.income} />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(0,0,0,0.88)" }} />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-16 text-center">
@@ -1117,6 +1131,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

@@ -18,6 +18,7 @@ export function navForRole(role: Role, advertiserType?: AdvertiserType | null): 
         { href: "/admin/products", label: "상품 관리", icon: "IconPackage", group: "상품 관리" },
         { href: "/admin/products/orders", label: "쇼츠 판매/발주", icon: "IconReceipt", group: "쇼츠 판매·배송" },
         { href: "/admin/members", label: "회원 관리", icon: "IconUsers", group: "회원 & 정책" },
+        { href: "/admin/inquiries", label: "회원 문의", icon: "IconMessageSquare" },
         { href: "/admin/settings", label: "정책 설정", icon: "IconSettings" },
         { href: "/admin/categories", label: "카테고리", icon: "IconTag" },
         { href: "/admin/points", label: "포인트", icon: "IconGem", group: "재무" },

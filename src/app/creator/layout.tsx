@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function CreatorLayout({ children }: { children: React.ReactNode }) {
   const user = requireRole("creator");
   return (
-    <AppShell nav={navForRole("creator")} userName={displayName(user)} roleLabel={ROLE_LABELS.creator}>
+    <AppShell nav={navForRole("creator")} userName={displayName(user)} roleLabel={ROLE_LABELS.creator} avatarUrl={user.avatar_url} sidebarSide="left">
       {children}
     </AppShell>
   );

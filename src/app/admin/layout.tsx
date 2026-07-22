@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = requireAdmin();
   return (
-    <AppShell nav={navForRole("admin")} userName={displayName(user)} roleLabel={ROLE_LABELS.admin}>
+    <AppShell nav={navForRole("admin")} userName={displayName(user)} roleLabel={ROLE_LABELS.admin} avatarUrl={user.avatar_url} sidebarSide="left">
       {children}
     </AppShell>
   );

@@ -103,9 +103,9 @@ export default function ReferralRevenuePage() {
             <p className="mb-4 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>수익 시뮬레이션 (예시)</p>
             <div className="space-y-3">
               {[
-                { n: "10명 추천", earn: "50,000원" },
-                { n: "50명 추천", earn: "250,000원" },
-                { n: "100명 추천", earn: "500,000원+" },
+                { n: "10명 추천", earn: "6,000,000원" },
+                { n: "50명 추천", earn: "30,000,000원" },
+                { n: "100명 추천", earn: "60,000,000원+" },
               ].map((r) => (
                 <div key={r.n} className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.06)" }}>
                   <span className="text-sm font-semibold text-white">{r.n}</span>
@@ -113,7 +113,7 @@ export default function ReferralRevenuePage() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>* 건당 추천 수당 5,000원 기준 예시입니다. 실제 금액은 다를 수 있습니다.</p>
+            <p className="mt-3 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>* 1명당 추천 수당 600,000원 기준 예시입니다. 실제 지급 조건은 운영 정책을 따릅니다.</p>
           </div>
 
           <div className="mt-10 flex flex-wrap gap-4">

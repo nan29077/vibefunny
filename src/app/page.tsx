@@ -290,7 +290,11 @@ function Tag({ children }: { children: React.ReactNode }) {
 export default function HomePage() {
   const db = getDb();
   const currentUser = getCurrentUser();
-  const dashHref = currentUser ? roleHome(currentUser.role) : null;
+  const dashHref = currentUser
+    ? currentUser.status === "pending" ? "/payment/activate" : roleHome(currentUser.role)
+    : null;
+  const creatorCtaHref = dashHref ?? "/signup";
+  const advertiserCtaHref = dashHref ?? "/for-advertisers";
   const announcement = db.settings.site_announcement;
   const revenueStats = db.settings.site_revenue_stats ?? [];
 
@@ -315,7 +319,7 @@ export default function HomePage() {
         className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
         style={{ background: "rgba(6,6,6,0.88)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
       >
-        <Link href="/" className="text-xl font-black tracking-tight">
+        <Link href="/" className="vf-site-logo vf-side-brand text-xl font-black tracking-tight">
           <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
         </Link>
         <nav className="hidden items-center gap-8 text-sm font-medium text-gray-400 md:flex">
@@ -345,7 +349,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <HoneyHeroCarousel />
+      <HoneyHeroCarousel ctaHref={creatorCtaHref} />
       {/* <FullBg
         src={BG.hero}
         overlay="linear-gradient(160deg, rgba(0,0,0,0.75) 0%, rgba(10,0,30,0.7) 100%)"
@@ -1017,7 +1021,7 @@ export default function HomePage() {
             실행사 · 대행사 전용 페이지에서 숏폼 광고 캠페인을 시작하세요.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/for-advertisers" className="rounded-full px-8 py-4 text-base font-black text-black transition-all hover:opacity-90 hover:scale-105" style={{ background: "#f59e0b" }}>
+            <Link href={advertiserCtaHref} className="rounded-full px-8 py-4 text-base font-black text-black transition-all hover:opacity-90 hover:scale-105" style={{ background: "#f59e0b" }}>
               광고주 전용 페이지 →
             </Link>
           </div>
@@ -1043,8 +1047,8 @@ export default function HomePage() {
           </div>
           <div className="mt-12 rounded-2xl p-6 text-center" style={{ background: "#fefce8", border: "1px solid #fde68a" }}>
             <p className="font-black text-gray-900 text-lg">아직 궁금한 게 있으신가요?</p>
-            <Link href="/signup" className="mt-4 inline-block rounded-full px-6 py-3 text-sm font-black text-black transition hover:opacity-80" style={{ background: "#f59e0b" }}>
-              무료 가입하고 문의하기 →
+            <Link href={creatorCtaHref} className="mt-4 inline-block rounded-full px-6 py-3 text-sm font-black text-black transition hover:opacity-80" style={{ background: "#f59e0b" }}>
+              지금 가입하고 문의하기 →
             </Link>
           </div>
         </div>
@@ -1069,8 +1073,8 @@ export default function HomePage() {
             가입비 0원 · 영상 경험 불필요 · 오늘 가입하면 이번 달 안에 첫 수익.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/signup" className="rounded-full px-10 py-4 text-lg font-black text-black transition-all hover:scale-105 active:scale-95" style={{ background: "#f59e0b" }}>
-              무료로 크리에이터 시작하기
+            <Link href={creatorCtaHref} className="rounded-full px-10 py-4 text-lg font-black text-black transition-all hover:scale-105 active:scale-95" style={{ background: "#f59e0b" }}>
+              바로 크리에이터 시작하기
             </Link>
           </div>
         </div>
@@ -1080,7 +1084,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div>
             <Link href="/">
-              <span className="text-2xl font-black tracking-tight">
+              <span className="vf-site-logo text-2xl font-black tracking-tight">
                 <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
               </span>
             </Link>

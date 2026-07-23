@@ -51,12 +51,12 @@ function FullBg({
 
 export default function ShortsCommerceRevenuePage() {
   return (
-    <>
+    <div className="vf-marketing vf-revenue-detail">
       <header
         className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
         style={{ background: "rgba(6,6,6,0.90)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
       >
-        <Link href="/" className="text-xl font-black">
+        <Link href="/" className="vf-site-logo text-xl font-black">
           <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
         </Link>
         <div className="flex items-center gap-3">
@@ -231,6 +231,6 @@ export default function ShortsCommerceRevenuePage() {
           <Link href="/creator/shorts-commerce" className="rounded-full border px-8 py-4 text-base font-medium text-white transition hover:bg-white/10" style={{ borderColor: "rgba(255,255,255,0.25)" }}>쇼츠 커머스 바로가기</Link>
         </div>
       </section>
-    </>
+    </div>
   );
 }

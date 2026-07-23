@@ -130,6 +130,11 @@ export function defaultSettings(): AppSettings {
       { key: "videos", label: "제작된 영상", value: "8,500", suffix: "개" },
       { key: "avg_income", label: "크리에이터 평균 월 수익", value: "32", suffix: "만원" },
     ],
+    support_hours_enabled: true,
+    support_hours_start: "10:00",
+    support_hours_end: "17:00",
+    support_hours_timezone: "Asia/Seoul",
+    verification_sender_email: "",
     // 유튜브 쇼츠 커머스
     cafe24: defaultCafe24Settings(),
     shorts_commerce_default_commission_rate: 10,
@@ -1725,5 +1730,6 @@ export function seedDatabase(): Database {
     product_orders: demoOrders,
     support_threads: [],
     support_messages: [],
+    email_verifications: [],
   };
 }

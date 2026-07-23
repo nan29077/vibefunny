@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb, tx } from "@/lib/db";
 import { getSupportBotReply } from "@/lib/support";
+import { getSupportAvailability } from "@/lib/support-hours";
 import type { SupportMessage, SupportThread } from "@/lib/schema";
 
 const now = () => new Date().toISOString();
@@ -12,10 +13,14 @@ function unauthorized() {
 }
 
 export async function GET(req: NextRequest) {
+  const db = getDb();
+  const availability = getSupportAvailability(db.settings);
+  if (new URL(req.url).searchParams.get("availability") === "1") {
+    return NextResponse.json({ availability });
+  }
+
   const user = getCurrentUser();
   if (!user) return unauthorized();
-
-  const db = getDb();
   if (user.role === "admin") {
     const selectedId = new URL(req.url).searchParams.get("thread_id");
     const threads = [...db.support_threads]
@@ -34,14 +39,14 @@ export async function GET(req: NextRequest) {
     const messages = threadId
       ? db.support_messages.filter((message) => message.thread_id === threadId)
       : [];
-    return NextResponse.json({ threads, selected_thread_id: threadId, messages });
+    return NextResponse.json({ threads, selected_thread_id: threadId, messages, availability });
   }
 
   const thread = db.support_threads.find((item) => item.user_id === user.id) ?? null;
   const messages = thread
     ? db.support_messages.filter((message) => message.thread_id === thread.id)
     : [];
-  return NextResponse.json({ thread, messages });
+  return NextResponse.json({ thread, messages, availability });
 }
 
 export async function POST(req: NextRequest) {
@@ -67,6 +72,14 @@ export async function POST(req: NextRequest) {
     });
     if (!result) return NextResponse.json({ error: "문의 대화를 찾을 수 없습니다." }, { status: 404 });
     return NextResponse.json(result);
+  }
+
+  const availability = getSupportAvailability(getDb().settings);
+  if (!availability.isOpen) {
+    return NextResponse.json(
+      { error: availability.closedMessage, code: "SUPPORT_CLOSED", availability },
+      { status: 403 },
+    );
   }
 
   const result = tx((db) => {

@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { cn } from "@/lib/cn";
 import type { NavItem } from "@/lib/nav";
 import { logoutAction } from "@/lib/actions/auth-actions";
 import { NavIcon, IconHome, IconMenu, IconX, IconLogOut } from "@/components/icons";
-import { MobilePublicNav } from "@/components/marketing/mobile-main-menu";
 import { SupportWidget } from "@/components/support/support-widget";
 
 export function AppShell({
@@ -15,7 +14,7 @@ export function AppShell({
   userName,
   roleLabel,
   avatarUrl,
-  sidebarSide = "right",
+  sidebarSide = "left",
   children,
 }: {
   nav: NavItem[];
@@ -27,6 +26,32 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const scrollY = window.scrollY;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overscrollBehavior = previousOverscrollBehavior;
+      window.scrollTo(0, scrollY);
+    };
+  }, [open]);
 
   // 현재 경로에 가장 길게(정확히) 매칭되는 nav 항목 하나만 활성화한다.
   // (예: /admin/products/orders 진입 시 /admin/products 가 함께 활성화되던 버그 수정)
@@ -136,33 +161,40 @@ export function AppShell({
 
         {/* 모바일 드로어 */}
         {open && (
-          <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="fixed inset-0 z-[100] overflow-hidden overscroll-none lg:hidden">
             <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
             <div className={cn(
-              "absolute top-0 h-full w-72 animate-fade-in bg-white p-4 shadow-xl",
+              "vf-mobile-sidebar-panel absolute inset-y-0 flex h-[100dvh] w-72 flex-col overflow-hidden overscroll-contain bg-white p-4 shadow-xl animate-fade-in",
               sidebarSide === "left" ? "left-0" : "right-0"
             )}>
-              <div className="flex items-center justify-between">
+              <div className="flex shrink-0 items-center justify-between">
                 {Logo}
                 <button onClick={() => setOpen(false)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
                   <IconX size={20} />
                 </button>
               </div>
-              <div className="mt-4 overflow-y-auto">
+              <div className="mt-4 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
                 <SidebarNav />
               </div>
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                <div className="text-sm font-semibold text-gray-800">{userName}</div>
-                <div className="text-xs text-gray-400">{roleLabel}</div>
-                {sidebarSide === "left" && (
-                  <Link href="/" onClick={() => setOpen(false)} className="vf-sidebar-home">
-                    <IconHome size={16} />
-                    메인으로
-                  </Link>
-                )}
+              <div className="vf-mobile-sidebar-footer mt-3 shrink-0 border-t border-amber-100 bg-white pt-3">
+                <div className="flex items-center gap-3 rounded-xl bg-amber-50 px-3 py-2.5">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={`${userName} 프로필 캐릭터`} className="h-12 w-12 shrink-0 rounded-full border-2 border-amber-300 bg-white object-cover shadow-sm" />
+                  ) : (
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border-2 border-amber-300 bg-amber-100 text-lg">🐝</span>
+                  )}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-gray-800">{userName}</div>
+                    <div className="truncate text-xs text-gray-500">{roleLabel}</div>
+                  </div>
+                </div>
+                <Link href="/" onClick={() => setOpen(false)} className="vf-sidebar-home">
+                  <IconHome size={16} />
+                  메인으로
+                </Link>
                 <form action={logoutAction} className="mt-2">
-                  <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-100">
-                    <IconLogOut size={14} className="text-gray-400" />
+                  <button className="flex w-full items-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100">
+                    <IconLogOut size={16} className="text-gray-500" />
                     로그아웃
                   </button>
                 </form>
@@ -172,10 +204,8 @@ export function AppShell({
         )}
 
         {/* 메인 콘텐츠 */}
-        <main className="flex-1 overflow-y-auto p-4 pb-20 lg:p-7">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-6 lg:p-7">{children}</main>
 
-        {/* 모바일 하단탭 */}
-        <MobilePublicNav myPageHref={nav[0]?.href ?? "/login"} />
         <SupportWidget isAuthenticated />
       </div>
     </div>

@@ -9,6 +9,37 @@ const now = () => new Date().toISOString();
 let _id = 0;
 const uid = () => `banner-${Date.now()}-${++_id}`;
 
+const normalizeTime = (value: FormDataEntryValue | null, fallback: string) => {
+  const time = String(value ?? "");
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : fallback;
+};
+
+export async function updateVerificationEmailAction(fd: FormData): Promise<void> {
+  const admin = requireAdmin();
+  const email = String(fd.get("verification_sender_email") ?? "").trim().toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+  tx((db) => {
+    db.settings.verification_sender_email = email;
+    db.settings.updated_at = now();
+    db.settings.updated_by = admin.id;
+  });
+  revalidatePath("/admin/site");
+}
+
+export async function updateSupportHoursAction(fd: FormData): Promise<void> {
+  const admin = requireAdmin();
+  tx((db) => {
+    db.settings.support_hours_enabled = fd.get("support_hours_enabled") === "on";
+    db.settings.support_hours_start = normalizeTime(fd.get("support_hours_start"), "10:00");
+    db.settings.support_hours_end = normalizeTime(fd.get("support_hours_end"), "17:00");
+    db.settings.support_hours_timezone = "Asia/Seoul";
+    db.settings.updated_at = now();
+    db.settings.updated_by = admin.id;
+  });
+  revalidatePath("/");
+  revalidatePath("/admin/inquiries");
+}
+
 // === 공지사항 업데이트 ====================================================
 export async function updateAnnouncementAction(fd: FormData): Promise<void> {
   requireAdmin();

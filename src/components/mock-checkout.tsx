@@ -31,7 +31,7 @@ export function MockCheckout({
       <div className="mt-5 flex gap-2">
         <form action={confirmPaymentAction} className="flex-1">
           <input type="hidden" name="payment_id" value={paymentId} />
-          <SubmitButton className="w-full">결제 성공</SubmitButton>
+          <SubmitButton className="w-full">결제하기</SubmitButton>
         </form>
         <form action={confirmPaymentAction} className="flex-1">
           <input type="hidden" name="payment_id" value={paymentId} />

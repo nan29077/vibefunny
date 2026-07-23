@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { IconMessageSquare, IconSend, IconX } from "@/components/icons";
 import { getSupportBotReply, SUPPORT_FAQS } from "@/lib/support";
+import type { SupportAvailability } from "@/lib/support-hours";
 
 type Message = {
   id: string;
@@ -24,15 +25,32 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
   const [messages, setMessages] = useState<Message[]>([greeting]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [availability, setAvailability] = useState<SupportAvailability | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const supportOpen = availability?.isOpen === true;
+
+  const loadAvailability = async () => {
+    const response = await fetch("/api/support?availability=1", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    setAvailability(data.availability ?? null);
+  };
 
   const loadMessages = async () => {
     if (!isAuthenticated) return;
     const response = await fetch("/api/support", { cache: "no-store" });
     if (!response.ok) return;
     const data = await response.json();
+    setAvailability(data.availability ?? null);
     setMessages(data.messages?.length ? [greeting, ...data.messages] : [greeting]);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    void loadAvailability();
+    const timer = window.setInterval(() => void loadAvailability(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !isAuthenticated) return;
@@ -47,7 +65,7 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
 
   const send = async (content: string) => {
     const value = content.trim();
-    if (!value || sending) return;
+    if (!value || sending || !supportOpen) return;
     setInput("");
     if (!isAuthenticated) {
       const createdAt = new Date().toISOString();
@@ -66,7 +84,20 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: value }),
       });
-      if (response.ok) await loadMessages();
+      if (response.ok) {
+        await loadMessages();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        if (data.availability) setAvailability(data.availability);
+        if (data.error) {
+          setMessages((current) => [...current, {
+            id: `support-error-${Date.now()}`,
+            sender: "bot",
+            content: String(data.error),
+            created_at: new Date().toISOString(),
+          }]);
+        }
+      }
     } finally {
       setSending(false);
     }
@@ -90,8 +121,16 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
           </div>
           <div className="vf-support-quick" aria-label="자주 묻는 질문">
             {SUPPORT_FAQS.slice(0, 4).map((faq) => (
-              <button key={faq.question} type="button" onClick={() => void send(faq.question)}>{faq.question}</button>
+              <button key={faq.question} type="button" disabled={!supportOpen} onClick={() => void send(faq.question)}>{faq.question}</button>
             ))}
+          </div>
+          <div className={`vf-support-hours ${supportOpen ? "is-open" : "is-closed"}`}>
+            {availability ? (
+              supportOpen
+                ? `문의 가능 · ${availability.label}`
+                : availability.closedMessage
+            ) : "문의 가능 시간을 확인하고 있습니다."
+            }
           </div>
           <div ref={scrollRef} className="vf-support-messages">
             {messages.map((message) => (
@@ -105,8 +144,8 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
             )}
           </div>
           <form onSubmit={submit} className="vf-support-form">
-            <input value={input} onChange={(event) => setInput(event.target.value)} maxLength={1000} placeholder="문의 내용을 입력해 주세요" aria-label="문의 내용" />
-            <button type="submit" disabled={sending || !input.trim()} aria-label="문의 보내기"><IconSend size={19} /></button>
+            <input value={input} onChange={(event) => setInput(event.target.value)} maxLength={1000} disabled={!supportOpen} placeholder={supportOpen ? "문의 내용을 입력해 주세요" : "문의 가능 시간에 이용해 주세요"} aria-label="문의 내용" />
+            <button type="submit" disabled={sending || !input.trim() || !supportOpen} aria-label="문의 보내기"><IconSend size={19} /></button>
           </form>
         </section>
       )}

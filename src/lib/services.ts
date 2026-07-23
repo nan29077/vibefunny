@@ -227,18 +227,10 @@ export function createSignupReferralReward(
   if (signupFeeAmount <= 0) return;
   const referrer = db.profiles.find((p) => p.id === referee.referred_by_user_id);
   if (!referrer) return;
+  if (db.referral_rewards.some((item) => item.referee_id === referee.id && item.referrer_id === referrer.id)) return;
   const reward = db.settings.fees[referee.role]?.referral_reward_amount ?? 0;
   if (reward <= 0) return;
-  // 추천 수당은 pending으로 생성 (관리자 확인/정책 충족 후 available)
-  addWalletTx(db, {
-    userId: referrer.id,
-    type: "signup_referral",
-    amount: reward,
-    status: "pending",
-    relatedTable: "profiles",
-    relatedId: referee.id,
-    memo: `${referee.name} 가입 추천 수당 ${reward}원`,
-  });
+  createReferralRewardRecord(db, referrer.id, referee.id, reward);
 }
 
 
@@ -331,4 +323,3 @@ export function createAgencyPointCommission(
     memo: `${agency?.name ?? agencyId} 포인트 충전 ${rate}% 수수료 적립 (충전액 ${chargeAmount.toLocaleString()}원)`,
   });
 }
-

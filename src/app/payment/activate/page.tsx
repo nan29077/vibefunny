@@ -71,13 +71,17 @@ export default function ActivatePage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5">
       <h1 className="text-center text-2xl font-extrabold text-gray-900">
-        {roleName} 가입비 결제
+        시스템 및 프로그램 구입비 결제 안내
       </h1>
+      <p className="mt-2 text-center text-sm leading-6 text-gray-500">
+        서비스 이용을 시작하려면 최고관리자가 정책 설정에서 지정한 가입비를 결제해 주세요.
+        결제가 완료되면 크리에이터 대시보드가 바로 활성화됩니다.
+      </p>
       <div className="mt-6">
         <MockCheckout
           paymentId={payment.id}
           amount={payment.amount}
-          orderName={`${roleName} 가입비`}
+          orderName={`${roleName} 시스템 및 프로그램 구입비`}
         />
       </div>
     </main>

@@ -5,11 +5,12 @@ import { z } from "zod";
 import { tx, getDb } from "../db";
 import { genId, genReferralCode, hashPassword, verifyPassword } from "../crypto";
 import { setSession, clearSession } from "../session";
-import { audit, createReferralRewardRecord } from "../services";
+import { audit } from "../services";
 import type { AdvertiserType, Payment, Profile, Role } from "../schema";
 import type { ActionState } from "@/components/form";
 import { roleHome } from "../routes";
 import { randomProfileAvatar } from "../profile-avatars";
+import { normalizeEmail } from "../email-verification";
 
 const now = () => new Date().toISOString();
 
@@ -17,10 +18,14 @@ const now = () => new Date().toISOString();
 const signupSchema = z.object({
   email: z.string().email("올바른 이메일을 입력하세요."),
   password: z.string().min(8, "비밀번호는 8자 이상이어야 합니다."),
+  password_confirm: z.string().min(1, "비밀번호 확인을 입력하세요."),
   name: z.string().min(1, "이름을 입력하세요."),
   role: z.enum(["creator", "advertiser"]),
   advertiser_type: z.enum(["execution_company", "agency"]).optional(),
   referral_code: z.string().optional(),
+}).refine((value) => value.password === value.password_confirm, {
+  path: ["password_confirm"],
+  message: "비밀번호가 일치하지 않습니다.",
 });
 
 export async function signupAction(
@@ -28,8 +33,9 @@ export async function signupAction(
   formData: FormData
 ): Promise<ActionState> {
   const parsed = signupSchema.safeParse({
-    email: formData.get("email"),
+    email: normalizeEmail(String(formData.get("email") || "")),
     password: formData.get("password"),
+    password_confirm: formData.get("password_confirm"),
     name: formData.get("name"),
     role: formData.get("role"),
     advertiser_type: formData.get("advertiser_type") || undefined,
@@ -54,8 +60,27 @@ export async function signupAction(
 
   let redirectTo: string | null = null;
   const result = tx<ActionState>((db) => {
-    if (db.profiles.some((p) => p.email === data.email)) {
+    if (db.profiles.some((p) => normalizeEmail(p.email) === data.email)) {
       return { ok: false, message: "이미 가입된 이메일입니다." };
+    }
+
+    const emailVerification = [...db.email_verifications]
+      .filter((item) => item.email === data.email && item.verified_at && !item.consumed_at)
+      .sort((a, b) => Date.parse(b.requested_at) - Date.parse(a.requested_at))[0];
+    if (!emailVerification || Date.parse(emailVerification.expires_at) < Date.now()) {
+      return {
+        ok: false,
+        message: "이메일 인증을 완료한 후 가입해 주세요.",
+        fieldErrors: { email: "이메일 인증이 필요합니다." } as Record<string, string>,
+      };
+    }
+
+    if (role === "creator" && db.settings.referral_system_enabled && !data.referral_code) {
+      return {
+        ok: false,
+        message: "현재 추천인 제도가 운영 중이므로 추천인 코드를 입력해야 합니다.",
+        fieldErrors: { referral_code: "추천인 코드는 필수입니다." } as Record<string, string>,
+      };
     }
 
     // 추천인 확인 (추천인 제도가 비활성화 상태면 코드 무시)
@@ -67,7 +92,7 @@ export async function signupAction(
         return {
           ok: false,
           message: "유효하지 않은 추천인 코드입니다.",
-          fieldErrors: { referral_code: "존재하지 않는 코드" },
+          fieldErrors: { referral_code: "존재하지 않는 코드" } as Record<string, string>,
         };
       }
     }
@@ -78,14 +103,14 @@ export async function signupAction(
         return {
           ok: false,
           message: "대행사는 실행사의 추천인 코드로만 가입할 수 있습니다.",
-          fieldErrors: { referral_code: "실행사 추천 코드 필수" },
+          fieldErrors: { referral_code: "실행사 추천 코드 필수" } as Record<string, string>,
         };
       }
       if (!referredBy || referredBy.role !== "advertiser" || referredBy.advertiser_type !== "execution_company") {
         return {
           ok: false,
           message: "유효한 실행사 코드가 아닙니다. 실행사로부터 추천 코드를 받아 입력하세요.",
-          fieldErrors: { referral_code: "실행사 코드만 사용 가능" },
+          fieldErrors: { referral_code: "실행사 코드만 사용 가능" } as Record<string, string>,
         };
       }
     }
@@ -110,6 +135,7 @@ export async function signupAction(
       id: genId(),
       email: data.email,
       password_hash: hashPassword(data.password),
+      email_verified_at: emailVerification.verified_at,
       name: data.name,
       phone: null,
       role,
@@ -126,13 +152,8 @@ export async function signupAction(
     };
     db.profiles.push(user);
 
-    // 추천 관계 저장 및 수당 생성
+    // 추천 관계 저장 (수당은 가입비 결제가 완료된 뒤 한 번만 생성)
     if (referredBy) {
-      // 역할별 고정 추천 수당 생성
-      const rewardAmount = db.settings.fees[role]?.referral_reward_amount ?? 0;
-      if (rewardAmount > 0) {
-        createReferralRewardRecord(db, referredBy.id, user.id, rewardAmount);
-      }
       db.referral_relations.push({
         id: genId(),
         referrer_id: referredBy.id,
@@ -150,6 +171,8 @@ export async function signupAction(
         });
       }
     }
+
+    emailVerification.consumed_at = now();
 
     // 가입비 결제 대기 시 payment 레코드 생성
     if (needsSignupFee) {

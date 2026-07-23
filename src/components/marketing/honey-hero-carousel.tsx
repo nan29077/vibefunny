@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlay } from "@/components/icons";
 
 const slides = [
-  { image: "/images/hero/side-income-1.png", eyebrow: "SHORTFORM SIDE JOB", title: <>숏폼으로<br /><em>나만의 수익</em>을 시작하세요</>, body: "AI 영상 제작 · 숏폼 배포 · 추천 수당. 기존 바이브퍼니의 세 가지 수익 파이프라인을 한 곳에서 시작합니다." },
-  { image: "/images/hero/side-income-2.png", eyebrow: "CREATE & SHARE", title: <>하루 한 편,<br /><em>수익의 씨앗</em>을 심어요</>, body: "영상 경험이 없어도 괜찮아요. 가이드를 따라 만들고, 여러 플랫폼으로 배포하며 수익 기회를 넓혀보세요." },
-  { image: "/images/hero/side-income-3.png", eyebrow: "GROW YOUR HIVE", title: <>쌓일수록 더 달콤한<br /><em>월 수익 로드맵</em></>, body: "입문부터 숙련까지, 현재 바이브퍼니 수익 로드맵과 시뮬레이션을 확인하며 내 속도로 성장할 수 있어요." },
+  { image: "/images/hero/side-income-generated-1.webp", eyebrow: "SHORTFORM SIDE JOB", title: <><span className="vf-hero-title-line">숏폼으로 나만의</span><span className="vf-hero-title-line"><em>수익을 시작하세요</em></span></>, body: "AI 영상 제작 · 숏폼 배포 · 추천 수당. 기존 바이브퍼니의 세 가지 수익 파이프라인을 한 곳에서 시작합니다." },
+  { image: "/images/hero/side-income-generated-2.webp", eyebrow: "CREATE & SHARE", title: <>하루 한 편,<br /><em>수익의 씨앗</em>을 심어요</>, body: "영상 경험이 없어도 괜찮아요. 가이드를 따라 만들고, 여러 플랫폼으로 배포하며 수익 기회를 넓혀보세요." },
+  { image: "/images/hero/side-income-generated-3.webp", eyebrow: "GROW YOUR HIVE", title: <>쌓일수록 더 달콤한<br /><em>월 수익 로드맵</em></>, body: "입문부터 숙련까지, 현재 바이브퍼니 수익 로드맵과 시뮬레이션을 확인하며 내 속도로 성장할 수 있어요." },
 ];
 
-export function HoneyHeroCarousel() {
+export function HoneyHeroCarousel({ ctaHref = "/signup" }: { ctaHref?: string }) {
   const [active, setActive] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setActive((value) => (value + 1) % slides.length), 6000);
@@ -31,7 +31,7 @@ export function HoneyHeroCarousel() {
             <h1>{slide.title}</h1>
             <p className="vf-hero-body">{slide.body}</p>
             <div className="vf-hero-actions">
-              <Link href="/signup" className="vf-honey-button">지금 바로 시작하기 <IconPlay size={15} /></Link>
+              <Link href={ctaHref} className="vf-honey-button">지금 바로 시작하기 <IconPlay size={15} /></Link>
             </div>
           </div>
         </div>

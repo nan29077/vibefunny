@@ -72,7 +72,7 @@ export default function AdminSettingsPage() {
               <div>
                 <div className="font-semibold text-gray-800">유료 부업 활성화</div>
                 <div className="mt-0.5 text-sm text-gray-500">
-                  신규 회원이 추천 코드로 가입하면 추천인에게 역할별 고정 수당을 즉시 지급합니다. 수당 금액은 아래 역할별 설정에서 변경하세요.
+                  신규 회원이 추천 코드로 가입하고 가입비 결제를 완료하면 추천인에게 역할별 고정 수당을 적립합니다. 수당 금액은 아래 역할별 설정에서 변경하세요.
                 </div>
               </div>
             </label>

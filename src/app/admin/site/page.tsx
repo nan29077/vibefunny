@@ -8,6 +8,7 @@ import {
   deleteBannerAction,
   updateHowtoBlockAction,
   updateRevenueStatsAction,
+  updateVerificationEmailAction,
 } from "@/lib/actions/site-actions";
 import {
   IconMegaphone, IconGlobe, IconFilm, IconUsers,
@@ -231,6 +232,27 @@ export default function SiteManagementPage() {
               ))}
             </div>
             <SubmitButton size="sm">수익 통계 저장</SubmitButton>
+          </form>
+        </Card>
+      </section>
+
+      <section>
+        <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-gray-800">
+          <IconCheckCircle size={16} className="text-amber-500" />
+          회원 이메일 인증
+        </h2>
+        <Card>
+          <form action={updateVerificationEmailAction} className="space-y-3">
+            <Field label="회원인증 발신용 이메일" required>
+              <Input name="verification_sender_email" type="email" defaultValue={s.verification_sender_email ?? ""} placeholder="verify@your-domain.com" required />
+            </Field>
+            <p className="text-xs leading-5 text-gray-500">
+              Resend에서 발신 도메인 인증을 마친 주소를 입력하세요. 서버 환경의 RESEND_API_KEY가 함께 설정되어야 실제 인증 메일이 발송됩니다.
+            </p>
+            <div className={`rounded-xl px-3 py-2 text-xs ${process.env.RESEND_API_KEY ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+              메일 발송 API: {process.env.RESEND_API_KEY ? "연결 설정됨" : "RESEND_API_KEY 설정 필요"}
+            </div>
+            <SubmitButton size="sm">발신 이메일 저장</SubmitButton>
           </form>
         </Card>
       </section>

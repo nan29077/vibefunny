@@ -29,6 +29,7 @@ function ensureCommerceCollections(db: Database): boolean {
   }
   if (!db.support_threads) { db.support_threads = []; dirty = true; }
   if (!db.support_messages) { db.support_messages = []; dirty = true; }
+  if (!db.email_verifications) { db.email_verifications = []; dirty = true; }
   if (db.profile_character_migration_version !== PROFILE_CHARACTER_MIGRATION_VERSION) {
     for (const profile of db.profiles ?? []) {
       profile.avatar_url = randomProfileAvatar();
@@ -44,6 +45,11 @@ function ensureCommerceCollections(db: Database): boolean {
     }
   }
   if (db.settings) {
+    if (db.settings.support_hours_enabled === undefined) { db.settings.support_hours_enabled = true; dirty = true; }
+    if (!db.settings.support_hours_start) { db.settings.support_hours_start = "10:00"; dirty = true; }
+    if (!db.settings.support_hours_end) { db.settings.support_hours_end = "17:00"; dirty = true; }
+    if (!db.settings.support_hours_timezone) { db.settings.support_hours_timezone = "Asia/Seoul"; dirty = true; }
+    if (db.settings.verification_sender_email === undefined) { db.settings.verification_sender_email = ""; dirty = true; }
     if (!db.settings.cafe24) { db.settings.cafe24 = defaultCafe24Settings(); dirty = true; }
     if (!db.settings.ai_story) { db.settings.ai_story = defaultAiStorySettings(); dirty = true; }
     if (db.settings.shorts_commerce_default_commission_rate === undefined) {

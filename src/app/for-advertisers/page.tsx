@@ -19,6 +19,13 @@ export const metadata: Metadata = {
     description:
       "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
     url: "/for-advertisers",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "VIBEFUNNY 숏폼 영상 부업 플랫폼" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "광고주 센터 · VIBEFUNNY",
+    description: "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
+    images: ["/og.png"],
   },
 };
 
@@ -144,7 +151,7 @@ function FullBg({
 /** 라이트 배경용 로고 (VIBE=다크, FUNNY=옐로우) */
 function LogoLight() {
   return (
-    <span className="text-xl font-black tracking-tight">
+    <span className="vf-site-logo text-xl font-black tracking-tight">
       <span className="text-gray-900">VIBE</span>
       <span style={{ color: "#f59e0b" }}>FUNNY</span>
     </span>
@@ -154,7 +161,7 @@ function LogoLight() {
 /** 다크 배경용 로고 (VIBE=흰색, FUNNY=옐로우) */
 function LogoDark() {
   return (
-    <span className="text-xl font-black tracking-tight">
+    <span className="vf-site-logo text-xl font-black tracking-tight">
       <span className="text-white">VIBE</span>
       <span style={{ color: "#f59e0b" }}>FUNNY</span>
     </span>

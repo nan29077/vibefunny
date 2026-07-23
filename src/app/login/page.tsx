@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useFormState } from "react-dom";
 import {
   loginAction,
@@ -127,8 +128,9 @@ export default function LoginPage() {
 
   return (
     <main className="vf-auth-page mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-10">
-      <Link href="/" className="mb-6 block text-center text-2xl font-black tracking-tight">
-        <span className="text-gray-900">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
+      <Link href="/" className="vf-auth-brand mb-6 justify-center text-center text-2xl font-black tracking-tight" aria-label="바이브퍼니 메인으로">
+        <Image src="/images/vibefunny-video-bee-logo.png" alt="" width={52} height={52} priority className="vf-auth-brand-image" />
+        <span>VIBE</span><b>FUNNY</b>
       </Link>
 
       {/* 테스트 계정 빠른 로그인 */}

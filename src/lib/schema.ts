@@ -49,6 +49,7 @@ export interface Profile {
   id: string;
   email: string;
   password_hash: string; // 로컬 모드 전용. Supabase 전환 시 auth.users로 이관.
+  email_verified_at?: string | null;
   name: string;          // 실제 이름 (설정에서만 노출)
   nickname?: string | null; // 닉네임 (이름이 표기되는 모든 화면에 표시)
   phone: string | null;
@@ -79,6 +80,17 @@ export interface SupportMessage {
   sender_id: string | null;
   content: string;
   created_at: string;
+}
+
+export interface EmailVerification {
+  id: string;
+  email: string;
+  code_hash: string;
+  expires_at: string;
+  verified_at: string | null;
+  consumed_at: string | null;
+  attempts: number;
+  requested_at: string;
 }
 
 /** 화면 표시용 이름: 닉네임이 있으면 닉네임, 없으면 실제 이름 */
@@ -180,6 +192,11 @@ export interface AppSettings {
   site_announcement: string | null;
   site_howto_blocks: SiteHowtoBlock[];
   site_revenue_stats: SiteRevenueStat[];
+  support_hours_enabled?: boolean;
+  support_hours_start?: string;
+  support_hours_end?: string;
+  support_hours_timezone?: string;
+  verification_sender_email?: string;
   // ── 유튜브 쇼츠 커머스 ──────────────────────────────────────────────
   cafe24?: Cafe24Settings;                  // 카페24 Open API 연동 설정
   shorts_commerce_default_commission_rate?: number; // 쇼츠 커머스 기본 판매 수수료율 %(크리에이터 수익)
@@ -985,4 +1002,5 @@ export interface Database {
   product_orders: ProductOrder[];
   support_threads: SupportThread[];
   support_messages: SupportMessage[];
+  email_verifications: EmailVerification[];
 }

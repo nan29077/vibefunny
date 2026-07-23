@@ -77,7 +77,7 @@ export default function CreatorReferralsPage() {
     );
   }
 
-  const referralUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/signup?ref=${user.referral_code}`;
+  const referralUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/signup?role=creator&ref=${user.referral_code}`;
 
   return (
     <div className="space-y-6">

@@ -14,8 +14,8 @@ export function ReferralCard({ referralCode, referredCount, referralEarnings }: 
 
   const referralUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/signup?ref=${referralCode}`
-      : `/signup?ref=${referralCode}`;
+      ? `${window.location.origin}/signup?role=creator&ref=${referralCode}`
+      : `/signup?role=creator&ref=${referralCode}`;
 
   const handleCopy = async () => {
     try {

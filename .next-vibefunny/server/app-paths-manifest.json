@@ -1,8 +1,0 @@
-{
-  "/page": "app/page.js",
-  "/login/page": "app/login/page.js",
-  "/creator/page": "app/creator/page.js",
-  "/advertiser/page": "app/advertiser/page.js",
-  "/advertiser/campaigns/page": "app/advertiser/campaigns/page.js",
-  "/advertiser/campaigns/new/page": "app/advertiser/campaigns/new/page.js"
-}

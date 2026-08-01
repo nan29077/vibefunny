@@ -23,6 +23,8 @@ const signupSchema = z.object({
   role: z.enum(["creator", "advertiser"]),
   advertiser_type: z.enum(["execution_company", "agency"]).optional(),
   referral_code: z.string().optional(),
+  // 대행사 가입 시 추천인 없음 선택 여부
+  no_referral_agency: z.boolean().optional(),
 }).refine((value) => value.password === value.password_confirm, {
   path: ["password_confirm"],
   message: "비밀번호가 일치하지 않습니다.",
@@ -40,6 +42,7 @@ export async function signupAction(
     role: formData.get("role"),
     advertiser_type: formData.get("advertiser_type") || undefined,
     referral_code: (formData.get("referral_code") as string)?.trim() || undefined,
+    no_referral_agency: formData.get("no_referral_agency") === "true",
   });
 
   if (!parsed.success) {
@@ -97,16 +100,17 @@ export async function signupAction(
       }
     }
 
-    // 대행사는 실행사 코드로만 가입 가능
+    // 대행사는 실행사 코드로만 가입 가능 (추천인 없음 선택 시 예외 허용)
     if (role === "advertiser" && advertiserType === "agency") {
-      if (!data.referral_code) {
+      const hasNoReferral = Boolean(data.no_referral_agency);
+      if (!data.referral_code && !hasNoReferral) {
         return {
           ok: false,
-          message: "대행사는 실행사의 추천인 코드로만 가입할 수 있습니다.",
-          fieldErrors: { referral_code: "실행사 추천 코드 필수" } as Record<string, string>,
+          message: "실행사 추천인 코드를 입력하거나 '추천인 없음'을 선택하세요.",
+          fieldErrors: { referral_code: "추천인 코드 입력 또는 추천인 없음 선택 필요" } as Record<string, string>,
         };
       }
-      if (!referredBy || referredBy.role !== "advertiser" || referredBy.advertiser_type !== "execution_company") {
+      if (data.referral_code && (!referredBy || referredBy.role !== "advertiser" || referredBy.advertiser_type !== "execution_company")) {
         return {
           ok: false,
           message: "유효한 실행사 코드가 아닙니다. 실행사로부터 추천 코드를 받아 입력하세요.",
@@ -213,7 +217,8 @@ export async function loginAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const email = String(formData.get("email") || "");
+  // 이메일 소문자 정규화 (가입 시 normalizeEmail 적용과 통일)
+  const email = normalizeEmail(String(formData.get("email") || ""));
   const password = String(formData.get("password") || "");
   if (!email || !password) {
     return { ok: false, message: "이메일과 비밀번호를 입력하세요." };
@@ -226,6 +231,9 @@ export async function loginAction(
   }
   if (user.status === "withdrawn") {
     return { ok: false, message: "탈퇴한 계정입니다." };
+  }
+  if (user.status === "suspended") {
+    return { ok: false, message: "정지된 계정입니다. 관리자에게 문의하세요." };
   }
 
   setSession(user.id);
@@ -249,6 +257,8 @@ async function loginAs(email: string): Promise<void> {
 }
 
 export async function testLoginAdmin(): Promise<void> {
+  // 프로덕션 환경에서는 테스트 로그인 비활성화
+  if (process.env.NODE_ENV === "production") return;
   await loginAs("admin@vibefunny.com");
 }
 

@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, saveDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 인증: 로그인 필수, creator 역할 확인
+  const user = getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
+  }
+  if (user.role !== "creator") {
+    return NextResponse.json({ error: "크리에이터 권한이 필요합니다" }, { status: 403 });
+  }
+
   const db = getDb();
   const body = await req.json();
   const {
-    creator_id,
     type,
     video_url,
     video_file_data,
@@ -18,9 +27,11 @@ export async function POST(
     note,
   } = body;
   // type: "video" | "deploy"
+  // creator_id는 세션 user.id 사용 (body의 creator_id 무시)
+  const creator_id = user.id;
 
-  if (!creator_id || !type) {
-    return NextResponse.json({ error: "creator_id, type 필요" }, { status: 400 });
+  if (!type) {
+    return NextResponse.json({ error: "type 필요" }, { status: 400 });
   }
 
   // type(video/deploy)에 맞는 참여 유형으로 정확히 조회 (한 캠페인에 두 유형 참여 가능)
@@ -33,6 +44,11 @@ export async function POST(
     candidates[0];
   if (!p) {
     return NextResponse.json({ error: "참여 기록 없음" }, { status: 404 });
+  }
+
+  // 소유권 확인: 세션 사용자가 이 참여의 크리에이터인지 검증
+  if (p.creator_id !== user.id) {
+    return NextResponse.json({ error: "본인의 참여 기록만 제출할 수 있습니다" }, { status: 403 });
   }
 
   if (type === "video") {

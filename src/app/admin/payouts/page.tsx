@@ -4,7 +4,7 @@ import { SubmitButton } from "@/components/form";
 import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { WALLET_TX_TYPE_LABELS } from "@/lib/labels";
-import { processPayoutAction, releaseWalletTxAction } from "@/lib/actions/admin-actions";
+import { processPayoutAction, releaseWalletTxAction, clearSsnAction } from "@/lib/actions/admin-actions";
 
 export default function AdminPayoutsPage() {
   const db = getDb();
@@ -52,7 +52,7 @@ export default function AdminPayoutsPage() {
         ) : (
           <Table>
             <thead>
-              <tr><Th>회원</Th><Th>금액</Th><Th>계좌</Th><Th>상태</Th><Th>처리</Th></tr>
+              <tr><Th>회원</Th><Th>금액</Th><Th>계좌</Th><Th>주민번호</Th><Th>상태</Th><Th>처리</Th></tr>
             </thead>
             <tbody>
               {payouts.map((p) => (
@@ -60,6 +60,20 @@ export default function AdminPayoutsPage() {
                   <Td>{nameOf(db, p.user_id)}</Td>
                   <Td>{formatKRW(p.amount)}</Td>
                   <Td className="text-xs text-gray-500">{p.bank_name} {p.bank_account_number} ({p.account_holder})</Td>
+                  <Td>
+                    {p.resident_id_number ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 font-mono">
+                          {p.resident_id_number.slice(0, 6)}-*******
+                        </span>
+                        <form action={clearSsnAction.bind(null, p.id)}>
+                          <SubmitButton size="sm" variant="danger">주민번호 삭제</SubmitButton>
+                        </form>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">삭제됨</span>
+                    )}
+                  </Td>
                   <Td><StatusBadge status={p.status} /></Td>
                   <Td>
                     <div className="flex gap-1">

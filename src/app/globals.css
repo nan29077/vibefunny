@@ -229,7 +229,9 @@ body { background: #fffdf5; color: var(--bee-ink); }
   .vf-home > header nav a:hover { background:#fff2b7; color:#171717 !important; }
   .vf-home > header > div > a { background:#ffc928 !important; color:#171717 !important; }
 }
-.vf-side-link { display:flex; flex-direction:column; align-items:center; gap:.18rem; padding:.52rem .25rem !important; color:#6d6549; text-decoration:none; }.vf-side-link svg { color:#d99e00; }.vf-side-link span { font-size:.61rem; font-weight:800; letter-spacing:-.04em; }
+.vf-side-link { display:flex; flex-direction:column; align-items:center; gap:.22rem; padding:.55rem .3rem !important; color:#6d6549; text-decoration:none; }
+.vf-side-link svg { color:#d99e00; width:18px; height:18px; }
+.vf-side-link span { font-size:.61rem; font-weight:800; letter-spacing:-.03em; }
 
 /* Brighter fixed bee-and-honeycomb surround. */
 @media (min-width:768px) {
@@ -440,10 +442,19 @@ body { background: #fffdf5; color: var(--bee-ink); }
 .vf-support-head span { display:flex; align-items:center; gap:.35rem; margin-top:.15rem; font-size:.68rem; font-weight:700; color:#665000; }
 .vf-support-head i { width:7px; height:7px; border-radius:50%; background:#23a455; box-shadow:0 0 0 3px rgba(35,164,85,.15); }
 .vf-support-head button { display:grid; width:34px; height:34px; place-items:center; border-radius:11px; background:rgba(255,255,255,.62); }
-.vf-support-quick { display:flex; gap:.45rem; padding:.75rem; overflow-x:auto; border-bottom:1px solid #f2e3aa; background:#fffaf0; scrollbar-width:none; }
-.vf-support-quick::-webkit-scrollbar { display:none; }
-.vf-support-quick button { flex:0 0 auto; border:1px solid #edcf65; border-radius:999px; padding:.45rem .65rem; background:#fff; color:#685100; font-size:.68rem; font-weight:800; }
-.vf-support-quick button:disabled { cursor:not-allowed; opacity:.42; }
+/* ── FAQ 탐색기 ── */
+.vf-support-faq { border-bottom:1px solid #f2e3aa; background:#fffaf0; max-height:210px; display:flex; flex-direction:column; }
+.vf-support-faq-header { display:flex; align-items:center; gap:.4rem; padding:.55rem .75rem .35rem; border-bottom:1px solid #f5e8b0; }
+.vf-support-faq-back { width:22px; height:22px; display:grid; place-items:center; border-radius:7px; background:#ffedb0; color:#7a6200; font-size:1rem; font-weight:900; line-height:1; flex-shrink:0; }
+.vf-support-faq-title { font-size:.68rem; font-weight:900; color:#7a6200; letter-spacing:.02em; }
+.vf-support-faq-list { overflow-y:auto; padding:.3rem .5rem .5rem; display:flex; flex-direction:column; gap:.25rem; scrollbar-width:thin; scrollbar-color:#f0d970 transparent; }
+.vf-support-faq-item { display:flex; align-items:center; justify-content:space-between; text-align:left; border-radius:10px; padding:.48rem .65rem; font-size:.7rem; font-weight:700; color:#4a3800; background:#fff; border:1px solid #f0df9e; transition:background .12s, border-color .12s; }
+.vf-support-faq-item:hover { background:#fff8db; border-color:#e8c830; }
+.vf-support-faq-item:disabled { opacity:.4; cursor:not-allowed; }
+.vf-support-faq-item.is-category { color:#5c4400; font-weight:800; }
+.vf-support-faq-item.is-question { color:#3a3000; font-weight:700; justify-content:flex-start; }
+.vf-support-faq-arrow { font-size:.85rem; color:#c5a400; flex-shrink:0; margin-left:.3rem; }
+.vf-support-faq-toggle { width:100%; padding:.55rem; border-bottom:1px solid #f2e3aa; background:#fffaf0; color:#a07800; font-size:.68rem; font-weight:800; text-align:center; }
 .vf-support-hours { padding:.55rem .8rem; border-bottom:1px solid #f2e3aa; text-align:center; font-size:.67rem; font-weight:800; }
 .vf-support-hours.is-open { background:#effcf2; color:#24733b; }
 .vf-support-hours.is-closed { background:#fff1e7; color:#a74716; }
@@ -800,3 +811,53 @@ body:has(.vf-revenue-detail) {
     top:min(calc(50% + 270px), calc(100vh - 58px));
   }
 }
+
+/* ── 관리자 앱셸 모바일 최적화 ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* 메인 콘텐츠 패딩 축소 */
+  .vf-app-shell main { padding: 12px 12px 24px; }
+
+  /* StatCard: 작은 화면에서 수치 크기 조정 */
+  .vf-app-shell [class*="rounded-2xl"][class*="bg-gradient"] .text-2xl {
+    font-size: 1.15rem;
+    line-height: 1.3;
+  }
+  .vf-app-shell [class*="rounded-2xl"][class*="bg-gradient"] .text-sm {
+    font-size: .7rem;
+  }
+
+  /* Card 패딩 축소 */
+  .vf-app-shell .rounded-2xl.border.bg-white { padding: 14px; }
+
+  /* 처리 대기 알림 카드: 세로 레이아웃 */
+  .vf-app-shell .grid.gap-3 > div {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .vf-app-shell .grid.gap-3 > div > .flex-1 { min-width: 0; }
+
+  /* 테이블: 작은 패딩 */
+  .vf-app-shell table th,
+  .vf-app-shell table td { padding: 8px 10px; font-size: .75rem; }
+
+  /* 테이블 액션 버튼: 세로 스택 */
+  .vf-app-shell table td .flex.items-center.gap-1\.5 { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .vf-app-shell table td .flex.items-center.gap-1\.5 a,
+  .vf-app-shell table td .flex.items-center.gap-1\.5 button { width: 100%; justify-content: center; }
+
+  /* PageHeader 간격 축소 */
+  .vf-app-shell [class*="space-y-8"] > :first-child { margin-bottom: 0; }
+  .vf-app-shell [class*="mb-3"] { margin-bottom: .5rem; }
+
+  /* 탭 버튼: 작은 화면 대응 */
+  .vf-app-shell .flex.flex-wrap.gap-2 a,
+  .vf-app-shell .flex.flex-wrap.gap-2 button { font-size: .75rem; padding: 6px 10px; }
+
+  /* 그리드 gap 축소 */
+  .vf-app-shell .grid.gap-4 { gap: 8px; }
+  .vf-app-shell .grid.gap-6 { gap: 12px; }
+
+  /* 2열 그리드: 좁은 화면에서 1열로 */
+  .vf-app-shell .grid.lg\:grid-cols-2 { grid-template-columns: 1fr; }
+}
+

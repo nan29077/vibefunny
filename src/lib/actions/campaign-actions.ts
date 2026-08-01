@@ -648,3 +648,6 @@ export async function submitParticipationWorkAction(fd: FormData): Promise<Actio
   revalidatePath("/creator/campaigns");
   return outcome;
 }
+
+// === 지급 함수 re-export (API 라우트에서 통일된 지급 기준 사용) ===========
+export { creatorDeployPayout, creatorVideoPayout } from "../queries";

@@ -68,7 +68,7 @@ function SocialButtons() {
     alert("준비 중입니다.");
   };
   return (
-    <div>
+    <div style={{ boxShadow: "none", borderColor: "inherit" }}>
       <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-gray-400">
         소셜 계정으로 로그인
       </p>

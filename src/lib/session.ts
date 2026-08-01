@@ -7,7 +7,23 @@ import { createHmac, timingSafeEqual } from "crypto";
 // ===========================================================================
 
 const COOKIE_NAME = "vf_session";
-const SECRET = process.env.SESSION_SECRET || "vibefunny-dev-secret";
+
+// SESSION_SECRET 환경변수 처리
+// - production: 미설정 시 에러 throw
+// - development: 미설정 시 경고만 출력하고 dev-secret 사용
+function resolveSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET 환경변수가 설정되지 않았습니다");
+    }
+    console.warn("[session] SESSION_SECRET 미설정 — 개발용 시크릿 사용 중 (프로덕션에서는 반드시 설정)");
+    return "vibefunny-dev-secret";
+  }
+  return secret;
+}
+
+const SECRET = resolveSecret();
 
 function sign(userId: string): string {
   const sig = createHmac("sha256", SECRET).update(userId).digest("hex");

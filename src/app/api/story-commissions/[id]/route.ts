@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { getCurrentUser } from "@/lib/auth";
 
 const DATA_FILE = path.join(
   process.cwd(),
@@ -10,7 +11,13 @@ const DATA_FILE = path.join(
   "story_requests.json"
 );
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  // 인증: 로그인 필수
+  const user = getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
+  }
+
   const { id } = params;
   const body = await req.json();
   try {
@@ -24,8 +31,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     if (body.action === "join") {
       item.status = "in_progress";
-      item.creator_id = body.creator_id ?? "vf-creator";
-      item.creator_name = body.creator_name ?? "크리에이터";
+      // creator_id와 creator_name은 세션에서 가져옴
+      item.creator_id = user.id;
+      item.creator_name = user.name;
     } else if (body.action === "complete") {
       item.status = "completed";
       item.completed_at = now;

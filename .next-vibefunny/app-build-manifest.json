@@ -11,6 +11,11 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/login/page.js"
+    ],
     "/creator/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -21,30 +26,25 @@
       "static/chunks/main-app.js",
       "static/chunks/app/creator/layout.js"
     ],
-    "/admin/inquiries/page": [
+    "/advertiser/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/inquiries/page.js"
+      "static/chunks/app/advertiser/page.js"
     ],
-    "/admin/layout": [
+    "/advertiser/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/layout.js"
+      "static/chunks/app/advertiser/layout.js"
     ],
-    "/login/page": [
+    "/advertiser/campaigns/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/login/page.js"
+      "static/chunks/app/advertiser/campaigns/page.js"
     ],
-    "/signup/page": [
+    "/advertiser/campaigns/new/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/signup/page.js"
-    ],
-    "/for-advertisers/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/for-advertisers/page.js"
+      "static/chunks/app/advertiser/campaigns/new/page.js"
     ]
   }
 }

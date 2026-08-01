@@ -1,4 +1,4 @@
-// File: E:\프로젝트\VIBEFUNNY 부업\src\app\page.tsx
+// File: E:\프로젝트\vibefunny\src\app\page.tsx
 import * as entry from '../../../src/app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

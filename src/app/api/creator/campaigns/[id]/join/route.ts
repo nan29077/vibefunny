@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tx } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { nanoid } from "nanoid";
 import { hasVideoPool, isDistributionUnlocked, allocateVideoForParticipation } from "@/lib/distribution";
 import type { CampaignParticipation } from "@/lib/schema";
@@ -8,15 +9,22 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 인증: 로그인 필수, creator 역할 확인
+  const user = getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
+  }
+  if (user.role !== "creator") {
+    return NextResponse.json({ error: "크리에이터 권한이 필요합니다" }, { status: 403 });
+  }
+
   const body = await req.json();
-  const { creator_id, participation_type = "deploy" } = body as {
-    creator_id: string;
+  const { participation_type = "deploy" } = body as {
     participation_type?: "deploy" | "video_production";
   };
 
-  if (!creator_id) {
-    return NextResponse.json({ error: "creator_id 필요" }, { status: 400 });
-  }
+  // body의 creator_id 대신 세션 user.id 사용
+  const creator_id = user.id;
 
   // tx() 내부에서 read-modify-write를 한 번에 수행 → 동시 신청 시 같은 영상이
   // 두 명에게 분배되지 않도록 원자적으로 처리한다.

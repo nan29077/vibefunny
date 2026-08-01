@@ -326,7 +326,7 @@ export default function HomePage() {
           <Link href="/" className="vf-side-link"><IconHome size={18} /><span>홈</span></Link>
           <Link href="#income" className="vf-side-link"><IconBarChart size={18} /><span>수익구조</span></Link>
           <Link href="#roadmap" className="vf-side-link"><IconCalendar size={18} /><span>로드맵</span></Link>
-          <Link href="#simulate" className="vf-side-link"><IconPieChart size={18} /><span>시뮬</span></Link>
+          <Link href="#simulate" className="vf-side-link"><IconPieChart size={18} /><span>시뮬레이션</span></Link>
           <Link href="#platforms" className="vf-side-link"><IconGlobe size={18} /><span>플랫폼</span></Link>
           <Link href="#faq" className="vf-side-link"><IconInfo size={18} /><span>FAQ</span></Link>
           <Link href="/for-advertisers" className="vf-side-link"><IconMegaphone size={18} /><span>광고주</span></Link>

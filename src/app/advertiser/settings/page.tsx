@@ -2,10 +2,12 @@ import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { getDb } from "@/lib/db";
 import { Card, PageHeader } from "@/components/ui";
+import { ReferralLinkSection } from "@/components/referral-link-section";
 
 export default function SettingsProfilePage() {
   const user = requireRole("advertiser");
   const db = getDb();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
   return (
     <div className="space-y-6">
@@ -35,6 +37,13 @@ export default function SettingsProfilePage() {
             <dt className="w-28 shrink-0 font-medium text-gray-500">추천 코드</dt>
             <dd className="font-mono font-bold text-brand-purple">{user.referral_code}</dd>
           </div>
+          {/* 실행사만 추천인 링크 표시 */}
+          {user.advertiser_type === "execution_company" && (
+            <ReferralLinkSection
+              referralCode={user.referral_code}
+              siteUrl={siteUrl}
+            />
+          )}
           <div className="flex gap-4">
             <dt className="w-28 shrink-0 font-medium text-gray-500">상태</dt>
             <dd className="text-gray-900">{user.status}</dd>

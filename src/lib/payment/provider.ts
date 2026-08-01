@@ -38,6 +38,11 @@ class MockPaymentProvider implements PaymentProvider {
     init: PaymentInit,
     options?: { forceFail?: boolean }
   ): Promise<PaymentResult> {
+    // 프로덕션 환경에서 Mock 결제 차단 — 실제 PG 연동 필요
+    if (process.env.NODE_ENV === "production") {
+      console.error("[MockPaymentProvider] 프로덕션 환경에서 Mock 결제는 허용되지 않습니다. 실제 PG를 연동하세요.");
+      return { providerPaymentId: `mock_blocked_${init.paymentId}`, success: false };
+    }
     if (options?.forceFail) {
       return { providerPaymentId: `mock_fail_${init.paymentId}`, success: false };
     }

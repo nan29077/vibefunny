@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, saveDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { addWalletTx } from "@/lib/services";
 import { syncCampaignVideos, markVideoDistributed } from "@/lib/distribution";
+import { creatorDeployPayout, creatorVideoPayout } from "@/lib/actions/campaign-actions";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 인증: 로그인 필수
+  const user = getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
+  }
+  // 권한: admin만 허용
+  if (user.role !== "admin") {
+    return NextResponse.json({ error: "관리자 권한이 필요합니다" }, { status: 403 });
+  }
+
   const db = getDb();
   const { decision, reason } = await req.json(); // decision: "approve" | "reject"
 
@@ -29,22 +41,28 @@ export async function POST(
     }
   } else if (p.status === "video_submitted") {
     if (decision === "approve") {
-      p.status = "completed";
-      // 제작·승인된 영상을 배포 풀(campaign_videos)에 추가 → 배포 캠페인에서 분배됨
+      // campaign-actions.ts 기준: video_submitted → video_approved (지급 없음, 다음 단계에서 지급)
+      p.status = "video_approved";
+      // 제작·승인된 영상을 배포 풀(campaign_videos)에 추가
       if (campaign) syncCampaignVideos(db, campaign);
-      // 영상제작 참여자 수익 지급 (total_cost의 70% / 영상제작 건수)
+    } else {
+      p.status = "video_rejected";
+      p.rejection_reason = reason || "반려 처리되었습니다.";
+    }
+  } else if (p.status === "video_approved") {
+    if (decision === "approve") {
+      // campaign-actions.ts 기준: 정책 단가 기준 영상제작 크리에이터 지급
+      p.status = "completed";
       if (campaign) {
-        const reward = Math.round(
-          (campaign.total_cost * 0.7) / Math.max(1, campaign.video_production_count ?? 1)
-        );
+        const reward = creatorVideoPayout(db, campaign.video_duration_tier);
         addWalletTx(db, {
           userId: p.creator_id,
           type: "campaign_reward",
           amount: reward,
           status: "available",
-          relatedTable: "ad_campaigns",
-          relatedId: p.campaign_id,
-          memo: `캠페인 완료 수익: ${campaign.title}`,
+          relatedTable: "campaign_participations",
+          relatedId: p.id,
+          memo: `영상제작 완료 수익: ${campaign.title}`,
         });
       }
     } else {
@@ -56,19 +74,17 @@ export async function POST(
       p.status = "completed";
       // 분배받은 영상을 배포완료 처리
       markVideoDistributed(db, p.id);
-      // 배포 참여자 수익 지급 (total_cost의 70% / 배포 건수)
+      // campaign-actions.ts 기준: 정책 단가 기준 배포 크리에이터 지급
       if (campaign) {
-        const reward = Math.round(
-          (campaign.total_cost * 0.7) / Math.max(1, campaign.distribution_count)
-        );
+        const reward = creatorDeployPayout(db, campaign.platforms);
         addWalletTx(db, {
           userId: p.creator_id,
           type: "campaign_reward",
           amount: reward,
           status: "available",
-          relatedTable: "ad_campaigns",
-          relatedId: p.campaign_id,
-          memo: `캠페인 완료 수익: ${campaign.title}`,
+          relatedTable: "campaign_participations",
+          relatedId: p.id,
+          memo: `배포 완료 수익: ${campaign.title}`,
         });
       }
     } else {

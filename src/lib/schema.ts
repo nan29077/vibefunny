@@ -60,6 +60,8 @@ export interface Profile {
   referred_by_user_id: string | null; // 나를 가입시킨 추천인
   status: UserStatus;
   avatar_url: string | null;
+  creator_gender?: "female" | "male" | "other" | null;
+  creator_age_group?: "teens" | "20s" | "30s" | "40plus" | null;
   subscription_active_until: string | null; // 구독 만료일(ISO). null이면 미구독
   created_at: string;
   updated_at: string;
@@ -706,15 +708,19 @@ export interface SubmissionComment {
 
 // 6.24 campaign_participations (새 참여 워크플로우) -----------------------
 export type CampaignParticipationStatus =
-  | "applied"          // 참여 신청
-  | "accepted"         // 광고주/관리자가 크리에이터 선발 승인 (제출 대기)
-  | "video_submitted"  // 영상 제출 완료
-  | "video_approved"   // 영상 승인됨
-  | "video_rejected"   // 영상 반려
-  | "deploy_submitted" // 배포 승인요청
-  | "deploy_approved"  // 배포 승인됨
-  | "deploy_rejected"  // 배포 반려
-  | "completed";       // 완료
+  | "applied"               // 참여 신청
+  | "application_rejected"  // 선발 단계 반려 (작업물 제출 불가)
+  | "accepted"              // 광고주/관리자가 크리에이터 선발 승인 (제출 대기)
+  | "video_submitted"       // 영상 제출 완료
+  | "video_approved"        // 영상 승인됨
+  | "video_rejected"        // 영상 반려 (재제출 허용)
+  | "deploy_submitted"      // 배포 승인요청
+  | "deploy_approved"       // 배포 승인됨
+  | "deploy_rejected"       // 배포 반려 (재제출 허용)
+  | "revision_requested"
+  | "disputed"
+  | "cancelled"
+  | "completed";            // 완료
 
 export interface CampaignParticipation {
   id: string;
@@ -731,8 +737,16 @@ export interface CampaignParticipation {
   video_file_name?: string | null;
   video_file_type?: string | null;
   rejection_reason?: string;
+  dispute_previous_status?: CampaignParticipationStatus;
   applied_at: string;
   updated_at: string;
+}
+
+export interface CampaignFavorite {
+  id: string;
+  campaign_id: string;
+  creator_id: string;
+  created_at: string;
 }
 
 // 6.24-b campaign_videos (배포용 영상 풀 — 영상 1개당 1크리에이터 배타 분배) ----
@@ -799,6 +813,26 @@ export interface ParticipationComment {
   author_name: string;
   author_role: "advertiser" | "creator" | "admin";
   content: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  title: string;
+  message: string;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface PrivateFile {
+  id: string;
+  owner_id: string;
+  storage_name: string;
+  original_name: string;
+  mime_type: string;
+  size: number;
   created_at: string;
 }
 
@@ -988,10 +1022,13 @@ export interface Database {
   campaign_submissions: CampaignSubmission[];
   submission_comments: SubmissionComment[];
   campaign_participations: CampaignParticipation[];
+  campaign_favorites?: CampaignFavorite[];
   campaign_videos: CampaignVideo[];
   campaign_comments: CampaignComment[];
   campaign_direct_messages: CampaignDirectMessage[];
   participation_comments: ParticipationComment[];
+  notifications?: Notification[];
+  private_files?: PrivateFile[];
   vibeporter_requests: VibeporterRequest[];
   audit_logs: AuditLog[];
   // 유튜브 쇼츠 커머스

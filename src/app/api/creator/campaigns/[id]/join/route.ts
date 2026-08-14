@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { nanoid } from "nanoid";
 import { hasVideoPool, isDistributionUnlocked, allocateVideoForParticipation } from "@/lib/distribution";
 import type { CampaignParticipation } from "@/lib/schema";
+import { campaignEligibility, participationCapacity } from "@/lib/campaign-eligibility";
+import { notifyUser } from "@/lib/services";
 
 export async function POST(
   req: NextRequest,
@@ -18,10 +20,16 @@ export async function POST(
     return NextResponse.json({ error: "크리에이터 권한이 필요합니다" }, { status: 403 });
   }
 
-  const body = await req.json();
-  const { participation_type = "deploy" } = body as {
-    participation_type?: "deploy" | "video_production";
-  };
+  let body: { participation_type?: "deploy" | "video_production" };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const { participation_type = "deploy" } = body;
+  if (participation_type !== "deploy" && participation_type !== "video_production") {
+    return NextResponse.json({ error: "참여 유형이 올바르지 않습니다." }, { status: 400 });
+  }
 
   // body의 creator_id 대신 세션 user.id 사용
   const creator_id = user.id;
@@ -33,6 +41,16 @@ export async function POST(
     if (!campaign) {
       return { status: 404, body: { error: "캠페인을 찾을 수 없습니다" } };
     }
+    if (!["recruiting", "published", "in_progress"].includes(campaign.status)) {
+      return { status: 409, body: { error: "현재 참여할 수 없는 캠페인입니다." } };
+    }
+    if (campaign.end_date && new Date(campaign.end_date).getTime() < Date.now()) {
+      return { status: 409, body: { error: "참여 모집 기한이 종료되었습니다." } };
+    }
+    const eligibility = campaignEligibility(db, user, campaign);
+    if (!eligibility.eligible) return { status: 403, body: { error: eligibility.reasons.join(" ") } };
+    const capacity = participationCapacity(db, campaign, participation_type);
+    if (capacity.full) return { status: 409, body: { error: `${participation_type === "deploy" ? "배포" : "영상 제작"} 모집이 마감되었습니다.` } };
 
     // 같은 campaign_id + creator_id + participation_type 조합 중복 체크
     const existing = (db.campaign_participations ?? []).find(
@@ -95,6 +113,7 @@ export async function POST(
         return { status: 400, body: { error: msg } };
       }
       db.campaign_participations.push(participation);
+      notifyUser(db, { recipientId: campaign.advertiser_id, title: "새 캠페인 참여 신청", message: campaign.title, link: `/advertiser/campaigns/${campaign.id}` });
       return {
         status: 200,
         body: { ...participation, assigned_video: alloc.video },
@@ -102,6 +121,7 @@ export async function POST(
     }
 
     db.campaign_participations.push(participation);
+    notifyUser(db, { recipientId: campaign.advertiser_id, title: "새 캠페인 참여 신청", message: campaign.title, link: `/advertiser/campaigns/${campaign.id}` });
     return { status: 200, body: participation };
   });
 

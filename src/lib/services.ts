@@ -12,6 +12,7 @@ import type {
   WalletTransaction,
   WalletTxStatus,
   WalletTxType,
+  Notification,
 } from "./schema";
 
 // ===========================================================================
@@ -20,6 +21,25 @@ import type {
 // ===========================================================================
 
 const now = () => new Date().toISOString();
+
+export function notifyUser(
+  db: Database,
+  params: { recipientId: string; title: string; message: string; link?: string }
+): Notification {
+  if (!db.notifications) db.notifications = [];
+  const recentCutoff = Date.now() - 60_000;
+  const existing = db.notifications.find((item) => item.recipient_id === params.recipientId && item.title === params.title && item.message === params.message && new Date(item.created_at).getTime() >= recentCutoff);
+  if (existing) return existing;
+  const notification: Notification = {
+    id: genId(), recipient_id: params.recipientId, title: params.title, message: params.message,
+    link: params.link ?? null, read_at: null, created_at: now(),
+  };
+  db.notifications.push(notification);
+  const recipientItems = db.notifications.filter((item) => item.recipient_id === params.recipientId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const removeIds = new Set(recipientItems.slice(500).map((item) => item.id));
+  if (removeIds.size) db.notifications = db.notifications.filter((item) => !removeIds.has(item.id));
+  return notification;
+}
 
 // --- 수익 지갑 -----------------------------------------------------------
 export function ensureWallet(db: Database, userId: string): Wallet {
@@ -81,6 +101,22 @@ export function addWalletTx(
   return txn;
 }
 
+/** 같은 업무 건에 대한 수익을 한 번만 지급한다. */
+export function addWalletTxOnce(
+  db: Database,
+  params: Parameters<typeof addWalletTx>[1]
+): WalletTransaction {
+  const existing = db.wallet_transactions.find(
+    (item) =>
+      item.user_id === params.userId &&
+      item.type === params.type &&
+      item.related_table === (params.relatedTable ?? null) &&
+      item.related_id === (params.relatedId ?? null) &&
+      item.status !== "cancelled"
+  );
+  return existing ?? addWalletTx(db, params);
+}
+
 /** pending -> available 전환 (작업 최종 승인 시) */
 export function makeWalletTxAvailable(db: Database, txId: string): void {
   const txn = db.wallet_transactions.find((t) => t.id === txId);
@@ -140,6 +176,16 @@ export function addPointTx(
   };
   db.point_transactions.push(txn);
   return txn;
+}
+
+export function addPointTxOnce(
+  db: Database,
+  params: Parameters<typeof addPointTx>[1]
+): PointTransaction {
+  const existing = db.point_transactions.find(
+    (item) => item.advertiser_id === params.advertiserId && item.type === params.type && item.campaign_id === (params.campaignId ?? null)
+  );
+  return existing ?? addPointTx(db, params);
 }
 
 // --- 결제 레코드 생성 ----------------------------------------------------
@@ -228,7 +274,10 @@ export function createSignupReferralReward(
   const referrer = db.profiles.find((p) => p.id === referee.referred_by_user_id);
   if (!referrer) return;
   if (db.referral_rewards.some((item) => item.referee_id === referee.id && item.referrer_id === referrer.id)) return;
-  const reward = db.settings.fees[referee.role]?.referral_reward_amount ?? 0;
+  // is_paid_model=true 이면 고정 referral_bonus 사용, 아니면 기존 fees 기반 금액 사용
+  const reward = db.settings.is_paid_model
+    ? db.settings.referral_bonus
+    : (db.settings.fees[referee.role]?.referral_reward_amount ?? 0);
   if (reward <= 0) return;
   createReferralRewardRecord(db, referrer.id, referee.id, reward);
 }

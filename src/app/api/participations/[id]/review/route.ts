@@ -1,104 +1,115 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, saveDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { addWalletTx } from "@/lib/services";
+import { tx } from "@/lib/db";
 import { syncCampaignVideos, markVideoDistributed } from "@/lib/distribution";
-import { creatorDeployPayout, creatorVideoPayout } from "@/lib/actions/campaign-actions";
+import { creatorDeployPayout, creatorVideoPayout } from "@/lib/queries";
+import { addWalletTxOnce, audit, notifyUser } from "@/lib/services";
+
+type Result = { status: number; body: unknown };
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // 인증: 로그인 필수
   const user = getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
-  }
-  // 권한: admin만 허용
-  if (user.role !== "admin") {
-    return NextResponse.json({ error: "관리자 권한이 필요합니다" }, { status: 403 });
+  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  if (user.role !== "admin" && user.role !== "advertiser") {
+    return NextResponse.json({ error: "승인 권한이 없습니다." }, { status: 403 });
   }
 
-  const db = getDb();
-  const { decision, reason } = await req.json(); // decision: "approve" | "reject"
-
-  if (!decision) {
-    return NextResponse.json({ error: "decision 필요" }, { status: 400 });
+  const input = (await req.json().catch(() => ({}))) as { decision?: string; reason?: string };
+  if (input.decision !== "approve" && input.decision !== "reject") {
+    return NextResponse.json({ error: "decision은 approve 또는 reject여야 합니다." }, { status: 400 });
   }
 
-  const p = (db.campaign_participations ?? []).find((x) => x.id === params.id);
-  if (!p) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const result = tx<Result>((db) => {
+    const participation = (db.campaign_participations ?? []).find((item) => item.id === params.id);
+    if (!participation) return { status: 404, body: { error: "참여 기록을 찾을 수 없습니다." } };
 
-  const campaign = db.ad_campaigns.find((c) => c.id === p.campaign_id);
-
-  if (p.status === "applied") {
-    // 선발 심사: 승인 → accepted, 반려 → 유형에 따른 rejected
-    if (decision === "approve") {
-      p.status = "accepted";
-    } else {
-      p.status = p.participation_type === "video_production" ? "video_rejected" : "deploy_rejected";
-      p.rejection_reason = reason || "선발되지 않았습니다.";
+    const campaign = db.ad_campaigns.find((item) => item.id === participation.campaign_id);
+    if (!campaign) return { status: 404, body: { error: "캠페인을 찾을 수 없습니다." } };
+    if (user.role === "advertiser" && campaign.advertiser_id !== user.id) {
+      return { status: 403, body: { error: "본인 캠페인만 승인할 수 있습니다." } };
     }
-  } else if (p.status === "video_submitted") {
-    if (decision === "approve") {
-      // campaign-actions.ts 기준: video_submitted → video_approved (지급 없음, 다음 단계에서 지급)
-      p.status = "video_approved";
-      // 제작·승인된 영상을 배포 풀(campaign_videos)에 추가
-      if (campaign) syncCampaignVideos(db, campaign);
-    } else {
-      p.status = "video_rejected";
-      p.rejection_reason = reason || "반려 처리되었습니다.";
-    }
-  } else if (p.status === "video_approved") {
-    if (decision === "approve") {
-      // campaign-actions.ts 기준: 정책 단가 기준 영상제작 크리에이터 지급
-      p.status = "completed";
-      if (campaign) {
-        const reward = creatorVideoPayout(db, campaign.video_duration_tier);
-        addWalletTx(db, {
-          userId: p.creator_id,
+
+    const reject = (status: "video_rejected" | "deploy_rejected") => {
+      participation.status = status;
+      participation.rejection_reason = input.reason?.trim() || "반려 처리되었습니다.";
+    };
+
+    if (participation.status === "applied") {
+      if (input.decision === "approve") participation.status = "accepted";
+      else {
+        // 선발 단계 반려: application_rejected (작업물 제출 불가, video_rejected/deploy_rejected와 분리)
+        participation.status = "application_rejected";
+        participation.rejection_reason = input.reason?.trim() || "선발되지 않았습니다.";
+      }
+    } else if (participation.status === "video_submitted") {
+      if (input.decision === "reject") reject("video_rejected");
+      else {
+        participation.status = "completed";
+        participation.rejection_reason = undefined;
+        syncCampaignVideos(db, campaign);
+        addWalletTxOnce(db, {
+          userId: participation.creator_id,
           type: "campaign_reward",
-          amount: reward,
+          amount: creatorVideoPayout(db, campaign.video_duration_tier),
           status: "available",
           relatedTable: "campaign_participations",
-          relatedId: p.id,
+          relatedId: participation.id,
           memo: `영상제작 완료 수익: ${campaign.title}`,
         });
       }
-    } else {
-      p.status = "video_rejected";
-      p.rejection_reason = reason || "반려 처리되었습니다.";
-    }
-  } else if (p.status === "deploy_submitted") {
-    if (decision === "approve") {
-      p.status = "completed";
-      // 분배받은 영상을 배포완료 처리
-      markVideoDistributed(db, p.id);
-      // campaign-actions.ts 기준: 정책 단가 기준 배포 크리에이터 지급
-      if (campaign) {
-        const reward = creatorDeployPayout(db, campaign.platforms);
-        addWalletTx(db, {
-          userId: p.creator_id,
+    } else if (participation.status === "video_approved") {
+      // 기존 데이터와의 호환을 위한 레거시 승인 단계
+      if (input.decision === "reject") reject("video_rejected");
+      else {
+        participation.status = "completed";
+        addWalletTxOnce(db, {
+          userId: participation.creator_id,
           type: "campaign_reward",
-          amount: reward,
+          amount: creatorVideoPayout(db, campaign.video_duration_tier),
           status: "available",
           relatedTable: "campaign_participations",
-          relatedId: p.id,
+          relatedId: participation.id,
+          memo: `영상제작 완료 수익: ${campaign.title}`,
+        });
+      }
+    } else if (participation.status === "deploy_submitted") {
+      if (input.decision === "reject") reject("deploy_rejected");
+      else {
+        participation.status = "completed";
+        participation.rejection_reason = undefined;
+        markVideoDistributed(db, participation.id);
+        addWalletTxOnce(db, {
+          userId: participation.creator_id,
+          type: "campaign_reward",
+          amount: creatorDeployPayout(db, campaign.platforms),
+          status: "available",
+          relatedTable: "campaign_participations",
+          relatedId: participation.id,
           memo: `배포 완료 수익: ${campaign.title}`,
         });
       }
     } else {
-      p.status = "deploy_rejected";
-      p.rejection_reason = reason || "배포가 반려되었습니다.";
+      return { status: 409, body: { error: `현재 상태(${participation.status})에서는 처리할 수 없습니다.` } };
     }
-  } else {
-    return NextResponse.json(
-      { error: `현재 상태(${p.status})에서는 처리할 수 없습니다.` },
-      { status: 400 }
-    );
-  }
 
-  p.updated_at = new Date().toISOString();
-  saveDb(db);
-  return NextResponse.json(p);
+    participation.updated_at = new Date().toISOString();
+    notifyUser(db, {
+      recipientId: participation.creator_id,
+      title: input.decision === "approve" ? "캠페인 작업이 승인되었습니다" : "캠페인 작업이 반려되었습니다",
+      message: `${campaign.title} · 현재 상태: ${participation.status}${participation.rejection_reason ? ` · ${participation.rejection_reason}` : ""}`,
+      link: "/creator/campaigns",
+    });
+    audit(db, {
+      actorId: user.id,
+      action: `participation_${input.decision}`,
+      targetTable: "campaign_participations",
+      targetId: participation.id,
+    });
+    return { status: 200, body: participation };
+  });
+
+  return NextResponse.json(result.body, { status: result.status });
 }

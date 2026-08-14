@@ -7,9 +7,13 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# 로컬 JSON 데이터 스토어 (개발용 런타임 데이터)
+# 런타임 데이터 (Git 추적 제외 — Docker 볼륨으로 관리)
+# AWS 배포 시: EFS 또는 S3 볼륨으로 대체
 /data/db.json
+/data/*.bak
+/data/*.tmp
+/data/db.lock
+/data/private-uploads/
 
 # 빌드 검증용 임시 .next 폴더들
 .next-*
-

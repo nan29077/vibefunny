@@ -1,8 +1,7 @@
-import { readFile } from "fs/promises";
-import { join, resolve, relative, isAbsolute } from "path";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { storage } from "@/lib/storage";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   const user = getCurrentUser();
@@ -24,22 +23,22 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   if (user.role !== "admin" && file.owner_id !== user.id && !relatedDelivery && !relatedParticipation) {
     return NextResponse.json({ error: "파일 접근 권한이 없습니다." }, { status: 403 });
   }
-  const base = resolve(process.cwd(), "data", "private-uploads");
-  const target = resolve(base, file.storage_name);
-  // OS 독립적 경로 탈출 검증 (Windows \\ 하드코딩 제거)
-  const rel = relative(base, target);
-  if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   try {
-    const content = await readFile(target);
-    return new NextResponse(content, { headers: {
-      "Content-Type": file.mime_type,
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.original_name)}`,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-    } });
-  } catch {
+    const buf = await storage.get(file.storage_name);
+    // Buffer → Uint8Array 캐스트: Next.js 14 BodyInit 타입과 호환
+    return new NextResponse(new Uint8Array(buf) as BodyInit, {
+      headers: {
+        "Content-Type": file.mime_type,
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.original_name)}`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "FORBIDDEN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     return NextResponse.json({ error: "파일을 읽을 수 없습니다." }, { status: 404 });
   }
 }

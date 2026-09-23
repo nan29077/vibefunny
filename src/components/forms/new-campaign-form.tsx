@@ -423,7 +423,8 @@ export function NewCampaignForm({
           {platforms.map((p) => (
             <input key={p} type="hidden" name="platforms" value={p} />
           ))}
-          {platforms.map((p) => (
+          {/* 배포가 없는 캠페인(단순 제작)은 플랫폼별 배포 건수를 보내지 않는다 (서버 합계 검증 오류 방지) */}
+          {needsDeployment && platforms.map((p) => (
             <input key={`dist_${p}`} type="hidden" name={`platform_distribution_${p}`} value={distributions[p] ?? 0} />
           ))}
           <input type="hidden" name="start_date" value={startDate} />
@@ -472,7 +473,7 @@ export function NewCampaignForm({
                   />
                 </Field>
                 <Field label="업종">
-                  <Select value={industry} onChange={(e) => setIndustry(e.target.value)} defaultValue="">
+                  <Select value={industry} onChange={(e) => setIndustry(e.target.value)}>
                     <option value="">선택 안함</option>
                     {INDUSTRY_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>{opt}</option>
@@ -760,7 +761,7 @@ export function NewCampaignForm({
               <SubCard label="플랫폼별 카테고리">
                 {platforms.includes("youtube") && (
                   <Field label="YouTube Shorts 카테고리">
-                    <Select value={briefYoutubeCategory} onChange={(e) => setBriefYoutubeCategory(e.target.value)} defaultValue="">
+                    <Select value={briefYoutubeCategory} onChange={(e) => setBriefYoutubeCategory(e.target.value)}>
                       <option value="">선택 안함</option>
                       {YOUTUBE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </Select>
@@ -768,7 +769,7 @@ export function NewCampaignForm({
                 )}
                 {platforms.includes("instagram") && (
                   <Field label="Instagram Reels 카테고리">
-                    <Select value={briefInstagramCategory} onChange={(e) => setBriefInstagramCategory(e.target.value)} defaultValue="">
+                    <Select value={briefInstagramCategory} onChange={(e) => setBriefInstagramCategory(e.target.value)}>
                       <option value="">선택 안함</option>
                       {INSTAGRAM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </Select>
@@ -776,7 +777,7 @@ export function NewCampaignForm({
                 )}
                 {platforms.includes("tiktok") && (
                   <Field label="TikTok 카테고리">
-                    <Select value={briefTiktokCategory} onChange={(e) => setBriefTiktokCategory(e.target.value)} defaultValue="">
+                    <Select value={briefTiktokCategory} onChange={(e) => setBriefTiktokCategory(e.target.value)}>
                       <option value="">선택 안함</option>
                       {TIKTOK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </Select>
@@ -784,7 +785,7 @@ export function NewCampaignForm({
                 )}
                 {platforms.includes("facebook") && (
                   <Field label="Facebook 카테고리">
-                    <Select value={briefFacebookCategory} onChange={(e) => setBriefFacebookCategory(e.target.value)} defaultValue="">
+                    <Select value={briefFacebookCategory} onChange={(e) => setBriefFacebookCategory(e.target.value)}>
                       <option value="">선택 안함</option>
                       {FACEBOOK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </Select>
@@ -797,13 +798,13 @@ export function NewCampaignForm({
               <SubCard label="크리에이티브 방향">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="톤앤매너">
-                    <Select value={briefTone} onChange={(e) => setBriefTone(e.target.value)} defaultValue="">
+                    <Select value={briefTone} onChange={(e) => setBriefTone(e.target.value)}>
                       <option value="">선택 안함</option>
                       {TONE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                     </Select>
                   </Field>
                   <Field label="영상 스타일">
-                    <Select value={briefStyle} onChange={(e) => setBriefStyle(e.target.value)} defaultValue="">
+                    <Select value={briefStyle} onChange={(e) => setBriefStyle(e.target.value)}>
                       <option value="">선택 안함</option>
                       {STYLE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                     </Select>
@@ -837,19 +838,19 @@ export function NewCampaignForm({
               <SubCard label="크리에이터 자격 요건">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Field label="최소 팔로워 / 구독자">
-                    <Select value={creatorMinFollowers} onChange={(e) => setCreatorMinFollowers(e.target.value)} defaultValue="none">
+                    <Select value={creatorMinFollowers} onChange={(e) => setCreatorMinFollowers(e.target.value)}>
                       {MIN_FOLLOWERS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </Select>
                   </Field>
                   <Field label="선호 크리에이터 성별">
-                    <Select value={creatorGender} onChange={(e) => setCreatorGender(e.target.value)} defaultValue="all">
+                    <Select value={creatorGender} onChange={(e) => setCreatorGender(e.target.value)}>
                       <option value="all">전체</option>
                       <option value="female">여성</option>
                       <option value="male">남성</option>
                     </Select>
                   </Field>
                   <Field label="선호 크리에이터 연령대">
-                    <Select value={creatorAgeGroup} onChange={(e) => setCreatorAgeGroup(e.target.value)} defaultValue="all">
+                    <Select value={creatorAgeGroup} onChange={(e) => setCreatorAgeGroup(e.target.value)}>
                       <option value="all">전체</option>
                       <option value="teens">10대</option>
                       <option value="20s">20대</option>

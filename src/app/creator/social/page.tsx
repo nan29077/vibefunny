@@ -3,8 +3,9 @@ import { getDb } from "@/lib/db";
 import { Card, PageHeader, Field, Input, Select, Table, Th, Td, StatusBadge, EmptyState, LinkButton } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { SOCIAL_PLATFORM_LABELS, SOCIAL_PLATFORM_COLORS, ALL_SOCIAL_PLATFORMS } from "@/lib/schema";
-import { addSocialAction, deleteSocialAction } from "@/lib/actions/social-actions";
+import { addSocialAction, requestSocialVerificationAction, deleteSocialAction } from "@/lib/actions/social-actions";
 import { addYoutubeChannelAction, deleteYoutubeChannelAction } from "@/lib/actions/commerce-actions";
+import { safeHref } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default function CreatorSocialPage() {
       <Card>
         <h2 className="mb-1 text-base font-bold">배포용 SNS 계정</h2>
         <p className="mb-3 text-sm text-gray-500">캠페인 영상을 배포하는 계정입니다. (YouTube · Instagram · TikTok · Facebook)</p>
+        <p className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">등록한 채널은 관리자가 확인 후 <b>인증 완료</b> 처리합니다. 인증된 채널의 플랫폼 캠페인에만 참여할 수 있습니다.</p>
         <form action={addSocialAction} className="grid items-end gap-3 sm:grid-cols-4">
           <Field label="플랫폼">
             <Select name="platform" defaultValue="youtube">
@@ -71,9 +73,17 @@ export default function CreatorSocialPage() {
                   </span>
                 </Td>
                 <Td>{s.account_name}</Td>
-                <Td><a href={s.channel_url} target="_blank" rel="noreferrer" className="text-brand-purple underline">바로가기</a></Td>
+                <Td><a href={safeHref(s.channel_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline">바로가기</a></Td>
                 <Td>{s.follower_count.toLocaleString("ko-KR")}</Td>
-                <Td><StatusBadge status={s.verified_status} /></Td>
+                <Td>
+                  {s.verified_status === "pending" ? <span className="text-xs font-semibold text-yellow-700">인증 대기</span> : <StatusBadge status={s.verified_status} />}
+                  {s.verified_status === "unverified" && (
+                    <form action={requestSocialVerificationAction} className="mt-1">
+                      <input type="hidden" name="id" value={s.id} />
+                      <SubmitButton size="sm" variant="outline">인증 요청</SubmitButton>
+                    </form>
+                  )}
+                </Td>
                 <Td>
                   <form action={deleteSocialAction}>
                     <input type="hidden" name="id" value={s.id} />
@@ -133,7 +143,7 @@ export default function CreatorSocialPage() {
               <tr key={c.id}>
                 <Td className="font-semibold text-gray-900">{c.channel_name}</Td>
                 <Td className="text-gray-500">{c.channel_handle ?? "-"}</Td>
-                <Td><a href={c.channel_url} target="_blank" rel="noreferrer" className="text-brand-purple underline">바로가기</a></Td>
+                <Td><a href={safeHref(c.channel_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline">바로가기</a></Td>
                 <Td>{c.subscriber_count.toLocaleString("ko-KR")}</Td>
                 <Td className="max-w-[200px] truncate text-gray-500">{c.description ?? "-"}</Td>
                 <Td><StatusBadge status={c.verified_status} /></Td>

@@ -17,18 +17,24 @@ export function campaignEligibility(db: Database, creator: Profile, campaign: Ad
     reasons.push("캠페인 연령대 조건과 프로필 정보가 일치하지 않습니다.");
   }
   if (campaign.platforms.length > 0 && !campaign.platforms.some((platform) => accounts.some((account) => account.platform === platform))) {
-    reasons.push("캠페인 대상 플랫폼의 인증된 채널이 필요합니다.");
+    const waiting = (db.social_accounts ?? []).some(
+      (item) => item.creator_id === creator.id && item.verified_status === "pending" && campaign.platforms.includes(item.platform)
+    );
+    reasons.push(
+      waiting
+        ? "대상 플랫폼 채널이 관리자 인증 대기 중입니다. 인증 완료 후 참여할 수 있습니다."
+        : "캠페인 대상 플랫폼의 인증된 채널이 필요합니다. 'SNS 계정 관리'에서 채널을 등록하고 인증을 받아주세요."
+    );
   }
   return { eligible: reasons.length === 0, reasons };
 }
 
 // 정원 계산에서 제외할 상태: 취소·반려된 참여자는 정원을 차지하지 않음
+// (video_rejected/deploy_rejected 는 재제출 가능한 상태이므로 정원을 계속 차지한다 → 초과 지급 방지)
 const CAPACITY_EXCLUDED_STATUSES = new Set([
   "cancelled",
   "application_rejected",
   "rejected",
-  "video_rejected",
-  "deploy_rejected",
 ]);
 
 export function participationCapacity(db: Database, campaign: AdCampaign, type: "deploy" | "video_production") {

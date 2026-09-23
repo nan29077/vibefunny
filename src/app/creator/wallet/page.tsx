@@ -5,6 +5,7 @@ import { Card, PageHeader, StatCard, Table, Th, Td, StatusBadge, EmptyState, Bad
 import { formatKRW } from "@/lib/money";
 import { WALLET_TX_TYPE_LABELS } from "@/lib/labels";
 import { PayoutForm } from "@/components/forms/payout-form";
+import { maskBankAccount } from "@/lib/crypto";
 
 export default function CreatorWalletPage() {
   const user = requireRole("creator");
@@ -73,7 +74,7 @@ export default function CreatorWalletPage() {
               {payouts.map((p) => (
                 <tr key={p.id}>
                   <Td>{formatKRW(p.amount)}</Td>
-                  <Td className="text-xs text-gray-500">{p.bank_name} {p.bank_account_number}</Td>
+                  <Td className="text-xs text-gray-500">{p.bank_name} {maskBankAccount(p.bank_account_number)}</Td>
                   <Td><StatusBadge status={p.status} /></Td>
                   <Td className="text-xs text-gray-400">{formatDate(p.requested_at)}</Td>
                 </tr>

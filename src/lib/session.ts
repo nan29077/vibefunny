@@ -23,10 +23,16 @@ function resolveSecret(): string {
   return secret;
 }
 
-const SECRET = resolveSecret();
+// 모듈 로드 시점이 아닌 "첫 사용 시점"에 시크릿을 확인한다.
+// (next build 의 page-data 수집 단계에서 SESSION_SECRET 없이도 빌드가 가능하도록)
+let cachedSecret: string | null = null;
+function getSecret(): string {
+  if (cachedSecret === null) cachedSecret = resolveSecret();
+  return cachedSecret;
+}
 
 function sign(userId: string): string {
-  const sig = createHmac("sha256", SECRET).update(userId).digest("hex");
+  const sig = createHmac("sha256", getSecret()).update(userId).digest("hex");
   return `${userId}.${sig}`;
 }
 
@@ -36,7 +42,7 @@ function verify(token: string | undefined): string | null {
   if (idx < 0) return null;
   const userId = token.slice(0, idx);
   const sig = token.slice(idx + 1);
-  const expected = createHmac("sha256", SECRET).update(userId).digest("hex");
+  const expected = createHmac("sha256", getSecret()).update(userId).digest("hex");
   try {
     const a = Buffer.from(sig, "hex");
     const b = Buffer.from(expected, "hex");
@@ -51,6 +57,7 @@ export function setSession(userId: string): void {
   cookies().set(COOKIE_NAME, sign(userId), {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });

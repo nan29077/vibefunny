@@ -5,6 +5,7 @@ import { Card, LinkButton } from "@/components/ui";
 import { MockCheckout } from "@/components/mock-checkout";
 import { PAYMENT_TYPE_LABELS } from "@/lib/labels";
 import { IconCheckCircle } from "@/components/icons";
+import { isInternalPath } from "@/lib/url";
 
 function IconXCircle({ size = 24, className, strokeWidth = 2 }: { size?: number; className?: string; strokeWidth?: number }) {
   return (
@@ -28,7 +29,8 @@ export default function CheckoutPage({
 
   const db = getDb();
   const payment = db.payments.find((p) => p.id === params.id);
-  const next = searchParams.next || "/";
+  // 외부 URL/위험 스킴 차단: 사이트 내부 경로만 허용
+  const next = isInternalPath(searchParams.next) ? searchParams.next! : "/";
 
   if (!payment || payment.user_id !== user.id) {
     return (

@@ -11,6 +11,7 @@ import {
   decideCampaignApplicationAction,
   reviewCampaignProofAction,
   reviewParticipationAction,
+  openDisputeAction,
 } from "@/lib/actions/campaign-actions";
 import {
   IconSearch,
@@ -19,6 +20,7 @@ import {
   IconClipboard,
   IconCheckCircle,
 } from "@/components/icons";
+import { safeHref } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +64,40 @@ function getStatusIndex(status: string): number {
   return STATUS_TIMELINE.findIndex((s) => s.status === status);
 }
 
-export default function AdvertiserCampaignDetailPage({ params }: { params: { id: string } }) {
+const DISPUTABLE = ["video_submitted", "deploy_submitted", "video_rejected", "deploy_rejected", "completed"];
+
+function DisputeForm({ participationId }: { participationId: string }) {
+  return (
+    <details className="mt-2 text-xs">
+      <summary className="cursor-pointer text-gray-500 hover:text-red-600">분쟁 신청</summary>
+      <form action={openDisputeAction} className="mt-2 space-y-2">
+        <input type="hidden" name="participation_id" value={participationId} />
+        <textarea name="reason" required minLength={10} maxLength={2000} rows={2} placeholder="분쟁 사유를 10자 이상 입력하세요. 관리자가 확인 후 조정합니다."
+          className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-brand-purple focus:outline-none" />
+        <SubmitButton size="sm" variant="outline">분쟁 접수</SubmitButton>
+      </form>
+    </details>
+  );
+}
+
+function RejectForm({ participationId, label = "반려" }: { participationId: string; label?: string }) {
+  return (
+    <form action={reviewParticipationAction} className="flex items-center gap-1">
+      <input type="hidden" name="participation_id" value={participationId} />
+      <input type="hidden" name="decision" value="reject" />
+      <input name="reason" placeholder="반려 사유 (선택)" className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:border-brand-purple focus:outline-none" />
+      <SubmitButton size="sm" variant="outline">{label}</SubmitButton>
+    </form>
+  );
+}
+
+export default function AdvertiserCampaignDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { notice?: string; tone?: string };
+}) {
   const user = requireRole("advertiser");
   const db = getDb();
   const campaign = db.ad_campaigns.find((c) => c.id === params.id && c.advertiser_id === user.id);
@@ -76,6 +111,18 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
   const videoPts = allPts.filter((x) => x.participation_type === "video_production");
 
   const currentStatusIndex = getStatusIndex(campaign.status);
+  const notice = searchParams?.notice;
+  const noticeIsError = searchParams?.tone === "error";
+  const refunded = db.point_transactions
+    .filter((t) => t.advertiser_id === user.id && t.type === "refund" && t.campaign_id === campaign.id)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalApplicants = applications.length + allPts.length;
+  const selectedCount =
+    applications.filter((a) => a.status === "approved").length +
+    allPts.filter((p) => !["applied", "application_rejected", "cancelled"].includes(p.status)).length;
+  const deliveredCount =
+    deliveries.length + submissions.length +
+    allPts.filter((p) => ["video_submitted", "deploy_submitted", "completed", "video_approved"].includes(p.status)).length;
   const isRejected = REJECTED_STATUSES.includes(campaign.status);
 
   let kpiGoals: string[] = [];
@@ -93,6 +140,11 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
         title={campaign.title}
         description={`${campaign.brand_name ? campaign.brand_name + " · " : ""}${CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}`}
       />
+      {notice && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {notice}
+        </div>
+      )}
 
       <Card>
         <div className="font-semibold text-gray-800 mb-4">캠페인 진행 현황</div>
@@ -104,6 +156,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                 {campaign.status === "rejected" ? "반려됨" : campaign.status === "cancelled" ? "취소됨" : "환불됨"}
               </div>
               {campaign.admin_memo && <p className="text-sm text-red-600 mt-0.5">사유: {campaign.admin_memo}</p>}
+              {refunded > 0 && <p className="text-sm text-gray-600 mt-0.5">환불 포인트: {refunded.toLocaleString()}P</p>}
             </div>
           </div>
         ) : (
@@ -131,20 +184,25 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
             </div>
           </div>
         )}
+        {campaign.status === "completed" && refunded > 0 && (
+          <div className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700">
+            정산 완료 · 미집행분 {refunded.toLocaleString()}P가 포인트로 환불되었습니다.
+          </div>
+        )}
         {campaign.admin_memo && !isRejected && (
           <div className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">관리자 메모: {campaign.admin_memo}</div>
         )}
         <div className="mt-4 flex gap-4 text-sm">
           <div className="text-center">
-            <div className="text-2xl font-bold text-brand-purple">{applications.length}</div>
+            <div className="text-2xl font-bold text-brand-purple">{totalApplicants}</div>
             <div className="text-xs text-gray-500">신청 크리에이터</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{applications.filter((a) => a.status === "approved").length}</div>
+            <div className="text-2xl font-bold text-green-600">{selectedCount}</div>
             <div className="text-xs text-gray-500">승인 크리에이터</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{deliveries.length + submissions.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{deliveredCount}</div>
             <div className="text-xs text-gray-500">납품 콘텐츠</div>
           </div>
         </div>
@@ -242,11 +300,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">선발 승인</SubmitButton>
                       </form>
-                      <form action={reviewParticipationAction}>
-                        <input type="hidden" name="participation_id" value={pt.id} />
-                        <input type="hidden" name="decision" value="reject" />
-                        <SubmitButton size="sm" variant="outline">반려</SubmitButton>
-                      </form>
+                      <RejectForm participationId={pt.id} />
                     </div>
                   )}
                   {pt.status === "accepted" && <span className="text-xs text-gray-500">배포 링크 제출 대기 중</span>}
@@ -256,7 +310,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-gray-500">배포 링크:</span>
                       {pt.deploy_link
-                        ? <a href={pt.deploy_link} target="_blank" rel="noreferrer" className="text-brand-purple underline font-medium break-all">게시물 확인하기</a>
+                        ? <a href={safeHref(pt.deploy_link)} target="_blank" rel="noreferrer" className="text-brand-purple underline font-medium break-all">게시물 확인하기</a>
                         : <span className="text-gray-400">링크 없음</span>
                       }
                     </div>
@@ -267,17 +321,18 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">배포 승인</SubmitButton>
                       </form>
-                      <form action={reviewParticipationAction}>
-                        <input type="hidden" name="participation_id" value={pt.id} />
-                        <input type="hidden" name="decision" value="reject" />
-                        <SubmitButton size="sm" variant="outline">반려</SubmitButton>
-                      </form>
+                      <RejectForm participationId={pt.id} />
                     </div>
                   </div>
                 )}
                 {pt.status === "deploy_rejected" && pt.rejection_reason && (
                   <p className="mt-1 text-xs text-red-600">반려 사유: {pt.rejection_reason}</p>
                 )}
+                {pt.status === "completed" && pt.deploy_link && (
+                  <a href={safeHref(pt.deploy_link)} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand-purple underline">게시물 확인하기</a>
+                )}
+                {pt.status === "disputed" && <p className="mt-1 text-xs text-red-600">분쟁 처리 중 · 관리자 확인 대기</p>}
+                {DISPUTABLE.includes(pt.status) && <DisputeForm participationId={pt.id} />}
               </div>
             ))}
           </div>
@@ -302,11 +357,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">선발 승인</SubmitButton>
                       </form>
-                      <form action={reviewParticipationAction}>
-                        <input type="hidden" name="participation_id" value={pt.id} />
-                        <input type="hidden" name="decision" value="reject" />
-                        <SubmitButton size="sm" variant="outline">반려</SubmitButton>
-                      </form>
+                      <RejectForm participationId={pt.id} />
                     </div>
                   )}
                   {pt.status === "accepted" && <span className="text-xs text-gray-500">영상 제출 대기 중</span>}
@@ -316,7 +367,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-gray-500">제출 영상:</span>
                       {pt.video_url
-                        ? <a href={pt.video_url} target="_blank" rel="noreferrer" className="text-brand-purple underline font-medium break-all">영상 확인하기</a>
+                        ? <a href={safeHref(pt.video_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline font-medium break-all">영상 확인하기</a>
                         : <span className="text-gray-400">URL 없음</span>
                       }
                     </div>
@@ -327,11 +378,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">영상 승인</SubmitButton>
                       </form>
-                      <form action={reviewParticipationAction}>
-                        <input type="hidden" name="participation_id" value={pt.id} />
-                        <input type="hidden" name="decision" value="reject" />
-                        <SubmitButton size="sm" variant="outline">반려</SubmitButton>
-                      </form>
+                      <RejectForm participationId={pt.id} />
                     </div>
                   </div>
                 )}
@@ -347,6 +394,11 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                 {pt.status === "video_rejected" && pt.rejection_reason && (
                   <p className="mt-1 text-xs text-red-600">반려 사유: {pt.rejection_reason}</p>
                 )}
+                {pt.status === "completed" && pt.video_url && (
+                  <a href={safeHref(pt.video_url)} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand-purple underline">완료 영상 확인하기</a>
+                )}
+                {pt.status === "disputed" && <p className="mt-1 text-xs text-red-600">분쟁 처리 중 · 관리자 확인 대기</p>}
+                {DISPUTABLE.includes(pt.status) && <DisputeForm participationId={pt.id} />}
               </div>
             ))}
           </div>
@@ -367,7 +419,7 @@ export default function AdvertiserCampaignDetailPage({ params }: { params: { id:
                     <StatusBadge status={d.status} />
                   </div>
                   {d.post_url && (
-                    <a href={d.post_url} target="_blank" rel="noreferrer" className="text-xs text-brand-purple underline">게시물 보기</a>
+                    <a href={safeHref(d.post_url)} target="_blank" rel="noreferrer" className="text-xs text-brand-purple underline">게시물 보기</a>
                   )}
                 </div>
                 {d.description && <p className="mt-1 text-xs text-gray-500">{d.description}</p>}

@@ -5,8 +5,17 @@ import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { WALLET_TX_TYPE_LABELS } from "@/lib/labels";
 import { processPayoutAction, releaseWalletTxAction, clearSsnAction } from "@/lib/actions/admin-actions";
+import { decryptSensitive } from "@/lib/crypto";
+import { requireAdmin } from "@/lib/auth";
 
-export default function AdminPayoutsPage() {
+export default function AdminPayoutsPage({
+  searchParams,
+}: {
+  searchParams?: { notice?: string; tone?: string };
+}) {
+  requireAdmin();
+  const notice = searchParams?.notice;
+  const noticeIsError = searchParams?.tone === "error";
   const db = getDb();
   const payouts = [...db.payout_requests].sort((a, b) => (a.requested_at < b.requested_at ? 1 : -1));
   // 지급가능 처리 대기 중인 pending 수익(추천수당/캠페인 등)
@@ -15,6 +24,11 @@ export default function AdminPayoutsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="정산 / 출금 관리" description="수익 지급가능 전환 및 출금 신청 처리" />
+      {notice && (
+        <div className={`mb-4 rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {notice}
+        </div>
+      )}
 
       <Card>
         <h2 className="mb-3 text-base font-bold">지급가능 전환 대기 ({pendingRewards.length})</h2>
@@ -52,19 +66,23 @@ export default function AdminPayoutsPage() {
         ) : (
           <Table>
             <thead>
-              <tr><Th>회원</Th><Th>금액</Th><Th>계좌</Th><Th>주민번호</Th><Th>상태</Th><Th>처리</Th></tr>
+              <tr><Th>회원</Th><Th>신청 금액</Th><Th>원천징수 3.3% / 실지급액</Th><Th>계좌</Th><Th>주민번호</Th><Th>상태</Th><Th>처리</Th></tr>
             </thead>
             <tbody>
               {payouts.map((p) => (
                 <tr key={p.id}>
                   <Td>{nameOf(db, p.user_id)}</Td>
                   <Td>{formatKRW(p.amount)}</Td>
-                  <Td className="text-xs text-gray-500">{p.bank_name} {p.bank_account_number} ({p.account_holder})</Td>
+                  <Td className="text-xs text-gray-600">
+                    {/* 소득세 3% + 지방소득세 0.3% (각각 원 단위 절사) — 이체 시 참고용 */}
+                    -{formatKRW(Math.floor(p.amount * 0.03) + Math.floor(p.amount * 0.003))} / <b>{formatKRW(p.amount - Math.floor(p.amount * 0.03) - Math.floor(p.amount * 0.003))}</b>
+                  </Td>
+                  <Td className="text-xs text-gray-500">{p.bank_name} {decryptSensitive(p.bank_account_number)} ({p.account_holder})</Td>
                   <Td>
                     {p.resident_id_number ? (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 font-mono">
-                          {p.resident_id_number.slice(0, 6)}-*******
+                          {decryptSensitive(p.resident_id_number).slice(0, 6)}-*******
                         </span>
                         <form action={clearSsnAction.bind(null, p.id)}>
                           <SubmitButton size="sm" variant="danger">주민번호 삭제</SubmitButton>
@@ -74,7 +92,13 @@ export default function AdminPayoutsPage() {
                       <span className="text-xs text-gray-400">삭제됨</span>
                     )}
                   </Td>
-                  <Td><StatusBadge status={p.status} /></Td>
+                  <Td>
+                    <StatusBadge status={p.status} />
+                    {["requested", "approved", "paid"].includes(p.status) &&
+                      !db.wallet_transactions.some((t) => t.type === "payout" && t.related_table === "payout_requests" && t.related_id === p.id && t.status !== "cancelled") && (
+                        <div className="mt-1 text-[11px] font-semibold text-red-600">원장 누락 · 데이터 보정 필요</div>
+                      )}
+                  </Td>
                   <Td>
                     <div className="flex gap-1">
                       {p.status === "requested" && (

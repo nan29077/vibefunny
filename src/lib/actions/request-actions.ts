@@ -6,7 +6,8 @@ import { z } from "zod";
 import { tx } from "../db";
 import { requireRole, getCurrentUser } from "../auth";
 import { genId } from "../crypto";
-import { addWalletTx, audit, createPayment } from "../services";
+import { addWalletTxOnce, audit, createPayment } from "../services";
+import { isHttpUrl } from "../url";
 import type { CustomVideoRequest, Platform } from "../schema";
 import type { ActionState } from "@/components/form";
 
@@ -95,7 +96,10 @@ export async function applyRequestAction(fd: FormData): Promise<void> {
   tx((db) => {
     const req = db.custom_video_requests.find((r) => r.id === requestId);
     if (!req || req.status !== "open") return;
+    if (req.buyer_id === user.id) return; // 본인 의뢰에는 지원 불가
     if (db.custom_video_applications.some((a) => a.request_id === requestId && a.creator_id === user.id)) return;
+    // 제안가는 1원 이상, 결제된 예산 이하만 허용 (예산 초과 정산 방지)
+    if (proposed !== null && (!Number.isFinite(proposed) || proposed < 1 || proposed > req.budget)) return;
     db.custom_video_applications.push({
       id: genId(),
       request_id: requestId,
@@ -138,6 +142,7 @@ export async function deliverRequestAction(fd: FormData): Promise<void> {
   const videoUrl = String(fd.get("video_url") || "");
   const message = String(fd.get("message") || "");
   if (!videoUrl) return;
+  if (!isHttpUrl(videoUrl) && !/^\/api\/files\/[0-9a-f-]{36}$/.test(videoUrl)) return;
   tx((db) => {
     const req = db.custom_video_requests.find((r) => r.id === requestId);
     if (!req || req.assigned_creator_id !== user.id) return;
@@ -180,8 +185,9 @@ export async function reviewDeliveryAction(fd: FormData): Promise<void> {
       const accepted = db.custom_video_applications.find(
         (a) => a.request_id === req.id && a.status === "accepted"
       );
-      const payout = accepted?.proposed_price ?? req.budget;
-      addWalletTx(db, {
+      // 정산액은 결제된 예산을 넘을 수 없다
+      const payout = Math.min(req.budget, Math.max(0, accepted?.proposed_price ?? req.budget));
+      addWalletTxOnce(db, {
         userId: req.assigned_creator_id!,
         type: "custom_video",
         amount: payout,

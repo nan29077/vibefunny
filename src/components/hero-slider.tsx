@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { IconFilm, IconGlobe, IconBarChart } from "@/components/icons";
+import { safeHref } from "@/lib/url";
 
 const slides = [
   {
@@ -138,13 +139,13 @@ export function HeroSlider() {
         {/* CTA Buttons */}
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href={slide.ctaLink}
+            href={safeHref(slide.ctaLink)}
             className={`inline-flex items-center rounded-xl bg-gradient-to-r ${slide.accent} px-6 py-3 text-base font-bold text-white shadow-lg transition hover:opacity-90 hover:scale-105 active:scale-100`}
           >
             {slide.cta}
           </Link>
           <Link
-            href={slide.ctaSecondaryLink}
+            href={safeHref(slide.ctaSecondaryLink)}
             className="inline-flex items-center rounded-xl border border-white/40 bg-white/10 px-6 py-3 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
           >
             {slide.ctaSecondary}

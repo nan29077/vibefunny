@@ -8,11 +8,14 @@ import { ROLE_LABELS, ADVERTISER_TYPE_LABELS, PLATFORM_LABELS, SOCIAL_PLATFORM_L
 import { formatKRW, formatPoint } from "@/lib/money";
 import { statusLabel, statusTone, WALLET_TX_TYPE_LABELS, POINT_TX_TYPE_LABELS, CAMPAIGN_TYPE_LABELS } from "@/lib/labels";
 import { setMemberStatusAction } from "@/lib/actions/admin-actions";
+import { decryptSensitive } from "@/lib/crypto";
 import {
   IconUsers, IconFilm, IconMegaphone, IconDollarSign,
   IconCreditCard, IconGlobe, IconShoppingBag, IconBuilding,
   IconCalendar, IconMail, IconShield,
 } from "@/components/icons";
+import { requireAdmin } from "@/lib/auth";
+import { setSocialVerificationAction } from "@/lib/actions/admin-actions";
 
 const tone: Record<string, string> = {
   gray:   "bg-gray-100 text-gray-600",
@@ -28,6 +31,7 @@ export default function MemberDetailPage({
 }: {
   params: { id: string };
 }) {
+  requireAdmin();
   const db = getDb();
   const member = db.profiles.find((p) => p.id === params.id && p.role !== "admin");
   if (!member) notFound();
@@ -180,8 +184,21 @@ export default function MemberDetailPage({
                     <span className="flex-1 text-sm font-medium text-gray-800">{s.account_name}</span>
                     <span className="text-sm text-gray-500">팔로워 {s.follower_count.toLocaleString("ko-KR")}명</span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone[statusTone(s.verified_status)]}`}>
-                      {statusLabel(s.verified_status)}
+                      {s.verified_status === "pending" ? "인증 요청" : statusLabel(s.verified_status)}
                     </span>
+                    {s.verified_status !== "verified" ? (
+                      <form action={setSocialVerificationAction}>
+                        <input type="hidden" name="id" value={s.id} />
+                        <input type="hidden" name="decision" value="verify" />
+                        <SubmitButton size="sm">인증 승인</SubmitButton>
+                      </form>
+                    ) : (
+                      <form action={setSocialVerificationAction}>
+                        <input type="hidden" name="id" value={s.id} />
+                        <input type="hidden" name="decision" value="reject" />
+                        <SubmitButton size="sm" variant="outline">인증 해제</SubmitButton>
+                      </form>
+                    )}
                   </div>
                 ))}
               </div>
@@ -222,7 +239,7 @@ export default function MemberDetailPage({
                 {payouts.map((p) => (
                   <div key={p.id} className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="text-sm text-gray-700">{p.bank_name} {p.bank_account_number}</div>
+                      <div className="text-sm text-gray-700">{p.bank_name} {decryptSensitive(p.bank_account_number)}</div>
                       <div className="text-xs text-gray-400">{formatDate(p.requested_at)}</div>
                     </div>
                     <div className="text-right">

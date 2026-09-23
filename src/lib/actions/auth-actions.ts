@@ -100,6 +100,15 @@ export async function signupAction(
       }
     }
 
+    // 대행사의 실행사 코드는 추천인 제도 ON/OFF 와 무관하게 확인한다
+    // (이전: 추천인 제도가 꺼져 있으면 실행사 코드가 무시되어 대행사 가입이 항상 실패함)
+    const executionCompany =
+      role === "advertiser" && advertiserType === "agency" && data.referral_code
+        ? db.profiles.find(
+            (p) => p.referral_code === data.referral_code && p.role === "advertiser" && p.advertiser_type === "execution_company" && p.status === "active"
+          ) ?? null
+        : null;
+
     // 대행사는 실행사 코드로만 가입 가능 (추천인 없음 선택 시 예외 허용)
     if (role === "advertiser" && advertiserType === "agency") {
       const hasNoReferral = Boolean(data.no_referral_agency);
@@ -110,7 +119,7 @@ export async function signupAction(
           fieldErrors: { referral_code: "추천인 코드 입력 또는 추천인 없음 선택 필요" } as Record<string, string>,
         };
       }
-      if (data.referral_code && (!referredBy || referredBy.role !== "advertiser" || referredBy.advertiser_type !== "execution_company")) {
+      if (data.referral_code && !executionCompany) {
         return {
           ok: false,
           message: "유효한 실행사 코드가 아닙니다. 실행사로부터 추천 코드를 받아 입력하세요.",
@@ -121,14 +130,8 @@ export async function signupAction(
 
     // 대행사가 실행사 코드로 가입한 경우 상위 실행사 연결
     let parentAdvertiserId: string | null = null;
-    if (
-      role === "advertiser" &&
-      advertiserType === "agency" &&
-      referredBy &&
-      referredBy.role === "advertiser" &&
-      referredBy.advertiser_type === "execution_company"
-    ) {
-      parentAdvertiserId = referredBy.id;
+    if (executionCompany) {
+      parentAdvertiserId = executionCompany.id;
     }
 
     // 가입비 설정 확인
@@ -165,15 +168,16 @@ export async function signupAction(
         referral_type: "signup",
         created_at: now(),
       });
-      if (parentAdvertiserId) {
-        db.referral_relations.push({
-          id: genId(),
-          referrer_id: parentAdvertiserId,
-          referee_id: user.id,
-          referral_type: "advertiser_hierarchy",
-          created_at: now(),
-        });
-      }
+    }
+    // 대행사-실행사 계층 관계 (추천인 제도와 별개로 항상 저장)
+    if (parentAdvertiserId) {
+      db.referral_relations.push({
+        id: genId(),
+        referrer_id: parentAdvertiserId,
+        referee_id: user.id,
+        referral_type: "advertiser_hierarchy",
+        created_at: now(),
+      });
     }
 
     emailVerification.consumed_at = now();
@@ -249,6 +253,7 @@ export async function logoutAction(): Promise<void> {
 
 // --- 역할별 테스트 로그인 (FormData 없는 개별 액션) ----------------------
 async function loginAs(email: string): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
   const db = getDb();
   const user = db.profiles.find((p) => p.email === email);
   if (!user) return;
@@ -263,13 +268,16 @@ export async function testLoginAdmin(): Promise<void> {
 }
 
 export async function testLoginCreator(): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
   await loginAs("creator_test@vibefunny.com");
 }
 
 export async function testLoginAdvertiser(): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
   await loginAs("advertiser_test@vibefunny.com");
 }
 
 export async function testLoginAgency(): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
   await loginAs("agency_test@vibefunny.com");
 }

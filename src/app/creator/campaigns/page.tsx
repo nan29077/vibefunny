@@ -5,6 +5,8 @@ import { CreatorCampaignsUI } from "@/components/campaigns/creator-campaigns-ui"
 import { creatorDeployPayout, creatorVideoPayout } from "@/lib/queries";
 import { displayName } from "@/lib/schema";
 import { hasVideoPool, isDistributionUnlocked, poolStats, campaignPoolVideos } from "@/lib/distribution";
+import { participationCapacity } from "@/lib/campaign-eligibility";
+import { campaignAcceptsType, isPastDeadline } from "@/lib/campaign-workflow";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,9 @@ export default function CreatorCampaignsPage() {
   const myParticipations = (db.campaign_participations ?? []).filter(
     (p) => p.creator_id === user.id
   );
+  const favoriteCampaignIds = (db.campaign_favorites ?? [])
+    .filter((item) => item.creator_id === user.id)
+    .map((item) => item.campaign_id);
 
   // 내가 참여한 캠페인들의 댓글을 미리 로드
   const participatedIds = new Set(myParticipations.map((p) => p.campaign_id));
@@ -82,16 +87,32 @@ export default function CreatorCampaignsPage() {
   // ── 배포 영상 풀 정보 (순차 게이트 + 분배/소진 + 내 분배 영상) ──────────
   const distributionInfo: Record<
     string,
-    { pool: boolean; unlocked: boolean; remaining: number; total: number }
+    {
+      pool: boolean;
+      unlocked: boolean;
+      remaining: number;
+      total: number;
+      /** 모집 마감(정원 충족) 여부 */
+      deployFull: boolean;
+      videoFull: boolean;
+      /** 참여 기한 경과 여부 (한국 시간 마감일 23:59 기준) */
+      expired: boolean;
+    }
   > = {};
   for (const c of campaigns) {
     const pool = hasVideoPool(c);
     const stats = poolStats(db, c.id);
+    const deployCap = participationCapacity(db, c, "deploy");
+    const videoCap = participationCapacity(db, c, "video_production");
     distributionInfo[c.id] = {
       pool,
       unlocked: isDistributionUnlocked(db, c),
-      remaining: stats.unassigned,
+      // 영상 수보다 배포 건수가 많으면 영상을 재사용 배정하므로, 남은 배포 가능 수 = 정원 잔여
+      remaining: stats.total > 0 || c.uploaded_video_url ? Math.max(0, deployCap.limit - deployCap.active) : 0,
       total: stats.total,
+      deployFull: !campaignAcceptsType(c, "deploy") || deployCap.full,
+      videoFull: !campaignAcceptsType(c, "video_production") || videoCap.full,
+      expired: isPastDeadline(c.end_date),
     };
   }
   // 내 배포 참여에 분배된 영상 (participation_id -> 영상 정보)
@@ -133,6 +154,7 @@ export default function CreatorCampaignsPage() {
         expectedRewards={expectedRewards}
         distributionInfo={distributionInfo}
         myAssignedVideos={myAssignedVideos}
+        favoriteCampaignIds={favoriteCampaignIds}
       />
     </div>
   );

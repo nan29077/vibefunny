@@ -8,6 +8,8 @@ import { nameOf, categoryName } from "@/lib/queries";
 import { statusLabel, statusTone } from "@/lib/labels";
 import { approveVideoAction } from "@/lib/actions/admin-actions";
 import { IconFilm, IconUsers, IconTag, IconClock, IconCheckCircle } from "@/components/icons";
+import { requireAdmin } from "@/lib/auth";
+import { safeHref } from "@/lib/url";
 
 const toneClass: Record<string, string> = {
   gray:   "bg-gray-100 text-gray-600",
@@ -25,6 +27,7 @@ function formatDuration(sec: number) {
 }
 
 export default function AdminVideosPage() {
+  requireAdmin();
   const db = getDb();
   const pending = db.videos.filter((v) => v.status === "pending_review");
   const others  = db.videos.filter((v) => v.status !== "pending_review")
@@ -119,7 +122,7 @@ export default function AdminVideosPage() {
                       <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
                         <span className="font-medium text-gray-700">원본 URL: </span>
                         <a
-                          href={v.original_video_url}
+                          href={safeHref(v.original_video_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="break-all text-brand-purple underline"

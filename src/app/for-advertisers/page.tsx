@@ -29,14 +29,15 @@ export const metadata: Metadata = {
   },
 };
 
-// ─── Unsplash backgrounds ──────────────────────────────────────────────────
+// Generated campaign photography, composed for the narrow site canvas.
+const ADVERTISER_BG = "/images/marketing/advertiser-campaign-studio.webp";
 const BG = {
-  hero:         "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1920&q=85&fit=crop&auto=format",
-  why:          "https://images.unsplash.com/photo-1551135049-8a33b5883817?w=1920&q=85&fit=crop&auto=format",
-  benefits:     "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1920&q=85&fit=crop&auto=format",
-  process:      "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=1920&q=85&fit=crop&auto=format",
-  testimonials: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1920&q=85&fit=crop&auto=format",
-  cta:          "https://images.unsplash.com/photo-1431440015161-0bf868a2d407?w=1920&q=85&fit=crop&auto=format",
+  hero: ADVERTISER_BG,
+  why: ADVERTISER_BG,
+  benefits: ADVERTISER_BG,
+  process: ADVERTISER_BG,
+  testimonials: ADVERTISER_BG,
+  cta: ADVERTISER_BG,
 };
 
 // ─── Data ──────────────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ function FullBg({
   return (
     <section
       id={id}
-      className={`relative flex min-h-screen items-center overflow-hidden ${className}`}
+      className={`vfa-photo-section relative flex min-h-screen items-center overflow-hidden ${className}`}
       style={{
         backgroundImage: `url('${src}')`,
         backgroundSize: "cover",
@@ -142,6 +143,7 @@ function FullBg({
         backgroundAttachment: "fixed",
       }}
     >
+      <div className="vfa-mobile-fixed-section-bg" aria-hidden />
       <div className="absolute inset-0 z-0" style={{ background: overlay }} />
       <div className="relative z-10 w-full">{children}</div>
     </section>
@@ -173,40 +175,36 @@ function LogoDark() {
 export default function ForAdvertisersPage() {
   return (
     <div className="vf-marketing vf-advertisers">
-      <style>{`
-        @keyframes vfa-marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        .vfa-marquee { display:flex; width:max-content; animation: vfa-marquee 40s linear infinite; }
-        .vfa-card { transition: transform .25s ease, box-shadow .25s ease; }
-        .vfa-card:hover { transform:translateY(-4px); box-shadow:0 20px 40px rgba(0,0,0,.3); }
-        details.vfa-faq > summary { list-style:none; }
-        details.vfa-faq > summary::-webkit-details-marker { display:none; }
-        .vfa-plus { transition:transform .2s ease; display:inline-block; }
-        details[open] .vfa-plus { transform:rotate(45deg); }
-      `}</style>
-
-      {/* -------------- NAV (white bg → dark logo) -------------- */}
-      <header
-        className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
-        style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}
-      >
-        <Link href="/"><LogoLight /></Link>
-        <nav className="vfa-header-nav hidden items-center md:flex" aria-label="광고주 페이지 메뉴">
-          <Link href="/"><IconHome size={14} />홈</Link>
-          <Link href="#types">광고 유형</Link>
-          <Link href="#benefits">주요 혜택</Link>
-          <Link href="#process">진행 과정</Link>
-        </nav>
-        <div className="vfa-header-actions flex items-center gap-3">
-          <Link href="/login" className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"><IconLogIn size={16} />로그인</Link>
-          <Link href="/signup?role=advertiser" className="rounded-full px-5 py-2 text-sm font-bold text-black transition hover:opacity-80" style={{ background: "#f59e0b" }}><IconBuilding size={16} />광고주 가입</Link>
+      {/* Main-site style navigation: compact top actions and a right-side menu. */}
+      <div className="vfa-topbar">
+        <Link href="/" aria-label="바이브퍼니 홈"><LogoLight /></Link>
+        <div className="vfa-topbar-actions">
+          <Link href="/login" className="vfa-topbar-login"><IconLogIn size={16} />로그인</Link>
         </div>
-      </header>
+      </div>
+
+      <nav className="vfa-side-nav" aria-label="광고주 페이지 메뉴">
+        <Link href="/" className="vfa-side-brand">VIBE<span>FUNNY</span></Link>
+        <Link href="/"><IconHome size={18} /><span>홈</span></Link>
+        <Link href="#types"><IconBuilding size={18} /><span>광고 유형</span></Link>
+        <Link href="#benefits"><IconGem size={18} /><span>주요 혜택</span></Link>
+        <Link href="#process"><IconBarChart size={18} /><span>진행 과정</span></Link>
+        <Link href="/signup?role=advertiser"><IconBuilding size={18} /><span>광고주 가입</span></Link>
+      </nav>
+
+      <nav className="vfa-mobile-nav" aria-label="광고주 모바일 메뉴">
+        <Link href="/"><IconHome size={20} /><span>홈</span></Link>
+        <Link href="#types"><IconBuilding size={20} /><span>광고 유형</span></Link>
+        <Link href="#benefits"><IconGem size={20} /><span>혜택</span></Link>
+        <Link href="#process"><IconBarChart size={20} /><span>과정</span></Link>
+        <Link href="/signup?role=advertiser"><IconMegaphone size={20} /><span>가입</span></Link>
+      </nav>
 
       {/* -------------- HERO -------------- */}
       <FullBg
         src={BG.hero}
         overlay="linear-gradient(155deg, rgba(0,0,0,0.78) 0%, rgba(10,0,30,0.72) 100%)"
-        className="pt-16"
+        className=""
       >
         <div className="mx-auto max-w-5xl px-6 py-28 md:px-16">
           {/* label */}

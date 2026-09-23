@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Card, PageHeader, StatusBadge, Badge, Field, Input, Textarea } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { PLATFORM_LABELS } from "@/lib/schema";
@@ -8,22 +8,43 @@ import { CAMPAIGN_TYPE_LABELS } from "@/lib/labels";
 import { formatKRW } from "@/lib/money";
 import { creatorDeployPayout, creatorVideoPayout } from "@/lib/queries";
 import {
-  submitCampaignProofAction,
   joinParticipationAction as _joinParticipationAction,
   submitParticipationWorkAction as _submitParticipationWorkAction,
 } from "@/lib/actions/campaign-actions";
+import { safeHref } from "@/lib/url";
+import { canCreatorViewCampaign, isCampaignActive } from "@/lib/campaign-workflow";
 
-async function joinParticipationAction(fd: FormData): Promise<void> { await _joinParticipationAction(fd); }
-async function submitParticipationWorkAction(fd: FormData): Promise<void> { await _submitParticipationWorkAction(fd); }
+// 서버 액션 결과(성공/실패 메시지)를 화면 상단에 보여주기 위해 쿼리로 전달한다.
+async function joinParticipationAction(fd: FormData): Promise<void> {
+  "use server";
+  const result = await _joinParticipationAction(fd);
+  const id = String(fd.get("campaign_id") || "");
+  redirect(`/creator/campaigns/${id}?${new URLSearchParams({ notice: result.message ?? "", tone: result.ok ? "ok" : "error" })}`);
+}
+async function submitParticipationWorkAction(fd: FormData): Promise<void> {
+  "use server";
+  const result = await _submitParticipationWorkAction(fd);
+  const id = String(fd.get("campaign_id") || "");
+  redirect(`/creator/campaigns/${id}?${new URLSearchParams({ notice: result.message ?? "", tone: result.ok ? "ok" : "error" })}`);
+}
 
 export const dynamic = "force-dynamic";
 
-export default function CreatorCampaignDetailPage({ params }: { params: { id: string } }) {
+export default function CreatorCampaignDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { notice?: string; tone?: string };
+}) {
   const user = requireRole("creator");
   const db = getDb();
 
   const campaign = db.ad_campaigns.find((c) => c.id === params.id);
-  if (!campaign) notFound();
+  // 승인 전(검토중)·반려·취소 캠페인은 참여 이력이 없는 크리에이터에게 노출하지 않는다
+  if (!campaign || !canCreatorViewCampaign(db, user.id, campaign)) notFound();
+  const notice = searchParams?.notice;
+  const noticeIsError = searchParams?.tone === "error";
 
   const myApplication = db.campaign_applications.find(
     (a) => a.campaign_id === campaign.id && a.creator_id === user.id
@@ -37,8 +58,6 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
   const myDeployPt = allMyPts.find((x) => x.participation_type === "deploy" || x.participation_type == null);
   const myVideoPt = allMyPts.find((x) => x.participation_type === "video_production");
 
-  const isApproved = myApplication?.status === "approved";
-  const canSubmit = isApproved && ["in_progress", "submitted"].includes(campaign.status);
 
   const followerLabels: Record<string, string> = {
     none: "상관없음", "10k": "1만+", "50k": "5만+", "100k": "10만+", "500k": "50만+", "1m": "100만+",
@@ -55,6 +74,11 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
         title={campaign.title}
         description={`${CAMPAIGN_TYPE_LABELS[campaign.campaign_type]} · ${campaign.platforms.map((pl) => PLATFORM_LABELS[pl]).join(", ")}`}
       />
+      {notice && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {notice}
+        </div>
+      )}
 
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -140,45 +164,22 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
             <StatusBadge status={myApplication.status} />
             <span className="text-sm text-gray-600">
               {myApplication.status === "applied" && "신청이 접수되었습니다. 승인을 기다려 주세요."}
-              {myApplication.status === "approved" && "승인되었습니다! 납품물을 제출해 주세요."}
+              {myApplication.status === "approved" && "승인된 이전 방식 참여입니다. 새 작업은 아래 '캠페인 참여'에서 진행해 주세요."}
               {myApplication.status === "rejected" && "이번 캠페인에는 선발되지 않았습니다."}
             </span>
           </div>
         </Card>
       )}
 
-      {canSubmit && (
-        <Card>
-          <div className="font-semibold text-gray-800 mb-3">납품 제출</div>
-          <form action={submitCampaignProofAction} className="space-y-4">
-            <input type="hidden" name="campaign_id" value={campaign.id} />
-            <Field label="플랫폼">
-              <select name="platform" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-purple focus:outline-none">
-                {campaign.platforms.map((pl) => (
-                  <option key={pl} value={pl}>{PLATFORM_LABELS[pl]}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="게시물 URL" required>
-              <Input name="post_url" placeholder="https://youtube.com/shorts/..." required />
-            </Field>
-            <Field label="설명 메시지">
-              <Textarea name="description" placeholder="납품 관련 메모, 특이사항 등을 입력하세요." rows={3} />
-            </Field>
-            <SubmitButton>납품 제출</SubmitButton>
-          </form>
-        </Card>
-      )}
-
       {myDeliveries.length > 0 && (
         <Card>
-          <div className="font-semibold text-gray-800 mb-3">내 납품 내역 ({myDeliveries.length}건)</div>
+          <div className="font-semibold text-gray-800 mb-3">이전 방식 납품 내역 ({myDeliveries.length}건)</div>
           <div className="space-y-2">
             {myDeliveries.map((d) => (
               <div key={d.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
                 <div>
                   <span className="font-medium">{PLATFORM_LABELS[d.platform]}</span>
-                  {d.post_url && <a href={d.post_url} target="_blank" rel="noreferrer" className="ml-2 text-brand-purple underline">게시물 보기</a>}
+                  {d.post_url && <a href={safeHref(d.post_url)} target="_blank" rel="noreferrer" className="ml-2 text-brand-purple underline">게시물 보기</a>}
                   {d.description && <p className="mt-0.5 text-xs text-gray-500">{d.description}</p>}
                 </div>
                 <div className="text-right">
@@ -191,7 +192,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
         </Card>
       )}
 
-      {["recruiting", "published", "in_progress"].includes(campaign.status) && (campaign.distribution_count > 0 || (campaign.video_production_count ?? 0) > 0) && (
+      {isCampaignActive(campaign) && (campaign.distribution_count > 0 || (campaign.video_production_count ?? 0) > 0) && (
         <Card>
           <div className="font-semibold text-gray-800 mb-3">캠페인 참여</div>
           <div className="space-y-4">
@@ -203,7 +204,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                     <div className="text-sm font-semibold text-blue-800">배포 참여</div>
                     <div className="text-xs text-blue-600 mt-0.5">배포 건수: {campaign.distribution_count}건</div>
                   </div>
-                  {!myDeployPt && (
+                  {(!myDeployPt || myDeployPt.status === "cancelled") && (
                     <form action={joinParticipationAction}>
                       <input type="hidden" name="campaign_id" value={campaign.id} />
                       <input type="hidden" name="participation_type" value="deploy" />
@@ -216,6 +217,8 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                 {myDeployPt && (
                   <div className="mt-2 text-xs text-blue-700">
                     {myDeployPt.status === "applied" && "참여 신청 완료. 광고주의 선발 승인을 기다리세요."}
+                    {myDeployPt.status === "accepted" && "참여 확정! 배정된 영상으로 배포 후 링크를 제출하세요. (영상은 캠페인 목록 화면에서 받을 수 있습니다)"}
+                    {myDeployPt.status === "application_rejected" && "이번 캠페인에는 선발되지 않았습니다."}
                     {myDeployPt.status === "deploy_submitted" && "제출 완료. 광고주 검토 중입니다."}
                     {myDeployPt.status === "deploy_approved" && "승인 완료!"}
                     {myDeployPt.status === "completed" && "완료! 수익이 지급되었습니다."}
@@ -225,7 +228,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                 {myDeployPt && myDeployPt.status === "deploy_submitted" && myDeployPt.deploy_link && (
                   <div className="mt-2 text-xs text-gray-600">
                     제출 링크:{" "}
-                    <a href={myDeployPt.deploy_link} target="_blank" rel="noreferrer" className="text-brand-purple underline break-all">{myDeployPt.deploy_link}</a>
+                    <a href={safeHref(myDeployPt.deploy_link)} target="_blank" rel="noreferrer" className="text-brand-purple underline break-all">{myDeployPt.deploy_link}</a>
                   </div>
                 )}
 
@@ -238,6 +241,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                 {myDeployPt && (myDeployPt.status === "accepted" || myDeployPt.status === "deploy_rejected") && (
                   <form action={submitParticipationWorkAction} className="mt-3 space-y-3 border-t border-blue-100 pt-3">
                     <input type="hidden" name="participation_id" value={myDeployPt.id} />
+                    <input type="hidden" name="campaign_id" value={campaign.id} />
                     <div>
                       <label className="text-xs font-medium text-blue-700 block mb-1">배포 링크 (SNS 게시물 URL)</label>
                       <input name="deploy_link" type="url" placeholder="https://www.instagram.com/p/..." required
@@ -261,7 +265,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                     <div className="text-sm font-semibold text-purple-800">영상제작 참여</div>
                     <div className="text-xs text-purple-600 mt-0.5">영상제작 건수: {campaign.video_production_count}건</div>
                   </div>
-                  {!myVideoPt && (
+                  {(!myVideoPt || myVideoPt.status === "cancelled") && (
                     <form action={joinParticipationAction}>
                       <input type="hidden" name="campaign_id" value={campaign.id} />
                       <input type="hidden" name="participation_type" value="video_production" />
@@ -274,6 +278,8 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                 {myVideoPt && (
                   <div className="mt-2 text-xs text-purple-700">
                     {myVideoPt.status === "applied" && "참여 신청 완료. 광고주의 선발 승인을 기다리세요."}
+                    {myVideoPt.status === "accepted" && "선발되었습니다! 영상을 제작해 제출하세요."}
+                    {myVideoPt.status === "application_rejected" && "이번 캠페인에는 선발되지 않았습니다."}
                     {myVideoPt.status === "video_submitted" && "제출 완료. 광고주 검토 중입니다."}
                     {myVideoPt.status === "video_approved" && "영상 승인 완료!"}
                     {myVideoPt.status === "completed" && "완료! 수익이 지급되었습니다."}
@@ -283,7 +289,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                 {myVideoPt && myVideoPt.status === "video_submitted" && myVideoPt.video_url && (
                   <div className="mt-2 text-xs text-gray-600">
                     제출 영상:{" "}
-                    <a href={myVideoPt.video_url} target="_blank" rel="noreferrer" className="text-brand-purple underline break-all">{myVideoPt.video_url}</a>
+                    <a href={safeHref(myVideoPt.video_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline break-all">{myVideoPt.video_url}</a>
                   </div>
                 )}
 
@@ -296,6 +302,7 @@ export default function CreatorCampaignDetailPage({ params }: { params: { id: st
                 {myVideoPt && (myVideoPt.status === "accepted" || myVideoPt.status === "video_rejected") && (
                   <form action={submitParticipationWorkAction} className="mt-3 space-y-3 border-t border-purple-100 pt-3">
                     <input type="hidden" name="participation_id" value={myVideoPt.id} />
+                    <input type="hidden" name="campaign_id" value={campaign.id} />
                     <div>
                       <label className="text-xs font-medium text-purple-700 block mb-1">영상 URL (Google Drive, Dropbox, YouTube 비공개 링크 등)</label>
                       <input name="video_url" type="url" placeholder="https://drive.google.com/..." required

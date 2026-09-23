@@ -12,7 +12,8 @@ export async function chargePointsAction(fd: FormData): Promise<void> {
   const preset = Math.floor(Number(fd.get("preset") || 0));
   const custom = Math.floor(Number(fd.get("custom") || 0));
   const amount = preset > 0 ? preset : custom;
-  if (!amount || amount < 1000) {
+  // 최소 1,000원 ~ 최대 1억원, 정수만 허용 (Infinity/지수 표기 등 비정상 값 차단)
+  if (!Number.isSafeInteger(amount) || amount < 1000 || amount > 100_000_000) {
     redirect("/advertiser/points?error=amount");
   }
 

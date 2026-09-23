@@ -47,6 +47,14 @@ const M: Record<string, LabelDef> = {
   // applications
   applied: { label: "신청됨", tone: "yellow" },
   accepted: { label: "수락됨", tone: "green" },
+  application_rejected: { label: "미선발", tone: "gray" },
+  video_submitted: { label: "영상 제출됨", tone: "purple" },
+  video_approved: { label: "영상 승인", tone: "green" },
+  video_rejected: { label: "영상 반려", tone: "red" },
+  deploy_submitted: { label: "배포 제출됨", tone: "purple" },
+  deploy_approved: { label: "배포 승인", tone: "green" },
+  deploy_rejected: { label: "배포 반려", tone: "red" },
+  disputed: { label: "분쟁 중", tone: "red" },
 
   // wallet tx status
   available_balance: { label: "지급가능", tone: "green" },
@@ -71,6 +79,7 @@ export const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   campaign_reward: "캠페인 수익",
   signup_referral: "가입 추천 수당",
   advertiser_commission: "실행사 수수료",
+  commerce_commission: "쇼츠 커머스 수수료",
   payout: "출금",
   adjustment: "관리자 조정",
 };
@@ -80,6 +89,7 @@ export const POINT_TX_TYPE_LABELS: Record<string, string> = {
   spend: "사용",
   refund: "환불",
   adjustment: "조정",
+  commission: "대행사 수수료 적립",
 };
 
 export const PAYMENT_TYPE_LABELS: Record<string, string> = {

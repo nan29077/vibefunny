@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export const metadata = {
   title: "추천 수당 수익 | VIBEFUNNY",
-  description: "친구를 VIBEFUNNY에 초대하고 가입 즉시 고정 수당을 받으세요. 추천 인원에 제한이 없습니다.",
+  description: "친구를 VIBEFUNNY에 초대하고, 친구의 가입이 완료되면 고정 수당을 받으세요. 추천 인원에 제한이 없습니다.",
 };
 
 const BG = {
@@ -15,14 +15,14 @@ const STEPS = [
   { n: "01", title: "가입 완료", desc: "VIBEFUNNY 크리에이터로 가입하면 즉시 본인만의 추천 코드와 추천 링크가 생성됩니다." },
   { n: "02", title: "링크 공유", desc: "SNS·카카오톡·이메일 등 어디서든 추천 링크를 공유하세요. 링크 클릭 시 추천 코드가 자동 적용됩니다." },
   { n: "03", title: "친구 가입", desc: "공유한 링크로 친구가 회원가입을 완료하면 추천 관계가 자동으로 등록됩니다." },
-  { n: "04", title: "수당 즉시 지급", desc: "가입 완료 즉시 고정 수당이 지갑에 적립됩니다. 추천 인원 제한 없이 계속 쌓입니다." },
+  { n: "04", title: "수당 적립", desc: "친구의 가입(가입비 결제 포함)이 완료되면 고정 수당이 적립되고, 관리자 확인 후 출금 가능 금액으로 전환됩니다." },
 ];
 
 const FAQ = [
   { q: "추천 수당은 얼마인가요?", a: "추천 1건당 고정 수당이 지급됩니다. 정확한 금액은 관리자 설정에 따라 달라지며, 대시보드 '추천인 제도' 메뉴에서 확인할 수 있습니다." },
   { q: "추천 인원 제한이 있나요?", a: "없습니다. 무제한으로 추천할 수 있으며, 추천한 인원만큼 수당이 누적됩니다." },
   { q: "추천 코드는 어떻게 받나요?", a: "VIBEFUNNY 크리에이터로 가입하면 즉시 본인만의 추천 코드가 생성됩니다. 별도 신청 없이 대시보드에서 바로 확인할 수 있습니다." },
-  { q: "수당은 언제 지급되나요?", a: "추천인이 가입을 완료하는 즉시 지갑에 적립됩니다. 별도 대기 시간이 없습니다." },
+  { q: "수당은 언제 지급되나요?", a: "추천한 친구가 가입(가입비 결제 포함)을 완료하면 지갑에 대기 수당으로 적립되고, 관리자 확인 후 출금 가능 금액으로 전환됩니다." },
   { q: "수당 출금은 어떻게 하나요?", a: "지갑에 적립된 수당은 최소 출금 금액 이상이 쌓이면 언제든 출금 신청이 가능합니다. 심사 후 1~3영업일 내 계좌로 입금됩니다." },
 ];
 
@@ -54,14 +54,15 @@ function FullBg({
 export default function ReferralRevenuePage() {
   return (
     <div className="vf-marketing vf-revenue-detail">
-      <style>{`
+      {/* dangerouslySetInnerHTML: 템플릿 문자열 텍스트 노드의 서버/클라이언트 하이드레이션 불일치 경고 방지 */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes ref-marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .ref-marquee { display:flex; width:max-content; animation: ref-marquee 35s linear infinite; }
         details.ref-faq > summary { list-style:none; }
         details.ref-faq > summary::-webkit-details-marker { display:none; }
         .ref-plus { transition:transform .2s ease; display:inline-block; }
         details[open] .ref-plus { transform:rotate(45deg); }
-      `}</style>
+      ` }} />
 
       {/* NAV */}
       <header
@@ -94,7 +95,7 @@ export default function ReferralRevenuePage() {
             수익이 쌓인다
           </h1>
           <p className="mt-8 max-w-xl text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-            추천 링크를 공유하고 친구가 가입을 완료하면 즉시 고정 수당이 지급됩니다.
+            추천 링크를 공유하고 친구가 가입을 완료하면 고정 수당이 적립됩니다.
             추천 인원 제한이 없어 공유할수록 수익이 무한히 늘어납니다.
           </p>
 
@@ -129,7 +130,7 @@ export default function ReferralRevenuePage() {
         <div className="absolute bottom-0 left-0 right-0 overflow-hidden py-4" style={{ background: "rgba(0,0,0,0.3)" }}>
           <div className="ref-marquee">
             {Array.from({ length: 8 }).flatMap((_, i) =>
-              ["추천 수당", "가입 즉시 지급", "무제한 추천", "고정 수당", "REFERRAL REWARD", "PASSIVE INCOME"].map((w) => (
+              ["추천 수당", "가입 완료 시 적립", "무제한 추천", "고정 수당", "REFERRAL REWARD", "PASSIVE INCOME"].map((w) => (
                 <span key={`${i}-${w}`} className="mr-10 whitespace-nowrap text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>{w} ·</span>
               ))
             )}
@@ -174,7 +175,7 @@ export default function ReferralRevenuePage() {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { title: "즉시 지급", desc: "가입 완료 즉시 수당이 적립됩니다. 별도 심사나 대기 기간이 없습니다.", badge: "Zero delay" },
+              { title: "빠른 적립", desc: "친구의 가입이 완료되면 바로 수당이 적립되고, 관리자 확인 후 출금할 수 있습니다.", badge: "Fast" },
               { title: "무제한 추천", desc: "추천 인원에 상한이 없습니다. 공유할수록 수당이 무한히 쌓입니다.", badge: "Unlimited" },
               { title: "고정 수당", desc: "추천 한 건당 정해진 금액이 고정으로 지급됩니다. 변동 없이 예측 가능합니다.", badge: "Fixed payout" },
               { title: "자동 추적", desc: "추천 링크 클릭부터 가입 완료까지 플랫폼이 자동으로 추적·기록합니다.", badge: "Auto-tracking" },
@@ -222,7 +223,7 @@ export default function ReferralRevenuePage() {
             추천 코드<br /><span style={{ color: "#f59e0b" }}>지금 바로</span><br />받으세요
           </h2>
           <p className="mx-auto mt-6 max-w-md text-lg" style={{ color: "rgba(255,255,255,0.55)" }}>
-            가입 즉시 추천 코드 발급 · 가입비 0원 · 즉시 추천 활동 가능
+            가입 즉시 추천 코드 발급 · 즉시 추천 활동 가능 · 가입비 등 이용 조건은 운영 정책을 따릅니다
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link href="/signup" className="rounded-full px-8 py-4 text-base font-black text-black hover:scale-105 transition-all" style={{ background: "#f59e0b" }}>

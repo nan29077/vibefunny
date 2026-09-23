@@ -6,11 +6,14 @@ import { SubmitButton } from "@/components/form";
 import { ROLE_LABELS, ADVERTISER_TYPE_LABELS } from "@/lib/schema";
 import { nameOf } from "@/lib/queries";
 import { statusLabel, statusTone } from "@/lib/labels";
-import { setMemberStatusAction } from "@/lib/actions/admin-actions";
+import { setMemberStatusAction, setSocialVerificationAction } from "@/lib/actions/admin-actions";
+import { SOCIAL_PLATFORM_LABELS, displayName } from "@/lib/schema";
+import { safeHref } from "@/lib/url";
 import {
   IconUsers, IconFilm, IconMegaphone,
   IconBuilding, IconShield,
 } from "@/components/icons";
+import { requireAdmin } from "@/lib/auth";
 
 const toneClass: Record<string, string> = {
   gray:   "bg-gray-100 text-gray-600",
@@ -35,6 +38,7 @@ export default function AdminMembersPage({
 }: {
   searchParams: { tab?: string };
 }) {
+  requireAdmin();
   const db = getDb();
   const tab = (searchParams.tab ?? "all") as Tab;
 
@@ -48,6 +52,11 @@ export default function AdminMembersPage({
     return m.role === tab;
   });
 
+  // 인증 요청(pending) 우선, 그다음 미인증 채널
+  const channelQueue = db.social_accounts
+    .filter((s) => s.verified_status !== "verified")
+    .sort((a, b) => (a.verified_status === "pending" ? -1 : 1) - (b.verified_status === "pending" ? -1 : 1) || b.created_at.localeCompare(a.created_at));
+
   const counts = {
     all:        allMembers.length,
     creator:    allMembers.filter((m) => m.role === "creator").length,
@@ -58,6 +67,47 @@ export default function AdminMembersPage({
   return (
     <div className="space-y-6">
       <PageHeader title="회원 관리" description="회원 조회, 상태 변경, 상세 정보 확인" />
+
+      {/* SNS 채널 인증 대기 — 인증된 채널이 있어야 크리에이터가 캠페인에 참여할 수 있다 */}
+      <div id="channels" className="scroll-mt-20" />
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold text-gray-900">SNS 채널 인증 대기 ({channelQueue.length})</h2>
+          <span className="text-xs text-gray-400">인증 완료된 채널이 있어야 해당 플랫폼 캠페인에 참여할 수 있습니다.</span>
+        </div>
+        {channelQueue.length === 0 ? (
+          <p className="text-sm text-gray-400">인증 대기 중인 채널이 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {channelQueue.map((s) => {
+              const owner = db.profiles.find((p) => p.id === s.creator_id);
+              return (
+                <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
+                  <span className="rounded-lg bg-white px-2 py-0.5 text-xs font-bold text-gray-600">{SOCIAL_PLATFORM_LABELS[s.platform]}</span>
+                  <Link href={`/admin/members/${s.creator_id}`} className="font-medium text-gray-800 hover:underline">{displayName(owner)}</Link>
+                  <span className="text-gray-600">{s.account_name}</span>
+                  <a href={safeHref(s.channel_url)} target="_blank" rel="noreferrer" className="text-xs text-brand-purple underline">채널 열기</a>
+                  <span className="text-xs text-gray-500">팔로워 {s.follower_count.toLocaleString("ko-KR")}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${toneClass[statusTone(s.verified_status)]}`}>{s.verified_status === "pending" ? "인증 요청" : statusLabel(s.verified_status)}</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <form action={setSocialVerificationAction}>
+                      <input type="hidden" name="id" value={s.id} />
+                      <input type="hidden" name="decision" value="verify" />
+                      <SubmitButton size="sm">인증 승인</SubmitButton>
+                    </form>
+                    <form action={setSocialVerificationAction} className="flex items-center gap-1">
+                      <input type="hidden" name="id" value={s.id} />
+                      <input type="hidden" name="decision" value="reject" />
+                      <input name="memo" placeholder="반려 사유" className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs" />
+                      <SubmitButton size="sm" variant="outline">반려</SubmitButton>
+                    </form>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {/* 탭 */}
       <div className="flex flex-wrap gap-2">

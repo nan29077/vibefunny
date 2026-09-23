@@ -11,14 +11,24 @@ import {
   decideCampaignApplicationAction,
   reviewCampaignProofAction,
   completeCampaignAction,
+  adminCancelCampaignAction,
   reviewParticipationAction,
+  resolveParticipationDisputeAction,
 } from "@/lib/actions/campaign-actions";
 import { AdminCampaignComments } from "@/components/campaigns/admin-campaign-comments";
+import { safeHref } from "@/lib/url";
+import { campaignProgress, consumedCampaignPoints, isCampaignActive } from "@/lib/campaign-workflow";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminCampaignsPage() {
+export default function AdminCampaignsPage({
+  searchParams,
+}: {
+  searchParams?: { notice?: string; tone?: string };
+}) {
   const user = requireRole("admin");
+  const notice = searchParams?.notice;
+  const noticeIsError = searchParams?.tone === "error";
   const db = getDb();
   const campaigns = [...db.ad_campaigns].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 
@@ -29,7 +39,12 @@ export default function AdminCampaignsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="광고 캠페인 승인/노출 관리" description="캠페인 검토, 참여자/증빙 승인, 완료 처리" />
+      <PageHeader title="광고 캠페인 승인/노출 관리" description="캠페인 검토, 참여자/증빙 승인, 완료(정산) 처리" />
+      {notice && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {notice}
+        </div>
+      )}
       {campaigns.length === 0 ? (
         <EmptyState title="캠페인이 없습니다" />
       ) : (
@@ -80,7 +95,7 @@ export default function AdminCampaignsPage() {
 
               {apps.length > 0 && (
                 <div className="mt-3">
-                  <div className="mb-1 text-sm font-semibold text-gray-700">참여자 ({apps.length})</div>
+                  <div className="mb-1 text-sm font-semibold text-gray-700">이전 방식 참여자 ({apps.length})</div>
                   <div className="space-y-1">
                     {apps.map((a) => (
                       <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 text-sm">
@@ -107,13 +122,13 @@ export default function AdminCampaignsPage() {
 
               {dels.length > 0 && (
                 <div className="mt-3">
-                  <div className="mb-1 text-sm font-semibold text-gray-700">제출된 증빙 ({dels.length})</div>
+                  <div className="mb-1 text-sm font-semibold text-gray-700">이전 방식 제출 증빙 ({dels.length})</div>
                   <div className="space-y-1">
                     {dels.map((d) => (
                       <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 text-sm">
                         <span className="truncate">
                           {nameOf(db, d.creator_id)} · {PLATFORM_LABELS[d.platform]} ·{" "}
-                          <a href={d.post_url} target="_blank" rel="noreferrer" className="text-brand-purple underline">증빙링크</a>{" "}
+                          <a href={safeHref(d.post_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline">증빙링크</a>{" "}
                           <StatusBadge status={d.status} />
                           {d.reward_amount > 0 && <Badge tone="green">{formatKRW(d.reward_amount)}</Badge>}
                         </span>
@@ -165,14 +180,22 @@ export default function AdminCampaignsPage() {
                               </form>
                             </div>
                           )}
+                          {pt.status === "disputed" && (
+                            <div className="flex gap-1">
+                              {(["restore", "complete", "cancel"] as const).map((decision) => <form action={resolveParticipationDisputeAction} key={decision}>
+                                <input type="hidden" name="participation_id" value={pt.id}/><input type="hidden" name="decision" value={decision}/>
+                                <SubmitButton size="sm" variant={decision === "complete" ? undefined : "outline"}>{decision === "restore" ? "이전 상태 복원" : decision === "complete" ? "완료·정산" : "취소"}</SubmitButton>
+                              </form>)}
+                            </div>
+                          )}
                         </div>
                         {pt.deploy_link && (
-                          <a href={pt.deploy_link} target="_blank" rel="noreferrer" className="mt-1 text-xs text-brand-purple underline block">
+                          <a href={safeHref(pt.deploy_link)} target="_blank" rel="noreferrer" className="mt-1 text-xs text-brand-purple underline block">
                             배포 링크 확인
                           </a>
                         )}
                         {pt.video_url && (
-                          <a href={pt.video_url} target="_blank" rel="noreferrer" className="mt-1 text-xs text-brand-purple underline block">
+                          <a href={safeHref(pt.video_url)} target="_blank" rel="noreferrer" className="mt-1 text-xs text-brand-purple underline block">
                             제출 영상 확인
                           </a>
                         )}
@@ -208,12 +231,37 @@ export default function AdminCampaignsPage() {
                 </div>
               )}
 
-              {["in_progress", "submitted", "recruiting"].includes(c.status) && (
-                <form action={completeCampaignAction} className="mt-3">
-                  <input type="hidden" name="id" value={c.id} />
-                  <SubmitButton size="sm" variant="secondary">캠페인 완료 처리</SubmitButton>
-                </form>
+              {c.admin_memo && (
+                <p className="mt-2 text-xs text-gray-500">관리자 메모: {c.admin_memo}</p>
               )}
+
+              {isCampaignActive(c) && (() => {
+                const prog = campaignProgress(db, c);
+                const consumed = consumedCampaignPoints(db, c);
+                return (
+                  <div className="mt-3 rounded-xl bg-gray-50 p-3 text-sm">
+                    <div className="text-gray-600">
+                      진행 현황 · 영상 제작 {prog.completedVideos}/{prog.videoTarget} · 배포 {prog.completedDeploys}/{prog.deployTarget}
+                      {prog.pendingReview > 0 && <span className="ml-2 text-yellow-700">검토 대기 {prog.pendingReview}건</span>}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      지금 완료 처리 시: 집행 {formatKRW(consumed)} · 미집행분 {formatKRW(Math.max(0, c.point_spent - consumed))} 환불
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <form action={completeCampaignAction}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <SubmitButton size="sm" variant="secondary">캠페인 완료(정산) 처리</SubmitButton>
+                      </form>
+                      {prog.completedVideos + prog.completedDeploys === 0 && prog.pendingReview === 0 && (
+                        <form action={adminCancelCampaignAction}>
+                          <input type="hidden" name="id" value={c.id} />
+                          <SubmitButton size="sm" variant="outline">캠페인 취소 (전액 환불)</SubmitButton>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <AdminCampaignComments

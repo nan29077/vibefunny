@@ -12,8 +12,10 @@ import {
   updateMemberVideoSalePriceTiersAction,
 } from "@/lib/actions/admin-actions";
 import { IconUsers, IconZap, IconCheckCircle } from "@/components/icons";
+import { requireAdmin } from "@/lib/auth";
 
 export default function AdminSettingsPage() {
+  requireAdmin();
   const db = getDb();
   const s = db.settings;
   const roles: Role[] = ["creator"];

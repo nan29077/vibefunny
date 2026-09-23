@@ -19,7 +19,7 @@ import {
   IconBuilding,
 } from "@/components/icons";
 
-const testAccounts = [
+const testAccounts = process.env.NODE_ENV === "production" ? [] : [
   {
     label: "최고관리자",
     email: "admin@vibefunny.com",
@@ -134,7 +134,7 @@ export default function LoginPage() {
       </Link>
 
       {/* 테스트 계정 빠른 로그인 */}
-      <div className="mb-4">
+      {testAccounts.length > 0 && <div className="mb-4">
         <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-gray-400">
           테스트 계정 빠른 로그인
         </p>
@@ -156,7 +156,7 @@ export default function LoginPage() {
             </form>
           ))}
         </div>
-      </div>
+      </div>}
 
       <Card>
         <SocialButtons />

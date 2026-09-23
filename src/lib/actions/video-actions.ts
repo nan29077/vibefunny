@@ -113,6 +113,11 @@ export async function purchaseVideoAction(fd: FormData): Promise<void> {
       redirectTo = "/creator/videos";
       return;
     }
+    // 본인 영상 구매 방지
+    if (video.creator_id === user.id) {
+      redirectTo = `/creator/videos?error=own`;
+      return;
+    }
     // 1회 판매 제한 + 중복 구매 방지
     if (video.status !== "available") {
       redirectTo = `/creator/videos?error=sold`;
@@ -201,6 +206,8 @@ export async function startSubscriptionAction(): Promise<void> {
   let pid = "";
   tx((db) => {
     const amount = db.settings.fees.creator.subscription_amount;
+    // 구독 기능이 꺼져 있거나 금액이 0원이면 결제를 만들지 않는다 (0원 결제로 구독 연장되던 문제)
+    if (!db.settings.fees.creator.subscription_enabled || !(amount > 0)) return;
     const payment = createPayment(db, {
       userId: user.id,
       paymentType: "subscription",
@@ -208,5 +215,5 @@ export async function startSubscriptionAction(): Promise<void> {
     });
     pid = payment.id;
   });
-  redirect(`/payment/${pid}?next=/creator`);
+  redirect(pid ? `/payment/${pid}?next=/creator` : "/creator");
 }

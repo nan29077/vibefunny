@@ -13,6 +13,7 @@ import type {
   WalletTxStatus,
   WalletTxType,
   Notification,
+  NotificationCategory,
 } from "./schema";
 
 // ===========================================================================
@@ -24,8 +25,13 @@ const now = () => new Date().toISOString();
 
 export function notifyUser(
   db: Database,
-  params: { recipientId: string; title: string; message: string; link?: string }
-): Notification {
+  params: { recipientId: string; title: string; message: string; link?: string; category?: NotificationCategory }
+): Notification | null {
+  // 수신자가 해당 분류 알림을 끈 경우 생성하지 않음 (분류 없는 중요 알림은 항상 생성)
+  if (params.category) {
+    const recipient = db.profiles.find((p) => p.id === params.recipientId);
+    if (recipient?.notification_prefs?.[params.category] === false) return null;
+  }
   if (!db.notifications) db.notifications = [];
   const recentCutoff = Date.now() - 60_000;
   const existing = db.notifications.find((item) => item.recipient_id === params.recipientId && item.title === params.title && item.message === params.message && new Date(item.created_at).getTime() >= recentCutoff);
@@ -273,11 +279,13 @@ export function createSignupReferralReward(
   if (signupFeeAmount <= 0) return;
   const referrer = db.profiles.find((p) => p.id === referee.referred_by_user_id);
   if (!referrer) return;
+  if (referrer.id === referee.id || referrer.status !== "active") return; // 자기추천·비활성 추천인 제외
+  if (!db.settings.referral_system_enabled) return; // 결제 시점에 추천인 제도가 꺼져 있으면 미지급
   if (db.referral_rewards.some((item) => item.referee_id === referee.id && item.referrer_id === referrer.id)) return;
-  // is_paid_model=true 이면 고정 referral_bonus 사용, 아니면 기존 fees 기반 금액 사용
-  const reward = db.settings.is_paid_model
-    ? db.settings.referral_bonus
-    : (db.settings.fees[referee.role]?.referral_reward_amount ?? 0);
+  // 관리자 정책 설정 화면의 "역할별 추천 수당" 금액을 사용한다.
+  // (이전: 유료 부업 ON 이면 화면에 없는 숨은 값 referral_bonus 가 적용되어 설정 금액과 다르게 지급됨)
+  const roleAmount = db.settings.fees[referee.role]?.referral_reward_amount ?? 0;
+  const reward = roleAmount > 0 ? roleAmount : db.settings.is_paid_model ? db.settings.referral_bonus : 0;
   if (reward <= 0) return;
   createReferralRewardRecord(db, referrer.id, referee.id, reward);
 }

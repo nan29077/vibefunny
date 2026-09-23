@@ -1431,7 +1431,7 @@ export function seedDatabase(): Database {
     user_id: creatorTest.id,
     pending_balance: 30000,
     available_balance: 410000,
-    paid_balance: 350000,
+    paid_balance: 200000, // 지급 완료 200,000 (150,000은 출금 신청 중 → 지급가능 잔액에서 차감된 상태)
     created_at: daysAgo(120),
     updated_at: now,
   };
@@ -1440,7 +1440,7 @@ export function seedDatabase(): Database {
     id: genId(),
     user_id: creator2.id,
     pending_balance: 0,
-    available_balance: 80000,
+    available_balance: 0, // 80,000 전액 출금 신청(승인됨) → 지급가능 잔액에서 차감된 상태
     paid_balance: 0,
     created_at: daysAgo(80),
     updated_at: now,
@@ -1605,7 +1605,20 @@ export function seedDatabase(): Database {
     created_at: daysAgo(2),
   };
 
-  const point_transactions: PointTransaction[] = [ptTx1, ptTx2, ptTx3, ptTx4, ptTx5, ptTx6];
+  // 실행사 지갑 잔액(500,000P)과 원장 합계가 일치하도록 최근 충전 1건을 추가 (원장 정합성)
+  const ptTx7: PointTransaction = {
+    id: genId(),
+    advertiser_id: advertiserTest.id,
+    type: "charge",
+    amount: 200000,
+    balance_after: 500000,
+    payment_id: null,
+    campaign_id: null,
+    memo: "포인트 충전",
+    created_at: daysAgo(1),
+  };
+
+  const point_transactions: PointTransaction[] = [ptTx1, ptTx2, ptTx3, ptTx4, ptTx5, ptTx6, ptTx7];
 
   const payout1: PayoutRequest = {
     id: genId(),
@@ -1647,6 +1660,32 @@ export function seedDatabase(): Database {
   };
 
   const payout_requests: PayoutRequest[] = [payout1, payout2, payout3];
+
+  // ── 원장 정합성: 지갑 잔액 = 원장 합계가 되도록 시드 거래를 보완한다 ──────────
+  // (scripts/reconcile-ledgers.mjs 기준. 출금 신청 건은 반드시 payout 원장 행이 있어야 관리자 처리 가능)
+  walletTx3.related_id = payout1.id;
+  wallet_transactions.push(
+    {
+      id: genId(), user_id: creatorTest.id, type: "video_sale", amount: 326000, status: "available",
+      related_table: null, related_id: null, memo: "영상 판매 수익 (이전 누적분)",
+      created_at: daysAgo(90), updated_at: daysAgo(90),
+    },
+    {
+      id: genId(), user_id: creatorTest.id, type: "campaign_reward", amount: 30000, status: "pending",
+      related_table: null, related_id: null, memo: "캠페인 보상 (검수 대기)",
+      created_at: daysAgo(3), updated_at: daysAgo(3),
+    },
+    {
+      id: genId(), user_id: creatorTest.id, type: "payout", amount: -150000, status: "requested",
+      related_table: "payout_requests", related_id: payout2.id, memo: "출금 신청",
+      created_at: daysAgo(2), updated_at: daysAgo(2),
+    },
+    {
+      id: genId(), user_id: creator2.id, type: "payout", amount: -80000, status: "requested",
+      related_table: "payout_requests", related_id: payout3.id, memo: "출금 신청",
+      created_at: daysAgo(5), updated_at: daysAgo(5),
+    },
+  );
 
   const vibeporter_requests: VibeporterRequest[] = [
     {

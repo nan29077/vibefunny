@@ -4,9 +4,9 @@ import {
   addPointTx,
   addWalletTx,
   audit,
-  createAgencyPointCommission,
   createSignupReferralReward,
 } from "../services";
+import { applyAgencyCommission } from "../campaign-workflow";
 
 // ===========================================================================
 // 결제 성공 시 비즈니스 효과 (요구사항 13). db.tx() 내부에서 호출.
@@ -59,8 +59,16 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
         paymentId: payment.id,
         memo: "포인트 충전",
       });
-      // 대행사 포인트 충전 시 → 실행사 포인트 지갑에 commission rate% 적립
-      createAgencyPointCommission(db, payment.user_id, payment.amount, payment.id);
+      // 수수료 기준이 '대행사 포인트 충전액'일 때만 → 상위 실행사 포인트 지갑에 수수료 적립
+      // (다른 기준일 때는 캠페인 승인/완료 시점에 적립되므로 여기서 적립하면 이중 적립)
+      if (db.settings.advertiser_commission_basis === "agency_charge") {
+        applyAgencyCommission(db, {
+          agencyId: payment.user_id,
+          baseAmount: payment.amount,
+          paymentId: payment.id,
+          memo: `소속 대행사 포인트 충전 수수료 (충전액 ${payment.amount.toLocaleString()}원)`,
+        });
+      }
       break;
     }
 
@@ -68,8 +76,17 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
       // 영상 구매 성공 -> sold 처리 + 다운로드 권한 + 판매자 수익(수수료 차감)
       const videoId = String(payment.metadata_json.video_id ?? "");
       const video = db.videos.find((v) => v.id === videoId);
-      if (!video) throw new Error("영상을 찾을 수 없습니다.");
-      if (video.status === "sold") throw new Error("이미 판매 완료된 영상입니다.");
+      if (!video || video.status === "sold" || video.creator_id === payment.user_id) {
+        // 동시 결제 등으로 이미 판매된 영상: 예외로 트랜잭션 전체가 롤백되어 결제가 영구 대기 상태로
+        // 남던 문제를 막기 위해 결제를 취소 처리한다. (실 PG 연동 시 이 지점에서 승인 취소 API 호출 필요)
+        payment.status = "cancelled";
+        payment.paid_at = null;
+        payment.metadata_json = { ...payment.metadata_json, cancel_reason: !video ? "video_not_found" : video.status === "sold" ? "already_sold" : "own_video" };
+        const pending = db.video_purchases.find((p) => p.video_id === videoId && p.buyer_id === payment.user_id && p.status === "pending");
+        if (pending) { pending.status = "refunded"; pending.updated_at = now(); }
+        audit(db, { actorId: payment.user_id, action: "video_purchase_cancelled", targetTable: "payments", targetId: payment.id });
+        break;
+      }
 
       video.status = "sold";
       video.sold_to_user_id = payment.user_id;

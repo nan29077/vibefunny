@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { tx } from "../db";
-import { requireUser } from "../auth";
-import { genId } from "../crypto";
+import { requireRole } from "../auth";
+import { encryptSensitive, genId } from "../crypto";
 import { addWalletTx, audit, ensureWallet } from "../services";
 import type { ActionState } from "@/components/form";
 
@@ -13,9 +13,9 @@ const now = () => new Date().toISOString();
 const payoutSchema = z.object({
   amount: z.coerce.number().int().min(1, "출금액을 입력하세요."),
   bank_name: z.string().min(1, "은행명을 입력하세요."),
-  bank_account_number: z.string().min(1, "계좌번호를 입력하세요."),
+  bank_account_number: z.string().regex(/^[0-9-]{8,30}$/, "계좌번호 형식을 확인하세요."),
   account_holder: z.string().min(1, "예금주를 입력하세요."),
-  resident_id_number: z.string().optional(),
+  resident_id_number: z.string().regex(/^\d{6}-?\d{7}$/, "주민등록번호 형식을 확인하세요.").optional(),
 });
 
 // === 회원: 출금 신청 (5.6) ============================================
@@ -23,7 +23,7 @@ export async function requestPayoutAction(
   _prev: ActionState,
   fd: FormData
 ): Promise<ActionState> {
-  const user = requireUser();
+  const user = requireRole("creator");
   const parsed = payoutSchema.safeParse({
     amount: fd.get("amount"),
     bank_name: fd.get("bank_name"),
@@ -51,9 +51,9 @@ export async function requestPayoutAction(
       user_id: user.id,
       amount: d.amount,
       bank_name: d.bank_name,
-      bank_account_number: d.bank_account_number,
+      bank_account_number: encryptSensitive(d.bank_account_number),
       account_holder: d.account_holder,
-      resident_id_number: d.resident_id_number ?? null,
+      resident_id_number: d.resident_id_number ? encryptSensitive(d.resident_id_number) : null,
       status: "requested" as const,
       admin_memo: null,
       requested_at: now(),

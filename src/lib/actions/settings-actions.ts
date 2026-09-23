@@ -6,6 +6,7 @@ import { requireUser } from "../auth";
 import { hashPassword, verifyPassword } from "../crypto";
 import { audit } from "../services";
 import type { ActionState } from "@/components/form";
+import type { NotificationCategory } from "../schema";
 
 const now = () => new Date().toISOString();
 
@@ -32,6 +33,29 @@ export async function updateNicknameAction(
     ok: true,
     message: nickname ? "닉네임이 저장되었습니다." : "닉네임이 해제되어 실제 이름으로 표시됩니다.",
   };
+}
+
+export async function updateCreatorEligibilityAction(
+  _prev: ActionState,
+  fd: FormData
+): Promise<ActionState> {
+  const user = requireUser();
+  if (user.role !== "creator") return { ok: false, message: "크리에이터만 설정할 수 있습니다." };
+  const gender = String(fd.get("creator_gender") || "");
+  const ageGroup = String(fd.get("creator_age_group") || "");
+  if (!["female", "male", "other"].includes(gender) || !["teens", "20s", "30s", "40plus"].includes(ageGroup)) {
+    return { ok: false, message: "성별과 연령대 정보를 선택하세요." };
+  }
+  tx((db) => {
+    const profile = db.profiles.find((item) => item.id === user.id);
+    if (!profile) return;
+    profile.creator_gender = gender as "female" | "male" | "other";
+    profile.creator_age_group = ageGroup as "teens" | "20s" | "30s" | "40plus";
+    profile.updated_at = now();
+    audit(db, { actorId: user.id, action: "update_creator_eligibility", targetTable: "profiles", targetId: user.id });
+  });
+  revalidatePath("/creator/settings");
+  return { ok: true, message: "참여 자격 정보가 저장되었습니다." };
 }
 
 // --- 비밀번호 변경 ------------------------------------------------------
@@ -66,4 +90,24 @@ export async function changePasswordAction(
   });
   revalidatePath("/creator/settings");
   return outcome;
+}
+
+// --- 알림 수신 설정 (광고주) ----------------------------------------------
+export async function updateNotificationPrefsAction(
+  _prev: ActionState,
+  fd: FormData
+): Promise<ActionState> {
+  const user = requireUser();
+  const categories: NotificationCategory[] = ["participation", "submission", "campaign_status", "message"];
+  tx((db) => {
+    const p = db.profiles.find((x) => x.id === user.id);
+    if (!p) return;
+    const prefs: Partial<Record<NotificationCategory, boolean>> = {};
+    for (const c of categories) prefs[c] = fd.get(`pref_${c}`) === "on";
+    p.notification_prefs = prefs;
+    p.updated_at = now();
+    audit(db, { actorId: user.id, action: "update_notification_prefs", targetTable: "profiles", targetId: user.id, after: prefs });
+  });
+  revalidatePath("/advertiser/settings/notifications");
+  return { ok: true, message: "알림 설정이 저장되었습니다." };
 }

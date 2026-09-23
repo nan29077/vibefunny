@@ -9,6 +9,9 @@
     "start": "next start -p 3013",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "audit:ledgers": "node ./scripts/reconcile-ledgers.mjs",
+    "audit:ledgers:repair": "node ./scripts/reconcile-ledgers.mjs --apply",
+    "test": "node --test ./scripts/tests/security-regression.test.mjs",
     "seed:reset": "node ./scripts/reset-db.mjs"
   },
   "dependencies": {

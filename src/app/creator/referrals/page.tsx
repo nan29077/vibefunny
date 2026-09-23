@@ -45,7 +45,7 @@ export default function CreatorReferralsPage() {
   );
 
   const totalCount = myRelations.length;
-  const totalEarned = [...myRewardMap.values()].reduce((s, r) => s + r.amount, 0);
+  const totalEarned = [...myRewardMap.values()].filter((r) => r.status !== "CANCELLED").reduce((s, r) => s + r.amount, 0); // 취소된 수당 제외
   const pendingAmount = [...myRewardMap.values()]
     .filter((r) => r.status === "PENDING")
     .reduce((s, r) => s + r.amount, 0);

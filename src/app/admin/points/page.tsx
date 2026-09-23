@@ -3,8 +3,10 @@ import { PageHeader, Table, Th, Td, EmptyState, Badge } from "@/components/ui";
 import { formatPoint } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { POINT_TX_TYPE_LABELS } from "@/lib/labels";
+import { requireAdmin } from "@/lib/auth";
 
 export default function AdminPointsPage() {
+  requireAdmin();
   const db = getDb();
   const txs = [...db.point_transactions].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return (

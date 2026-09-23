@@ -14,6 +14,7 @@ import {
   IconMegaphone, IconGlobe, IconFilm, IconUsers,
   IconBarChart, IconZap, IconCheckCircle,
 } from "@/components/icons";
+import { requireAdmin } from "@/lib/auth";
 
 const ROLE_OPTIONS = [
   { value: "all",        label: "전체" },
@@ -30,6 +31,7 @@ const GRADIENT_OPTIONS = [
 ];
 
 export default function SiteManagementPage() {
+  requireAdmin();
   const db = getDb();
   const s = db.settings;
   const banners      = s.site_banners ?? [];

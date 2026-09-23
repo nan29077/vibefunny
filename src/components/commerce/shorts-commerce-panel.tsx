@@ -10,6 +10,7 @@ import { creatorCommission } from "@/lib/commerce";
 import { formatKRW } from "@/lib/money";
 import { IconFilm, IconShoppingBag, IconCheck } from "@/components/icons";
 import type { Product, ProductCategory, CreatorYoutubeChannel, CreatorShortsLink } from "@/lib/schema";
+import { safeHref } from "@/lib/url";
 
 export interface SourceVideo {
   id: string;
@@ -289,7 +290,7 @@ export function ShortsCommercePanel({
                       {link.video_source === "vibeporter" && link.source_video_title && (
                         <div className="flex items-center gap-1 text-xs text-brand-pink"><IconShoppingBag size={12} /> {link.source_video_title}</div>
                       )}
-                      <a href={link.shorts_url} target="_blank" rel="noreferrer" className="text-xs text-brand-purple underline break-all">
+                      <a href={safeHref(link.shorts_url)} target="_blank" rel="noreferrer" className="text-xs text-brand-purple underline break-all">
                         {link.shorts_url}
                       </a>
                     </div>

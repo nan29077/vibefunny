@@ -3,7 +3,7 @@
 import { useFormState } from "react-dom";
 import { Card, Field, Input } from "@/components/ui";
 import { SubmitButton, FormMessage, initialActionState } from "@/components/form";
-import { updateNicknameAction, changePasswordAction } from "@/lib/actions/settings-actions";
+import { updateNicknameAction, changePasswordAction, updateCreatorEligibilityAction } from "@/lib/actions/settings-actions";
 
 export function CreatorSettingsForms({
   name,
@@ -13,6 +13,8 @@ export function CreatorSettingsForms({
   referralCode,
   phone,
   joinedAt,
+  creatorGender,
+  creatorAgeGroup,
 }: {
   name: string;
   email: string;
@@ -21,14 +23,34 @@ export function CreatorSettingsForms({
   referralCode: string;
   phone: string | null;
   joinedAt: string;
+  creatorGender: string;
+  creatorAgeGroup: string;
 }) {
   const [nickState, nickAction] = useFormState(updateNicknameAction, initialActionState);
   const [pwState, pwAction] = useFormState(changePasswordAction, initialActionState);
+  const [eligibilityState, eligibilityAction] = useFormState(updateCreatorEligibilityAction, initialActionState);
 
   const displayPreview = (nickname.trim() || name);
 
   return (
     <div className="space-y-6">
+      <Card>
+        <h2 className="text-lg font-bold text-gray-900">캠페인 참여 자격</h2>
+        <p className="mt-1 mb-4 text-sm text-gray-500">광고주의 성별·연령 조건을 판정할 때 사용합니다. 팔로워 수는 인증된 채널 정보를 기준으로 합니다.</p>
+        <form action={eligibilityAction} className="grid gap-3 sm:grid-cols-2">
+          <Field label="성별" required>
+            <select aria-label="성별" name="creator_gender" defaultValue={creatorGender} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" required>
+              <option value="" disabled>선택</option><option value="female">여성</option><option value="male">남성</option><option value="other">기타</option>
+            </select>
+          </Field>
+          <Field label="연령대" required>
+            <select aria-label="연령대" name="creator_age_group" defaultValue={creatorAgeGroup} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" required>
+              <option value="" disabled>선택</option><option value="teens">10대</option><option value="20s">20대</option><option value="30s">30대</option><option value="40plus">40대 이상</option>
+            </select>
+          </Field>
+          <div className="flex items-center gap-3 sm:col-span-2"><SubmitButton>참여 자격 저장</SubmitButton><FormMessage state={eligibilityState} /></div>
+        </form>
+      </Card>
       {/* 닉네임 설정 */}
       <Card>
         <h2 className="text-lg font-bold text-gray-900">닉네임</h2>

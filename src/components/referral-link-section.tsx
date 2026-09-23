@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IconClipboard, IconCheck } from "@/components/icons";
 
 export function ReferralLinkSection({
@@ -10,7 +10,10 @@ export function ReferralLinkSection({
   referralCode: string;
   siteUrl: string;
 }) {
-  const base = siteUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  // 하이드레이션 불일치 방지: siteUrl 이 없으면 마운트 후 현재 도메인을 사용
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const base = siteUrl || origin;
   const referralLink = `${base}/signup?role=advertiser&ref=${referralCode}`;
   const [copied, setCopied] = useState(false);
 

@@ -12,6 +12,7 @@ import {
   type SocialAccount,
 } from "@/lib/schema";
 import { IconHeartHandshake } from "@/components/icons";
+import { safeHref } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ function PlatformBadge({
       : fc.toLocaleString("ko-KR");
   return (
     <a
-      href={account.channel_url}
+      href={safeHref(account.channel_url)}
       target="_blank"
       rel="noopener noreferrer"
       className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all hover:scale-105 hover:shadow-md"

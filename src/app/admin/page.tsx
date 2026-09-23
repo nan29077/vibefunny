@@ -8,6 +8,7 @@ import {
   IconShield, IconCheckCircle, IconTrendingUp, IconDollarSign,
   IconCreditCard, IconClipboard, IconBuilding, IconZap,
 } from "@/components/icons";
+import { requireAdmin } from "@/lib/auth";
 
 const toneClass: Record<string, string> = {
   gray:   "bg-gray-100 text-gray-600",
@@ -19,6 +20,7 @@ const toneClass: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
+  requireAdmin();
   const s = adminStats();
   const db = getDb();
 

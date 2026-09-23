@@ -7,6 +7,15 @@ export type Role = "admin" | "creator" | "advertiser";
 export type AdvertiserType = "execution_company" | "agency";
 export type UserStatus = "pending" | "active" | "suspended" | "withdrawn";
 
+// 알림 분류 (광고주 알림 설정에서 분류별로 끌 수 있음. 분쟁·정산 등 중요 알림은 분류 없이 항상 발송)
+export type NotificationCategory = "participation" | "submission" | "campaign_status" | "message";
+export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, { label: string; desc: string }> = {
+  participation: { label: "참여 신청", desc: "크리에이터가 캠페인에 참여 신청하거나 배포 영상을 배정받았을 때" },
+  submission: { label: "작업물 제출·검수", desc: "크리에이터가 영상/배포 링크를 제출하거나 관리자가 검수했을 때" },
+  campaign_status: { label: "캠페인 상태", desc: "캠페인 승인·반려·완료(정산)·취소 등 상태가 바뀌었을 때" },
+  message: { label: "메시지·댓글", desc: "1:1 메시지나 캠페인 댓글이 도착했을 때" },
+};
+
 // ── 라벨 상수 (UI용) ─────────────────────────────────────────────────────────
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "관리자",
@@ -52,6 +61,7 @@ export interface Profile {
   email_verified_at?: string | null;
   name: string;          // 실제 이름 (설정에서만 노출)
   nickname?: string | null; // 닉네임 (이름이 표기되는 모든 화면에 표시)
+  notification_prefs?: Partial<Record<NotificationCategory, boolean>> | null; // 알림 수신 설정 (false = 끔, 미설정 = 받음)
   phone: string | null;
   role: Role;
   advertiser_type: AdvertiserType | null;
@@ -268,6 +278,7 @@ export type WalletTxType =
   | "campaign_reward"
   | "signup_referral"
   | "advertiser_commission"
+  | "commerce_commission" // 쇼츠 커머스 판매 수수료 (배송 완료 시 적립)
   | "payout"
   | "adjustment";
 export type WalletTxStatus =
@@ -299,7 +310,7 @@ export interface PointWallet {
 }
 
 // 6.8 point_transactions (포인트 ledger) ---------------------------------
-export type PointTxType = "charge" | "spend" | "refund" | "adjustment";
+export type PointTxType = "charge" | "spend" | "refund" | "adjustment" | "commission"; // commission: 소속 대행사 기준 실행사 수수료 적립/회수
 export interface PointTransaction {
   id: string;
   advertiser_id: string;
@@ -773,6 +784,7 @@ export interface CampaignVideo {
   status: CampaignVideoStatus;
   assigned_creator_id: string | null;
   assigned_participation_id: string | null; // 배포 참여(CampaignParticipation) id
+  clone_of?: string | null; // 영상 수보다 배포 건수가 많을 때 재사용 배정된 복제 항목이면 원본 id
   assigned_at: string | null;
   downloaded_at: string | null;
   distributed_at: string | null;

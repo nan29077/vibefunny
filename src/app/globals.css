@@ -861,3 +861,243 @@ body:has(.vf-revenue-detail) {
   .vf-app-shell .grid.lg\:grid-cols-2 { grid-template-columns: 1fr; }
 }
 
+/* Generated creator photography stays fixed behind the original narrow canvas. */
+@media (min-width: 768px) {
+  body:has(.vf-home) {
+    background-color: #f4eadb;
+    background-image: url('/images/marketing/creator-sidejob-margin.webp');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+}
+.vf-home .vf-fixed-photo-section,
+.vf-home section[style*="background-image"] { background-attachment: fixed !important; }
+.vf-home #faq > .absolute.inset-0.z-0 { background: rgba(255, 253, 248, .95) !important; }
+
+/* Keep copy legible while the fixed photograph remains visible. */
+.vf-home .vf-fixed-photo-section:not(#faq) > .absolute.inset-0.z-0 {
+  background: linear-gradient(110deg, rgba(15, 13, 11, .88), rgba(15, 13, 11, .74)) !important;
+}
+.vf-home .vf-fixed-photo-section:not(#faq) p[style*="rgba(255"] {
+  color: rgba(255, 255, 255, .84) !important;
+}
+.vf-home #roadmap .rounded-2xl {
+  background: rgba(15, 13, 11, .72) !important;
+  border-color: rgba(255, 255, 255, .2) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Narrow canvas: frame each side with its own fixed crop of the creator photo. */
+@media (min-width: 768px) {
+  body:has(.vf-home) {
+    background-color: #e9d5bc;
+    background-image: none;
+  }
+  body:has(.vf-home)::before,
+  body:has(.vf-home)::after {
+    content: "";
+    position: fixed;
+    z-index: 0;
+    top: 0;
+    bottom: 0;
+    width: calc((100% - min(560px, calc(100vw - 240px))) / 2);
+    background-image: url('/images/marketing/creator-sidejob-margin.webp');
+    background-repeat: no-repeat;
+    background-size: auto 100%;
+    pointer-events: none;
+  }
+  body:has(.vf-home)::before { left: 0; background-position: left center; }
+  body:has(.vf-home)::after { right: 0; background-position: right center; }
+  .vf-home .vf-hero-arrows { top: auto; bottom: 1rem; transform: none; padding: 0 1.1rem; }
+  .vf-home .vf-hero-copy h1 { font-size: clamp(2.1rem, 3.2vw, 2.55rem) !important; }
+}
+@media (max-width: 767px) {
+  .vf-home .vf-mobile-fixed-section-bg { background-position: 58% center; }
+}
+
+/* Portrait creator photo for narrow mobile backgrounds. */
+@media (max-width: 767px) {
+  body:has(.vf-home) {
+    background-image: url('/images/marketing/creator-workspace-mobile.webp');
+    background-position: center center;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+  .vf-home .vf-mobile-fixed-section-bg {
+    background-image: url('/images/marketing/creator-workspace-mobile.webp') !important;
+    background-position: center center;
+    background-size: cover;
+  }
+  .vf-home > section[style*="background-image"]:not(.vf-fixed-photo-section) {
+    background-image: url('/images/marketing/creator-workspace-mobile.webp') !important;
+    background-position: center center !important;
+    background-size: cover !important;
+    background-attachment: fixed !important;
+  }
+}
+
+@media (min-width: 768px) { .vf-home { overflow: visible; } }
+
+/* Main-page notification center beside the login action. */
+.vf-topbar-tools { display:flex; align-items:center; gap:.5rem; }
+.vf-notification { position:relative; display:flex; align-items:center; }
+.vf-notification-trigger { position:relative; display:grid; width:36px; height:36px; place-items:center; border:1px solid #e8d19b; border-radius:50%; background:#fffaf0; color:#6d540d; transition:background .2s, border-color .2s; }
+.vf-notification-trigger:hover, .vf-notification-trigger[aria-expanded="true"] { background:#ffedb0; border-color:#deb758; }
+.vf-notification-trigger:focus-visible { outline:3px solid #e6ac19; outline-offset:2px; }
+.vf-notification-count { position:absolute; top:-5px; right:-7px; display:grid; min-width:18px; height:18px; place-items:center; border:2px solid #fffdf7; border-radius:999px; padding:0 2px; background:#d66b2c; color:#fff; font-size:9px; font-weight:900; line-height:1; }
+.vf-notification-panel { position:absolute; z-index:90; top:calc(100% + 12px); right:0; width:min(360px, calc(100vw - 24px)); overflow:hidden; border:1px solid #ebdfc9; border-radius:18px; background:#fffdf8; color:#2a251b; box-shadow:0 18px 50px rgba(46,32,10,.2); }
+.vf-notification-heading { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:1rem 1.1rem; border-bottom:1px solid #f0e6d3; }
+.vf-notification-heading > div { display:flex; align-items:baseline; gap:.55rem; }
+.vf-notification-heading strong { font-size:1rem; }
+.vf-notification-heading span { color:#8a785e; font-size:.7rem; }
+.vf-notification-heading button { color:#946b06; font-size:.72rem; font-weight:800; white-space:nowrap; }
+.vf-notification-heading button:hover { text-decoration:underline; }
+.vf-notification-list { max-height:min(58vh,390px); overflow-y:auto; }
+.vf-notification-item { display:block; width:100%; border-bottom:1px solid #f3eadc; padding:.82rem 1.1rem; text-align:left; transition:background .2s; }
+.vf-notification-item:hover { background:#fff4d6; }
+.vf-notification-item.is-unread { background:#fffbeb; border-left:3px solid #efb525; padding-left:calc(1.1rem - 3px); }
+.vf-notification-item-title, .vf-notification-item-message { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vf-notification-item-title { color:#332a18; font-size:.82rem; font-weight:850; }
+.vf-notification-item-message { margin-top:.24rem; color:#6f6558; font-size:.75rem; }
+.vf-notification-item time { display:block; margin-top:.32rem; color:#9a8c79; font-size:.67rem; }
+.vf-notification-empty { padding:2rem 1rem; text-align:center; }
+.vf-notification-empty p { color:#72685a; font-size:.8rem; }
+.vf-notification-empty a { display:inline-flex; margin-top:1rem; border-radius:999px; padding:.6rem 1rem; background:#ffc928; color:#211b0a; font-size:.75rem; font-weight:850; }
+.vf-notification-all { display:block; border-top:1px solid #f0e6d3; padding:.8rem 1rem; color:#805b05; font-size:.76rem; font-weight:850; text-align:center; }
+.vf-notification-all:hover { background:#fff4d6; }
+@media (max-width:767px) {
+  .vf-home .vf-site-topbar { gap:.35rem; }
+  .vf-topbar-tools { margin-left:auto; gap:.35rem; }
+  .vf-notification-panel { position:fixed; top:64px; right:.75rem; width:calc(100vw - 1.5rem); }
+}
+@media (max-width:375px) { .vf-home .vf-site-logo { font-size:.9rem; } }
+
+/* Fit the generated portrait photo to the restored 560px desktop canvas. */
+@media (min-width: 768px) {
+  .vf-home section[style*="background-image"] {
+    background-size: 560px auto !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    background-color: #3b322a;
+  }
+}
+
+/* Keep the desktop photo gutters flush with the home canvas. */
+@media (min-width: 768px) {
+  .vf-home { box-shadow: none; }
+}
+
+/* Keep the desktop top bar inside the same canvas as every page section. */
+@media (min-width: 768px) {
+  .vf-home .vf-site-topbar {
+    position: sticky;
+    top: 0;
+    left: auto;
+    right: auto;
+    width: 100%;
+    transform: none;
+  }
+  .vf-home .vf-honey-hero { margin-top: 0; }
+}
+
+
+/* Advertiser landing page uses the main page's seamless photo gutters and right navigation. */
+.vf-advertisers .vfa-topbar {
+  position: sticky;
+  z-index: 60;
+  top: 0;
+  display: flex;
+  width: 100%;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+  padding: .8rem 1.15rem;
+  border-bottom: 1px solid rgba(229,180,28,.28);
+  background: #fffdf7;
+}
+.vfa-topbar-actions { display: flex; align-items: center; gap: .5rem; }
+.vfa-topbar-actions a { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: .35rem; border-radius: 999px; padding: 0 .8rem; font-size: .72rem; font-weight: 800; white-space: nowrap; }
+.vfa-topbar-login { border: 1px solid #e5be43; background: #fff7d4; color: #332b12; }
+.vfa-topbar-actions a:hover { background: #ffe071; }
+.vfa-side-nav, .vfa-mobile-nav, .vfa-mobile-fixed-section-bg { display: none; }
+
+@media (min-width: 768px) {
+  body:has(.vf-advertisers) { background-color: #e9d5bc; background-image: none; }
+  body:has(.vf-advertisers)::before,
+  body:has(.vf-advertisers)::after {
+    content: "";
+    position: fixed;
+    z-index: 0;
+    top: 0;
+    bottom: 0;
+    width: calc((100% - min(560px, calc(100vw - 240px))) / 2);
+    background-image: url('/images/marketing/creator-sidejob-margin.webp');
+    background-repeat: no-repeat;
+    background-size: auto 100%;
+    pointer-events: none;
+  }
+  body:has(.vf-advertisers)::before { left: 0; background-position: left center; }
+  body:has(.vf-advertisers)::after { right: 0; background-position: right center; }
+  .vf-advertisers { overflow: visible; box-shadow: none; }
+  .vf-advertisers .vfa-side-nav {
+    position: fixed;
+    z-index: 50;
+    top: 50%;
+    right: max(36px, calc(50% - 424px));
+    display: flex;
+    width: 116px;
+    flex-direction: column;
+    gap: .2rem;
+    transform: translateY(-50%);
+    border: 1px solid #ecd797;
+    border-radius: 22px;
+    padding: 1rem .65rem;
+    background: #fffdf7;
+    box-shadow: 0 16px 38px rgba(115,84,0,.16);
+  }
+  .vf-advertisers .vfa-side-nav .vfa-side-brand { display: block; padding: .35rem .1rem .75rem !important; color: #171717 !important; font-size: .75rem !important; font-weight: 900 !important; letter-spacing: -.04em; text-align: center; white-space: nowrap; }
+  .vfa-side-brand span { display: inline !important; color: #d99e00 !important; font-size: inherit !important; }
+  .vfa-side-nav a { display: flex; flex-direction: column; align-items: center; gap: .22rem; border-radius: 10px; padding: .6rem .3rem; color: #6d6549; font-size: .65rem; font-weight: 800; text-align: center; }
+  .vfa-side-nav a:hover { background: #fff2b7; color: #171717; }
+  .vfa-side-nav a svg { color: #d99e00; }
+  .vf-advertisers .vfa-photo-section { background-size: 560px auto !important; background-position: center center !important; background-repeat: no-repeat !important; background-color: #3b322a; }
+}
+@media (min-width: 768px) and (max-width: 850px) {
+  .vf-advertisers .vfa-side-nav { right: 8px; width: 96px; padding: .8rem .35rem; }
+}
+@media (max-width: 767px) {
+  .vf-advertisers .vfa-topbar { min-height: 64px; padding: .65rem 1rem; }
+  .vf-advertisers .vf-site-logo { font-size: .92rem; }
+  .vf-advertisers .vf-site-logo::before { width: 28px; height: 28px; flex-basis: 28px; }
+  .vf-advertisers .vfa-mobile-nav {
+    position: fixed;
+    z-index: 55;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border-top: 1px solid #ead681;
+    padding: .55rem .2rem calc(.55rem + env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.97);
+    box-shadow: 0 -6px 25px rgba(36,29,0,.1);
+  }
+  .vfa-mobile-nav a { display: flex; flex-direction: column; align-items: center; gap: .2rem; color: #635d48; font-size: 9px; font-weight: 800; }
+  .vfa-mobile-nav svg { color: #d99e00; }
+  .vf-advertisers .vfa-photo-section { clip-path: inset(0); background-image: none !important; }
+  .vf-advertisers .vfa-mobile-fixed-section-bg { position: fixed; z-index: 0; inset: 0; display: block; background: url('/images/marketing/advertiser-campaign-studio.webp') center / cover no-repeat; }
+}
+
+
+/* Advertiser animation and FAQ styles live outside server-rendered text. */
+@keyframes vfa-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.vfa-marquee { display: flex; width: max-content; animation: vfa-marquee 40s linear infinite; }
+.vfa-card { transition: transform .25s ease, box-shadow .25s ease; }
+.vfa-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,.3); }
+details.vfa-faq > summary { list-style: none; }
+details.vfa-faq > summary::-webkit-details-marker { display: none; }
+.vfa-plus { display: inline-block; transition: transform .2s ease; }
+details[open] .vfa-plus { transform: rotate(45deg); }

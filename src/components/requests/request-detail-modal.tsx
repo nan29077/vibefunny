@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from "react";
 import type { CustomVideoRequest } from "@/lib/schema";
 import { formatKRW } from "@/lib/money";
+import { safeHref } from "@/lib/url";
 
 const PLATFORM_LABELS: Record<string, string> = {
   youtube: "YouTube",
@@ -228,7 +229,7 @@ export function RequestDetailModal({
             <div>
               <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">참고 자료</div>
               <a
-                href={request.reference_url ?? request.reference_links ?? "#"}
+                href={safeHref(request.reference_url ?? request.reference_links ?? "#")}
                 target="_blank"
                 rel="noreferrer"
                 className="text-sm text-blue-600 underline hover:text-blue-800 break-all"
@@ -243,7 +244,7 @@ export function RequestDetailModal({
             <div>
               <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">제출된 결과물</div>
               <a
-                href={request.submitted_video_url}
+                href={safeHref(request.submitted_video_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"

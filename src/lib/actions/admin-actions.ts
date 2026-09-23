@@ -1,14 +1,18 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { tx } from "../db";
 import { requireAdmin } from "../auth";
 import { genId } from "../crypto";
-import { audit, makeWalletTxAvailable } from "../services";
+import { audit, makeWalletTxAvailable, notifyUser } from "../services";
 import type { CommissionBasis, Platform, Role, UserStatus } from "../schema";
 
 const now = () => new Date().toISOString();
-const num = (fd: FormData, k: string) => Math.max(0, Math.floor(Number(fd.get(k) || 0)));
+const num = (fd: FormData, k: string) => {
+  const v = Math.floor(Number(fd.get(k) || 0));
+  return Number.isFinite(v) ? Math.max(0, v) : 0; // NaN/Infinity 입력 방지
+};
 const bool = (fd: FormData, k: string) => fd.get(k) === "on" || fd.get(k) === "1";
 
 // === 4.1/4.2 구독료·추천수당 설정 (광고주 가입비 제외) ==================
@@ -52,7 +56,7 @@ export async function updateVideoPricingAction(fd: FormData): Promise<void> {
 export async function updateVideoSaleAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   tx((db) => {
-    db.settings.video_sale_platform_fee_rate = num(fd, "platform_fee_rate");
+    db.settings.video_sale_platform_fee_rate = Math.min(100, num(fd, "platform_fee_rate")); // 수수료율 0~100%
     db.settings.video_auto_approve = bool(fd, "video_auto_approve");
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_video_sale", targetTable: "settings" });
@@ -81,7 +85,7 @@ export async function updateDistributionAction(fd: FormData): Promise<void> {
 export async function updateAdvertiserCommissionAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   tx((db) => {
-    db.settings.advertiser_commission_rate = num(fd, "commission_rate");
+    db.settings.advertiser_commission_rate = Math.min(100, num(fd, "commission_rate")); // 수수료율 0~100%
     db.settings.advertiser_commission_basis = String(
       fd.get("commission_basis") || "agency_spend"
     ) as CommissionBasis;
@@ -170,10 +174,21 @@ export async function releaseWalletTxAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   const id = String(fd.get("id") || "");
   tx((db) => {
+    const txn = db.wallet_transactions.find((t) => t.id === id);
+    if (!txn || txn.status !== "pending") return;
     makeWalletTxAvailable(db, id);
+    // 추천 수당이면 추천 수당 레코드도 함께 지급 처리 (두 화면의 상태 불일치 방지)
+    if (txn.type === "signup_referral") {
+      const reward = db.referral_rewards.find((r) => r.wallet_tx_id === id);
+      if (reward && reward.status === "PENDING") {
+        reward.status = "PAID";
+        reward.paid_at = now();
+      }
+    }
     audit(db, { actorId: admin.id, action: "release_wallet_tx", targetTable: "wallet_transactions", targetId: id });
   });
   revalidatePath("/admin/payouts");
+  revalidatePath("/admin/referrals");
 }
 
 // === 출금 신청 처리 ===================================================
@@ -181,29 +196,60 @@ export async function processPayoutAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   const id = String(fd.get("id") || "");
   const decision = String(fd.get("decision") || ""); // approve | reject | paid
+  let missingLedger = false;
   tx((db) => {
     const pr = db.payout_requests.find((x) => x.id === id);
     if (!pr) return;
+    // 출금 신청 시 생성된 원장(payout) 행이 반드시 있어야 처리한다.
+    // (원장 없이 처리하면 지급가능 잔액이 차감되지 않아 같은 금액을 다시 출금할 수 있음)
+    const ledgerRows = db.wallet_transactions.filter(
+      (t) => t.type === "payout" && t.related_table === "payout_requests" && t.related_id === pr.id && t.status !== "cancelled"
+    );
+    if (ledgerRows.length === 0) {
+      missingLedger = true;
+      audit(db, { actorId: admin.id, action: `payout_${decision}_blocked_missing_ledger`, targetTable: "payout_requests", targetId: id });
+      return;
+    }
+    let changed = false;
     if (decision === "approve" && pr.status === "requested") {
       pr.status = "approved";
+      changed = true;
     } else if (decision === "reject" && (pr.status === "requested" || pr.status === "approved")) {
       pr.status = "rejected";
+      pr.processed_at = now();
       // 반려 시 묶었던 금액을 available 로 환원
       const w = db.wallets.find((x) => x.user_id === pr.user_id);
-      if (w) w.available_balance += pr.amount;
-      // 관련 출금 거래 취소
-      db.wallet_transactions
-        .filter((t) => t.related_id === pr.id && t.type === "payout")
-        .forEach((t) => (t.status = "cancelled"));
+      if (w) {
+        w.available_balance += pr.amount;
+        w.updated_at = now();
+      }
+      ledgerRows.forEach((t) => {
+        t.status = "cancelled";
+        t.updated_at = now();
+      });
+      changed = true;
     } else if (decision === "paid" && pr.status === "approved") {
       pr.status = "paid";
       pr.processed_at = now();
+      pr.resident_id_number = null;
       const w = db.wallets.find((x) => x.user_id === pr.user_id);
-      if (w) w.paid_balance += pr.amount;
-      db.wallet_transactions
-        .filter((t) => t.related_id === pr.id && t.type === "payout")
-        .forEach((t) => (t.status = "paid"));
+      if (w) {
+        w.paid_balance += pr.amount;
+        w.updated_at = now();
+      }
+      ledgerRows.forEach((t) => {
+        t.status = "paid";
+        t.updated_at = now();
+      });
+      changed = true;
     }
+    if (!changed) return;
+    notifyUser(db, {
+      recipientId: pr.user_id,
+      title: decision === "approve" ? "출금 신청이 승인되었습니다" : decision === "paid" ? "출금이 완료되었습니다" : "출금 신청이 반려되었습니다",
+      message: `${pr.amount.toLocaleString()}원${decision === "reject" ? " · 신청 금액은 지급가능 잔액으로 환원되었습니다." : ""}`,
+      link: "/creator/points",
+    });
     audit(db, {
       actorId: admin.id,
       action: `payout_${decision}`,
@@ -212,6 +258,9 @@ export async function processPayoutAction(fd: FormData): Promise<void> {
     });
   });
   revalidatePath("/admin/payouts");
+  if (missingLedger) {
+    redirect(`/admin/payouts?${new URLSearchParams({ notice: "이 출금 건은 수익 원장(출금 행)이 없어 처리할 수 없습니다. scripts/migrate-2026-09-ledger-fix.mjs 로 데이터를 보정한 뒤 다시 시도하세요.", tone: "error" })}`);
+  }
 }
 
 // === 추천인 제도 ON/OFF + 유료 부업 ======================================
@@ -324,4 +373,29 @@ export async function clearSsnAction(payoutId: string): Promise<void> {
     });
   });
   revalidatePath("/admin/payouts");
+}
+
+// === SNS 채널 인증 승인/반려 (크리에이터 캠페인 참여 자격) ===============
+export async function setSocialVerificationAction(fd: FormData): Promise<void> {
+  const admin = requireAdmin();
+  const id = String(fd.get("id") || "");
+  const decision = String(fd.get("decision") || ""); // verify | reject
+  const memo = String(fd.get("memo") || "").trim();
+  if (decision !== "verify" && decision !== "reject") return;
+  tx((db) => {
+    const account = db.social_accounts.find((s) => s.id === id);
+    if (!account) return;
+    const before = account.verified_status;
+    account.verified_status = decision === "verify" ? "verified" : "unverified";
+    account.updated_at = now();
+    notifyUser(db, {
+      recipientId: account.creator_id,
+      title: decision === "verify" ? "SNS 채널이 인증되었습니다" : "SNS 채널 인증이 반려되었습니다",
+      message: `${account.account_name}${decision === "verify" ? " · 이제 해당 플랫폼 캠페인에 참여할 수 있습니다." : memo ? ` · 사유: ${memo}` : " · 채널 정보를 확인 후 다시 요청해 주세요."}`,
+      link: "/creator/social",
+    });
+    audit(db, { actorId: admin.id, action: `social_${decision}`, targetTable: "social_accounts", targetId: id, before: { verified_status: before }, after: { verified_status: account.verified_status, memo } });
+  });
+  revalidatePath("/admin/members");
+  revalidatePath(`/admin/members`);
 }

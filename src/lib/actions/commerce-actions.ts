@@ -6,7 +6,7 @@ import { z } from "zod";
 import { tx, getDb } from "../db";
 import { requireRole } from "../auth";
 import { genId } from "../crypto";
-import { audit } from "../services";
+import { addWalletTxOnce, audit, notifyUser } from "../services";
 import { cafe24CreateProduct } from "../cafe24";
 import type {
   Product,
@@ -14,8 +14,10 @@ import type {
   ProductCategory,
   CreatorYoutubeChannel,
   CreatorShortsLink,
+  Database,
 } from "../schema";
 import type { ActionState } from "@/components/form";
+import { isHttpUrl } from "../url";
 
 const now = () => new Date().toISOString();
 
@@ -288,6 +290,7 @@ export async function addYoutubeChannelAction(fd: FormData): Promise<void> {
   const subs = Math.max(0, Math.floor(Number(fd.get("subscriber_count") || 0)));
   const desc = String(fd.get("description") || "").trim() || null;
   if (!channelName || !channelUrl) return;
+  if (!isHttpUrl(channelUrl)) return; // http(s) 주소만 허용
   tx((db) => {
     const ch: CreatorYoutubeChannel = {
       id: genId(),
@@ -343,6 +346,7 @@ export async function saveShortsLinkAction(
     .split(",").map((s) => s.trim()).filter(Boolean);
 
   if (!shortsUrl) return { ok: false, message: "쇼츠 링크를 입력하세요." };
+  if (!isHttpUrl(shortsUrl)) return { ok: false, message: "쇼츠 링크는 http(s) 주소여야 합니다." };
   if (!/youtu\.?be|youtube\.com/i.test(shortsUrl)) {
     return { ok: false, message: "유튜브 쇼츠 링크 형식이 아닙니다." };
   }
@@ -404,6 +408,36 @@ export async function deleteShortsLinkAction(fd: FormData): Promise<void> {
 // ===========================================================================
 // 최고관리자 — 쇼츠 커머스 판매/발주/배송 관리
 // ===========================================================================
+// 주문 상태 전이 규칙: 결제완료 → 상품준비 → 배송중 → 배송완료 / (배송 전) 취소
+const ORDER_TRANSITIONS: Record<string, string[]> = {
+  paid: ["preparing", "shipped", "cancelled"],
+  preparing: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
+
+/** 배송 완료 시 판매 크리에이터에게 수수료 적립 (주문당 1회) */
+function creditCommerceCommission(db: Database, o: { id: string; creator_id: string; creator_commission: number; order_no: string; product_name: string }) {
+  if (!o.creator_id || !(o.creator_commission > 0)) return;
+  if (!db.profiles.some((p) => p.id === o.creator_id)) return;
+  addWalletTxOnce(db, {
+    userId: o.creator_id,
+    type: "commerce_commission",
+    amount: o.creator_commission,
+    status: "available",
+    relatedTable: "product_orders",
+    relatedId: o.id,
+    memo: `쇼츠 커머스 판매 수수료: ${o.product_name} (${o.order_no})`,
+  });
+  notifyUser(db, {
+    recipientId: o.creator_id,
+    title: "쇼츠 커머스 수수료가 적립되었습니다",
+    message: `${o.product_name} · ${o.creator_commission.toLocaleString()}원`,
+    link: "/creator/wallet",
+  });
+}
+
 export async function updateOrderShippingAction(fd: FormData): Promise<void> {
   const admin = requireRole("admin");
   const id = String(fd.get("order_id") || "");
@@ -413,10 +447,14 @@ export async function updateOrderShippingAction(fd: FormData): Promise<void> {
   tx((db) => {
     const o = db.product_orders.find((x) => x.id === id);
     if (!o) return;
+    // 배송 전(결제완료/상품준비) 또는 배송중(송장 수정)인 주문만 송장 등록 가능
+    if (!["paid", "preparing", "shipped"].includes(o.status)) return;
     o.courier = courier;
     o.tracking_no = trackingNo;
-    o.status = "shipped";
-    o.shipped_at = now();
+    if (o.status !== "shipped") {
+      o.status = "shipped";
+      o.shipped_at = now();
+    }
     o.updated_at = now();
     audit(db, { actorId: admin.id, action: "order_ship", targetTable: "product_orders", targetId: id });
   });
@@ -424,7 +462,7 @@ export async function updateOrderShippingAction(fd: FormData): Promise<void> {
 }
 
 export async function setOrderStatusAction(fd: FormData): Promise<void> {
-  requireRole("admin");
+  const admin = requireRole("admin");
   const id = String(fd.get("order_id") || "");
   const status = String(fd.get("status") || "") as
     | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
@@ -432,9 +470,16 @@ export async function setOrderStatusAction(fd: FormData): Promise<void> {
   tx((db) => {
     const o = db.product_orders.find((x) => x.id === id);
     if (!o) return;
+    if (!(ORDER_TRANSITIONS[o.status] ?? []).includes(status)) return; // 허용되지 않은 상태 변경 차단
+    const before = o.status;
     o.status = status;
-    if (status === "delivered" && !o.shipped_at) o.shipped_at = now();
+    if (status === "shipped" && !o.shipped_at) o.shipped_at = now();
+    if (status === "delivered") {
+      if (!o.shipped_at) o.shipped_at = now();
+      creditCommerceCommission(db, o);
+    }
     o.updated_at = now();
+    audit(db, { actorId: admin.id, action: `order_status_${status}`, targetTable: "product_orders", targetId: id, before: { status: before } });
   });
   revalidatePath("/admin/products/orders");
 }

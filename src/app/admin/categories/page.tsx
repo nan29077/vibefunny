@@ -3,8 +3,10 @@ import { Card, PageHeader, Field, Input, Select, Badge } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { PLATFORM_LABELS, type Platform } from "@/lib/schema";
 import { addCategoryAction, toggleCategoryAction } from "@/lib/actions/admin-actions";
+import { requireAdmin } from "@/lib/auth";
 
 export default function AdminCategoriesPage() {
+  requireAdmin();
   const db = getDb();
   const platforms: Platform[] = ["youtube", "instagram", "tiktok"];
 

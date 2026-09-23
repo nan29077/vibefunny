@@ -17,3 +17,7 @@ next-env.d.ts
 
 # 빌드 검증용 임시 .next 폴더들
 .next-*
+
+data/*.bak
+data/*.tmp
+data/private-uploads/

@@ -151,7 +151,7 @@ export interface PoolStats {
 export function poolStats(db: Database, campaignId: string): PoolStats {
   const vids = campaignPoolVideos(db, campaignId);
   return {
-    total: vids.length,
+    total: vids.filter((v) => !v.clone_of).length, // 원본 영상 수 (재사용 복제본 제외)
     unassigned: vids.filter((v) => v.status === "unassigned").length,
     assigned: vids.filter((v) => v.status === "assigned").length,
     downloaded: vids.filter((v) => v.status === "downloaded").length,
@@ -192,8 +192,34 @@ export function allocateVideoForParticipation(
   const candidates = (db.campaign_videos ?? [])
     .filter((v) => v.campaign_id === campaign.id && v.status === "unassigned")
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const target = candidates[0];
-  if (!target) return { ok: false, reason: "exhausted" };
+  let target = candidates[0];
+  if (!target) {
+    // 미분배 영상이 없으면 기존 영상을 재사용(복제 배정)한다.
+    // - 광고주는 배포 "건수" 만큼 결제했으므로 영상 수가 배포 건수보다 적어도 배포가 진행돼야 한다.
+    // - 가장 적게 배정된 원본부터 순서대로 재사용 (정원은 participationCapacity 가 제한)
+    const originals = (db.campaign_videos ?? []).filter(
+      (v) => v.campaign_id === campaign.id && !v.clone_of && (!!v.video_url || !!v.file_data)
+    );
+    if (originals.length === 0) return { ok: false, reason: "exhausted" };
+    const usage = (id: string) =>
+      (db.campaign_videos ?? []).filter((v) => v.id === id || v.clone_of === id).filter((v) => v.status !== "unassigned").length;
+    const source = [...originals].sort((a, b) => usage(a.id) - usage(b.id) || a.created_at.localeCompare(b.created_at))[0];
+    const clone: CampaignVideo = {
+      ...source,
+      id: genId(),
+      clone_of: source.id,
+      status: "unassigned",
+      assigned_creator_id: null,
+      assigned_participation_id: null,
+      assigned_at: null,
+      downloaded_at: null,
+      distributed_at: null,
+      created_at: now(),
+      updated_at: now(),
+    };
+    db.campaign_videos!.push(clone);
+    target = clone;
+  }
 
   target.status = "assigned";
   target.assigned_creator_id = creatorId;

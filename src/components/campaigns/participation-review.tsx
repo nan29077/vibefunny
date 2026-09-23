@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { CampaignParticipation, CampaignDirectMessage } from "@/lib/schema";
 import { DirectMessageThread } from "@/components/campaigns/direct-message-thread";
 import { ParticipationCommentThread } from "@/components/campaigns/participation-comment-thread";
+import { safeHref } from "@/lib/url";
 
 interface CreatorRow {
   participation: CampaignParticipation;
@@ -135,7 +136,7 @@ export function ParticipationReview({ campaignId, rows: initialRows, advertiserI
                     <>
                       {p.video_url && (
                         <a
-                          href={p.video_url}
+                          href={safeHref(p.video_url)}
                           target="_blank"
                           rel="noreferrer"
                           className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"

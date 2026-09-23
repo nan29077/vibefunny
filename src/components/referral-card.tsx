@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IconLink, IconCheckCircle, IconUsers, IconDollarSign } from "@/components/icons";
 
 interface ReferralCardProps {
@@ -12,10 +12,10 @@ interface ReferralCardProps {
 export function ReferralCard({ referralCode, referredCount, referralEarnings }: ReferralCardProps) {
   const [copied, setCopied] = useState(false);
 
-  const referralUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/signup?role=creator&ref=${referralCode}`
-      : `/signup?role=creator&ref=${referralCode}`;
+  // 서버/클라이언트 첫 렌더 결과를 같게 유지하고(하이드레이션 경고 방지), 마운트 후 실제 도메인을 붙인다
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const referralUrl = `${origin}/signup?role=creator&ref=${referralCode}`;
 
   const handleCopy = async () => {
     try {

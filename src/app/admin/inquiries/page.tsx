@@ -4,10 +4,12 @@ import { SubmitButton } from "@/components/form";
 import { AdminInquiries } from "@/components/support/admin-inquiries";
 import { updateSupportHoursAction } from "@/lib/actions/site-actions";
 import { supportHoursConfig } from "@/lib/support-hours";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default function AdminInquiriesPage() {
+  requireAdmin();
   const settings = getDb().settings;
   const hours = supportHoursConfig(settings);
 

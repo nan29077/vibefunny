@@ -9,6 +9,12 @@ export default function AgenciesPage() {
   const user = requireRole("advertiser");
   const db = getDb();
   const rate = db.settings.advertiser_commission_rate;
+  const basis = db.settings.advertiser_commission_basis;
+  // 수수료 적립 기준 안내 문구 (정책 설정과 일치)
+  const basisText =
+    basis === "agency_charge" ? "대행사 포인트 충전 시 충전액"
+    : basis === "campaign_completed" ? "대행사 캠페인 완료 시 실제 집행 금액"
+    : "대행사 캠페인이 승인될 때 광고 주문 금액";
 
   // ── 대행사 뷰: 상위 실행사 안내 ───────────────────────────────────────
   if (user.advertiser_type === "agency") {
@@ -21,7 +27,7 @@ export default function AgenciesPage() {
               상위 실행사: <b>{nameOf(db, user.parent_advertiser_id)}</b>
             </p>
             <p className="mt-1 text-xs text-gray-400">
-              나의 포인트 충전 시 관리자가 설정한 비율({rate}%)의 수수료가
+              {basisText}에 관리자가 설정한 비율({rate}%)의 수수료가
               실행사 포인트 지갑에 적립됩니다.
             </p>
           </Card>
@@ -40,28 +46,25 @@ export default function AgenciesPage() {
     (p) => p.parent_advertiser_id === user.id && p.advertiser_type === "agency"
   );
 
-  // 이 실행사가 받은 전체 commission point_tx
+  // 이 실행사가 받은 전체 수수료 포인트 거래
+  // - 신규: type="commission" (충전 기준은 payment_id, 캠페인 기준은 campaign_id 로 대행사 역추적)
+  // - 구버전: type="charge" + 메모 "수수료 적립"
   const myCommissionTxs = db.point_transactions.filter(
-    (t) => t.advertiser_id === user.id && t.type === "charge" &&
-            t.memo?.includes("수수료 적립")
+    (t) => t.advertiser_id === user.id &&
+      (t.type === "commission" || (t.type === "charge" && !!t.memo?.includes("수수료 적립")))
   );
 
-  // 각 대행사의 결제 ID 목록 (payment_id 역추적용)
-  const agencyPaymentIds = new Set(
-    db.payments
-      .filter((p) => agencies.some((a) => a.id === p.user_id) && p.payment_type === "point_charge")
-      .map((p) => p.id)
-  );
+  const agencyOfTx = (t: (typeof myCommissionTxs)[number]): string | null => {
+    if (t.payment_id) return db.payments.find((p) => p.id === t.payment_id)?.user_id ?? null;
+    if (t.campaign_id) return db.ad_campaigns.find((c) => c.id === t.campaign_id)?.advertiser_id ?? null;
+    return null;
+  };
 
-  // commission tx 중 대행사 결제에서 발생한 것만 (payment_id 기준)
   const commissionByAgency = Object.fromEntries(
     agencies.map((agency) => {
-      const agencyPids = new Set(
-        db.payments
-          .filter((p) => p.user_id === agency.id && p.payment_type === "point_charge")
-          .map((p) => p.id)
-      );
-      const txs = myCommissionTxs.filter((t) => t.payment_id && agencyPids.has(t.payment_id));
+      const txs = myCommissionTxs
+        .filter((t) => agencyOfTx(t) === agency.id)
+        .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       const total = txs.reduce((s, t) => s + t.amount, 0);
       return [agency.id, { txs, total }];
     })
@@ -77,15 +80,16 @@ export default function AgenciesPage() {
     })
   );
 
+  const agencyIds = new Set(agencies.map((a) => a.id));
   const totalCommission = myCommissionTxs
-    .filter((t) => t.payment_id && agencyPaymentIds.has(t.payment_id))
+    .filter((t) => { const owner = agencyOfTx(t); return owner !== null && agencyIds.has(owner); })
     .reduce((s, t) => s + t.amount, 0);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="소속 대행사"
-        description={`추천한 대행사와 수수료(충전액의 ${rate}%) 내역을 확인하세요.`}
+        description={`추천한 대행사와 수수료(${rate}%) 적립 내역을 확인하세요.`}
       />
 
       <Card className="border-brand-purple/30 bg-brand-purple/5">
@@ -95,7 +99,7 @@ export default function AgenciesPage() {
         </div>
         <div className="mt-2 text-xs text-gray-400">
           수수료율: <span className="font-semibold text-brand-purple">{rate}%</span>
-          {" "}· 소속 대행사가 포인트를 충전할 때 해당 비율이 내 포인트 지갑에 자동 적립됩니다.
+          {" "}· {basisText}의 해당 비율이 내 포인트 지갑에 자동 적립됩니다. (캠페인 취소·미집행 환불 시 해당분은 회수)
         </div>
       </Card>
 
@@ -185,7 +189,7 @@ export default function AgenciesPage() {
                       <tbody>
                         {commission.txs.map((t) => (
                           <tr key={t.id}>
-                            <Td className="text-green-600">+{formatKRW(t.amount)}</Td>
+                            <Td className={t.amount >= 0 ? "text-green-600" : "text-red-600"}>{t.amount >= 0 ? "+" : ""}{formatKRW(t.amount)}</Td>
                             <Td className="text-gray-500">{t.memo ?? "-"}</Td>
                             <Td className="text-xs text-gray-400">
                               {t.created_at.slice(0, 16).replace("T", " ")}

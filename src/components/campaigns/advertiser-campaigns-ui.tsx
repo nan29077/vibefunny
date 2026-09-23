@@ -23,6 +23,7 @@ import {
   IconPlus,
   IconBarChart,
 } from "@/components/icons";
+import { safeHref } from "@/lib/url";
 
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,9 @@ interface Props {
 // ─── 상수 ──────────────────────────────────────────────────────────────────
 
 const PENDING_STATUSES = new Set(["draft", "point_pending", "paid", "admin_review"]);
-const ACTIVE_STATUSES = new Set(["published", "recruiting", "in_progress", "active", "submitted", "completed"]);
+const ACTIVE_STATUSES = new Set(["published", "recruiting", "in_progress", "active", "submitted"]);
+// 종료·반려 탭: 완료/반려/취소/환불 (반려 사유·환불 여부를 광고주가 확인할 수 있도록)
+const ENDED_STATUSES = new Set(["completed", "rejected", "cancelled", "refunded"]);
 
 const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   draft: "초안",
@@ -75,10 +78,12 @@ const CAMPAIGN_STATUS_COLOR: Record<string, string> = {
   completed: "bg-gray-200 text-gray-600",
   rejected: "bg-red-100 text-red-700",
   cancelled: "bg-red-100 text-red-600",
+  refunded: "bg-blue-100 text-blue-700",
 };
 
 const PARTICIPATION_STATUS_LABELS: Record<string, string> = {
   applied: "신청",
+  application_rejected: "미선발",
   accepted: "선발됨",
   video_submitted: "영상 제출됨",
   video_approved: "영상 승인됨",
@@ -86,6 +91,9 @@ const PARTICIPATION_STATUS_LABELS: Record<string, string> = {
   deploy_submitted: "배포 승인요청",
   deploy_approved: "배포 승인됨",
   deploy_rejected: "배포 반려",
+  revision_requested: "수정 요청",
+  disputed: "분쟁 처리 중",
+  cancelled: "참여 취소",
   completed: "완료",
 };
 
@@ -294,7 +302,7 @@ function ParticipantRow({
               <IconVideo size={13} className="shrink-0 text-amber-600" />
               <span className="text-xs text-gray-600 shrink-0">영상 링크:</span>
               <a
-                href={p.video_url}
+                href={safeHref(p.video_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 truncate text-xs font-medium text-indigo-600 underline hover:text-indigo-800"
@@ -310,7 +318,7 @@ function ParticipantRow({
               <IconDownload size={13} className="shrink-0 text-amber-600" />
               <span className="text-xs text-gray-600 shrink-0">원본 파일:</span>
               <a
-                href={p.video_file_data}
+                href={safeHref(p.video_file_data)}
                 download={p.video_file_name ?? "video"}
                 className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100"
               >
@@ -325,7 +333,7 @@ function ParticipantRow({
               <IconLink size={13} className="shrink-0 text-green-600" />
               <span className="text-xs text-gray-600 shrink-0">배포 링크:</span>
               <a
-                href={p.deploy_link}
+                href={safeHref(p.deploy_link)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 truncate text-xs font-medium text-green-700 underline hover:text-green-900"
@@ -437,6 +445,17 @@ function CampaignCard({
   const { campaign: c } = row;
   const [expanded, setExpanded] = useState(false);
   const [participations, setParticipations] = useState(row.participations);
+  const [cancelPending, startCancel] = useTransition();
+
+  function cancelCampaign() {
+    if (!window.confirm("캠페인을 취소하고 사용 포인트를 환불하시겠습니까?")) return;
+    startCancel(async () => {
+      const response = await fetch(`/api/advertiser/campaigns/${c.id}/cancel`, { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) window.alert(result.error ?? "캠페인 취소에 실패했습니다.");
+      else window.location.reload();
+    });
+  }
 
   const videoProducers = participations.filter(
     (r) => r.participation.participation_type === "video_production"
@@ -501,6 +520,7 @@ function CampaignCard({
           <div className="text-right shrink-0">
             <div className="text-base font-bold text-gray-900">{formatKRW(c.total_cost)}</div>
             <div className="text-[10px] text-gray-400 mt-0.5">총 예산</div>
+            {!["completed", "cancelled", "refunded", "rejected"].includes(c.status) && <button type="button" disabled={cancelPending} onClick={cancelCampaign} className="mt-2 text-xs font-semibold text-red-500 disabled:opacity-50">캠페인 취소</button>}
           </div>
         </div>
 
@@ -598,12 +618,13 @@ function CampaignCard({
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 
 export function AdvertiserCampaignsUI({ rows, advertiserId, advertiserName }: Props) {
-  const [tab, setTab] = useState<"pending" | "active">("active");
+  const [tab, setTab] = useState<"pending" | "active" | "ended">("active");
 
   const pendingRows = rows.filter((r) => PENDING_STATUSES.has(r.campaign.status));
   const activeRows = rows.filter((r) => ACTIVE_STATUSES.has(r.campaign.status));
+  const endedRows = rows.filter((r) => ENDED_STATUSES.has(r.campaign.status));
 
-  const displayRows = tab === "pending" ? pendingRows : activeRows;
+  const displayRows = tab === "pending" ? pendingRows : tab === "ended" ? endedRows : activeRows;
 
   // 검토 대기 중인 캠페인 수 (뱃지용) — applied 포함
   const reviewNeeded = activeRows.reduce(
@@ -619,9 +640,9 @@ export function AdvertiserCampaignsUI({ rows, advertiserId, advertiserName }: Pr
     <div>
       {/* 탭 */}
       <div className="flex gap-1 rounded-xl bg-gray-100 p-1 mb-6">
-        {(["active", "pending"] as const).map((t) => {
-          const label = t === "active" ? "진행 중" : "진행 예정";
-          const count = t === "active" ? activeRows.length : pendingRows.length;
+        {(["active", "pending", "ended"] as const).map((t) => {
+          const label = t === "active" ? "진행 중" : t === "pending" ? "진행 예정" : "종료·반려";
+          const count = t === "active" ? activeRows.length : t === "pending" ? pendingRows.length : endedRows.length;
           const badge = t === "active" && reviewNeeded > 0 ? reviewNeeded : 0;
           return (
             <button
@@ -655,7 +676,9 @@ export function AdvertiserCampaignsUI({ rows, advertiserId, advertiserName }: Pr
       <p className="mb-4 text-sm text-gray-500">
         {tab === "active"
           ? "관리자 승인 후 크리에이터에게 노출된 캠페인입니다. 참여자를 선발하고 작업물을 검수하세요."
-          : "관리자 승인을 기다리거나 결제 대기 중인 캠페인입니다."}
+          : tab === "pending"
+          ? "관리자 승인을 기다리거나 결제 대기 중인 캠페인입니다."
+          : "완료·반려·취소된 캠페인입니다. 캠페인 제목을 누르면 반려 사유와 환불 내역을 확인할 수 있습니다."}
       </p>
 
       
@@ -664,7 +687,7 @@ export function AdvertiserCampaignsUI({ rows, advertiserId, advertiserName }: Pr
         <div className="rounded-2xl border border-dashed border-gray-200 py-14 text-center">
           <IconPlus size={28} className="mx-auto mb-2 text-gray-300" strokeWidth={1.5} />
           <p className="font-semibold text-gray-400">
-            {tab === "active" ? "진행 중인 캠페인이 없습니다" : "진행 예정 캠페인이 없습니다"}
+            {tab === "active" ? "진행 중인 캠페인이 없습니다" : tab === "pending" ? "진행 예정 캠페인이 없습니다" : "종료·반려된 캠페인이 없습니다"}
           </p>
           {tab === "active" && (
             <p className="mt-1 text-sm text-gray-400">캠페인을 만들면 관리자 승인 후 여기에 표시됩니다.</p>

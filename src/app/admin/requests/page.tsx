@@ -5,6 +5,8 @@ import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { PLATFORM_LABELS } from "@/lib/schema";
 import { reviewDeliveryAction } from "@/lib/actions/request-actions";
+import { requireAdmin } from "@/lib/auth";
+import { safeHref } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,7 @@ function DeadlineCountdown({ deadline }: { deadline: string }) {
 }
 
 export default function AdminRequestsPage() {
+  requireAdmin();
   const db = getDb();
   const requests = [...db.custom_video_requests].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 
@@ -101,7 +104,7 @@ export default function AdminRequestsPage() {
                   </div>
                 )}
                 {r.reference_url && (
-                  <a href={r.reference_url} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
+                  <a href={safeHref(r.reference_url)} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
                     참고 자료
                   </a>
                 )}
@@ -134,7 +137,7 @@ export default function AdminRequestsPage() {
                             </span>
                           </div>
                           {d.video_url && (
-                            <a href={d.video_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline truncate block max-w-xs">
+                            <a href={safeHref(d.video_url)} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline truncate block max-w-xs">
                               {d.video_url.startsWith("/uploads/") ? "업로드된 파일 보기" : d.video_url}
                             </a>
                           )}

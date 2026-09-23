@@ -3,8 +3,10 @@ import { PageHeader, Table, Th, Td, StatusBadge, EmptyState } from "@/components
 import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { PAYMENT_TYPE_LABELS } from "@/lib/labels";
+import { requireAdmin } from "@/lib/auth";
 
 export default function AdminPaymentsPage() {
+  requireAdmin();
   const db = getDb();
   const payments = [...db.payments].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return (

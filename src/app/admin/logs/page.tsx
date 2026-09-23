@@ -1,8 +1,10 @@
 import { getDb } from "@/lib/db";
 import { PageHeader, Table, Th, Td, EmptyState } from "@/components/ui";
 import { nameOf } from "@/lib/queries";
+import { requireAdmin } from "@/lib/auth";
 
 export default function AdminLogsPage() {
+  requireAdmin();
   const db = getDb();
   const logs = [...db.audit_logs].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 200);
   return (

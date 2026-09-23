@@ -19,6 +19,8 @@ export default function CreatorSettingsPage() {
         referralCode={user.referral_code}
         phone={user.phone}
         joinedAt={formatDate(user.created_at)}
+        creatorGender={user.creator_gender ?? ""}
+        creatorAgeGroup={user.creator_age_group ?? ""}
       />
     </div>
   );

@@ -64,6 +64,7 @@ export interface CampaignCostInput {
   campaign_type: string;
   platforms: SocialPlatform[];
   distribution_count: number;
+  platform_distributions?: Partial<Record<SocialPlatform, number>>;
   /** 영상제작 건수 (create_and_distribute / create_only). 미지정 시 distribution_count로 하위호환 */
   video_production_count?: number;
   /** 영상 길이 구간 키 (15s|30s|60s|90s). 지정 시 해당 구간의 광고주 청구단가로 제작비 산정 */
@@ -114,7 +115,14 @@ export function computeCampaignCost(db: Database, input: CampaignCostInput) {
     // 단순 제작: 배포 없음, video_production_count = 제작 영상 수
     creationCost = extra * videoProdCount;
   } else {
-    distributionCost = perDist * deployCount;
+    const distributedByPlatform = input.platform_distributions
+      ? input.platforms.reduce((sum, platform) => {
+          const count = Math.max(0, Math.floor(input.platform_distributions?.[platform] ?? 0));
+          const rate = db.settings.distribution_rates.find((item) => item.platform === platform);
+          return sum + count * (rate?.advertiser_charge ?? 0);
+        }, 0)
+      : 0;
+    distributionCost = distributedByPlatform > 0 ? distributedByPlatform : perDist * deployCount;
     if (input.campaign_type === "create_and_distribute") {
       // 영상제작 건수가 별도로 지정된 경우 그 값 사용, 없으면 배포 건수로 호환
       const effectiveVideoProdCount = input.video_production_count != null ? videoProdCount : deployCount;

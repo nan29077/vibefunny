@@ -6,24 +6,25 @@ import { logoutAction } from "@/lib/actions/auth-actions";
 import { HoneyHeroCarousel } from "@/components/marketing/honey-hero-carousel";
 import { MobileMainMenu, MobilePublicNav } from "@/components/marketing/mobile-main-menu";
 import { SupportWidget } from "@/components/support/support-widget";
+import { NotificationBell } from "@/components/marketing/notification-bell";
 import { IconBarChart, IconCalendar, IconGlobe, IconHome, IconInfo, IconLogIn, IconLogOut, IconMegaphone, IconPieChart } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
 const BG = {
-  hero:         "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=1920&q=85&fit=crop&auto=format",
-  aiExpert:     "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1920&q=85&fit=crop&auto=format",
-  aiVideo:      "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1920&q=85&fit=crop&auto=format",
-  shortform:    "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=1920&q=85&fit=crop&auto=format",
-  referral:     "https://images.unsplash.com/photo-1521737852567-6949f3f9f2b5?w=1920&q=85&fit=crop&auto=format",
-  stats:        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1920&q=85&fit=crop&auto=format",
-  platforms:    "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1920&q=85&fit=crop&auto=format",
-  testimonials: "https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?w=1920&q=85&fit=crop&auto=format",
-  advertiser:   "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1920&q=85&fit=crop&auto=format",
-  faq:          "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=85&fit=crop&auto=format",
-  cta:          "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=85&fit=crop&auto=format",
-  roadmap:      "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=1920&q=85&fit=crop&auto=format",
-  income:       "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1920&q=85&fit=crop&auto=format",
+  hero:         "/images/marketing/creator-workspace-mobile.webp",
+  aiExpert:     "/images/marketing/creator-workspace-mobile.webp",
+  aiVideo:      "/images/marketing/creator-workspace-mobile.webp",
+  shortform:    "/images/marketing/creator-workspace-mobile.webp",
+  referral:     "/images/marketing/creator-workspace-mobile.webp",
+  stats:        "/images/marketing/creator-workspace-mobile.webp",
+  platforms:    "/images/marketing/creator-workspace-mobile.webp",
+  testimonials: "/images/marketing/creator-workspace-mobile.webp",
+  advertiser:   "/images/marketing/creator-workspace-mobile.webp",
+  faq:          "/images/marketing/creator-workspace-mobile.webp",
+  cta:          "/images/marketing/creator-workspace-mobile.webp",
+  roadmap:      "/images/marketing/creator-workspace-mobile.webp",
+  income:       "/images/marketing/creator-workspace-mobile.webp",
 };
 
 const PLATFORMS = [
@@ -253,8 +254,8 @@ const EXPERT_STEPS = [
   { Icon: IcoGear,     step: "STEP 4", title: "수익 자동화 완성",  desc: "추천 네트워크 구축 + 배포 루틴화로 직접 영상을 만들지 않아도 수익이 들어오는 파이프라인을 완성합니다." },
 ];
 
-function MobileFixedBackground({ src }: { src: string }) {
-  return <div className="vf-mobile-fixed-section-bg" style={{ backgroundImage: `url('${src}')` }} aria-hidden />;
+function MobileFixedBackground() {
+  return <div className="vf-mobile-fixed-section-bg" style={{ backgroundImage: "url('/images/marketing/creator-workspace-mobile.webp')" }} aria-hidden />;
 }
 
 function FullBg({
@@ -268,7 +269,7 @@ function FullBg({
       className={`vf-fixed-photo-section relative flex min-h-screen items-center overflow-hidden ${className}`}
       style={{ backgroundImage: `url('${src}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
     >
-      <MobileFixedBackground src={src} />
+      <MobileFixedBackground />
       <div className="absolute inset-0 z-0" style={{ background: overlay }} />
       <div className="relative z-10 w-full">{children}</div>
     </section>
@@ -297,6 +298,10 @@ export default function HomePage() {
   const advertiserCtaHref = dashHref ?? "/for-advertisers";
   const announcement = db.settings.site_announcement;
   const revenueStats = db.settings.site_revenue_stats ?? [];
+  const myNotifications = currentUser
+    ? (db.notifications ?? []).filter((item) => item.recipient_id === currentUser.id).sort((a, b) => b.created_at.localeCompare(a.created_at))
+    : [];
+  const unreadNotifications = myNotifications.filter((item) => !item.read_at).length;
 
   const defaultStats = [
     { key: "a", label: "글로벌 배포 플랫폼",     value: "4",    suffix: "개"   },
@@ -311,9 +316,12 @@ export default function HomePage() {
       <div className="vf-site-topbar">
         <MobileMainMenu myPageHref={dashHref ?? "/login"} />
         <Link href="/" className="vf-site-logo"><span>VIBE</span><b>FUNNY</b></Link>
-        {currentUser ? (
-          <form action={logoutAction}><button type="submit" className="vf-topbar-action"><IconLogOut size={16} />로그아웃</button></form>
-        ) : <Link href="/login" className="vf-topbar-action"><IconLogIn size={16} />로그인</Link>}
+        <div className="vf-topbar-tools">
+          <NotificationBell authenticated={Boolean(currentUser)} initialUnreadCount={unreadNotifications} initialItems={myNotifications.slice(0, 6)} />
+          {currentUser ? (
+            <form action={logoutAction}><button type="submit" className="vf-topbar-action"><IconLogOut size={16} />로그아웃</button></form>
+          ) : <Link href="/login" className="vf-topbar-action"><IconLogIn size={16} />로그인</Link>}
+        </div>
       </div>
       <header
         className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
@@ -441,7 +449,7 @@ export default function HomePage() {
         className="vf-fixed-photo-section relative overflow-hidden"
         style={{ backgroundImage: `url('${BG.roadmap}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
       >
-        <MobileFixedBackground src={BG.roadmap} />
+        <MobileFixedBackground />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(2,2,8,0.90)" }} />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-16">
@@ -462,9 +470,9 @@ export default function HomePage() {
                     {step.day}
                   </div>
                   <div className="flex-1 rounded-2xl p-6 md:max-w-[45%]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="rounded-full px-2.5 py-0.5 text-xs font-black text-black" style={{ background: step.color }}>{step.badge}</span>
-                      <h3 className="font-black text-white">{step.title}</h3>
+                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-black text-black" style={{ background: step.color }}>{step.badge}</span>
+                      <h3 className="whitespace-nowrap font-black text-white">{step.title}</h3>
                     </div>
                     <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{step.desc}</p>
                   </div>
@@ -698,7 +706,7 @@ export default function HomePage() {
         </div>
       </FullBg>
 
-      <FullBg src="https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=1920&q=85&fit=crop&auto=format" overlay="linear-gradient(160deg, rgba(10,0,20,0.86) 0%, rgba(0,0,0,0.82) 100%)">
+      <FullBg src="/images/marketing/creator-workspace-mobile.webp" overlay="linear-gradient(160deg, rgba(10,0,20,0.86) 0%, rgba(0,0,0,0.82) 100%)">
         <div className="mx-auto max-w-6xl px-6 py-20 md:px-16">
           <div className="grid items-center gap-16 md:grid-cols-2">
             <div className="hidden md:block">
@@ -747,9 +755,9 @@ export default function HomePage() {
 
       <section
         className="vf-fixed-photo-section relative overflow-hidden"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1920&q=85&fit=crop&auto=format')", backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
+        style={{ backgroundImage: "url('/images/marketing/creator-workspace-mobile.webp')", backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
       >
-        <MobileFixedBackground src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1920&q=85&fit=crop&auto=format" />
+        <MobileFixedBackground />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(2,2,12,0.88)" }} />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-14 text-center">
@@ -854,7 +862,7 @@ export default function HomePage() {
         className="vf-fixed-photo-section relative overflow-hidden"
         style={{ backgroundImage: `url('${BG.income}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
       >
-        <MobileFixedBackground src={BG.income} />
+        <MobileFixedBackground />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(0,0,0,0.88)" }} />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
           <div className="mb-16 text-center">
@@ -1082,7 +1090,7 @@ export default function HomePage() {
 
       <footer className="border-t px-6 py-12 md:px-12" style={{ background: "#060606", borderColor: "rgba(255,255,255,0.05)" }}>
         <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <div>
+          <div className="md:max-w-[210px]">
             <Link href="/">
               <span className="vf-site-logo text-2xl font-black tracking-tight">
                 <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
@@ -1090,10 +1098,10 @@ export default function HomePage() {
             </Link>
             <p className="mt-3 max-w-xs text-sm text-gray-500">숏폼 크리에이터·광고주 플랫폼 · 가입비 0원 · 4대 플랫폼 동시 배포</p>
           </div>
-          <div className="flex gap-12 text-sm text-gray-500">
+          <div className="flex shrink-0 gap-6 text-[11px] leading-5 text-gray-500">
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-600">크리에이터</p>
-              <div className="space-y-2">
+              <div className="space-y-1.5 whitespace-nowrap">
                 <div><Link href="/signup"               className="hover:text-white transition-colors">크리에이터 가입</Link></div>
                 <div><Link href="/revenue/ai-video"     className="hover:text-white transition-colors">AI 영상 수익</Link></div>
                 <div><Link href="/revenue/distribution" className="hover:text-white transition-colors">배포 수익</Link></div>
@@ -1103,7 +1111,7 @@ export default function HomePage() {
             </div>
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-600">광고주</p>
-              <div className="space-y-2">
+              <div className="space-y-1.5 whitespace-nowrap">
                 <div><Link href="/for-advertisers"         className="hover:text-white transition-colors">광고주 소개</Link></div>
                 <div><Link href="/signup?role=advertiser"  className="hover:text-white transition-colors">광고주 가입</Link></div>
                 <div><Link href="/login"                   className="hover:text-white transition-colors">로그인</Link></div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDb } from "@/lib/db";
+import { creatorSignupFee, signupFeeLabel } from "@/lib/marketing";
 import { getCurrentUser } from "@/lib/auth";
 import { roleHome } from "@/lib/routes";
 import { logoutAction } from "@/lib/actions/auth-actions";
@@ -298,6 +299,9 @@ export default function HomePage() {
   const advertiserCtaHref = dashHref ?? "/for-advertisers";
   const announcement = db.settings.site_announcement;
   const revenueStats = db.settings.site_revenue_stats ?? [];
+  // 가입비 문구는 관리자 정책 설정값을 따른다 (하드코딩 "가입비 0원" 제거)
+  const feeLabel = signupFeeLabel(db.settings);
+  const signupFee = creatorSignupFee(db.settings);
   const myNotifications = currentUser
     ? (db.notifications ?? []).filter((item) => item.recipient_id === currentUser.id).sort((a, b) => b.created_at.localeCompare(a.created_at))
     : [];
@@ -307,7 +311,7 @@ export default function HomePage() {
     { key: "a", label: "글로벌 배포 플랫폼",     value: "4",    suffix: "개"   },
     { key: "b", label: "숏폼 월 시청자",          value: "30억", suffix: "+"   },
     { key: "c", label: "크리에이터 평균 월 수익", value: "148",  suffix: "만원" },
-    { key: "d", label: "기본 가입비",             value: "0",    suffix: "원"   },
+    { key: "d", label: "기본 가입비",             value: signupFee.toLocaleString("ko-KR"), suffix: "원" },
   ];
   const stats = revenueStats.length > 0 ? revenueStats : defaultStats;
 
@@ -375,7 +379,7 @@ export default function HomePage() {
           <p className="mt-8 max-w-xl text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
             AI 영상 제작 · 숏폼 배포 · 추천 수당.<br />
             세 가지 수익 파이프라인이 동시에 작동합니다.<br />
-            가입비 0원, 영상 경험 불필요, 지금 바로 시작하세요.
+            {feeLabel}, 영상 경험 불필요, 지금 바로 시작하세요.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {[
@@ -425,7 +429,7 @@ export default function HomePage() {
             </a>
           </div>
           <div className="mt-14 flex flex-wrap gap-2">
-            {["AI 영상 제작", "YouTube Shorts", "Instagram Reels", "TikTok", "Facebook Reels", "추천 수당", "숏폼 배포", "부업 수익", "가입비 0원"].map((t) => (
+            {["AI 영상 제작", "YouTube Shorts", "Instagram Reels", "TikTok", "Facebook Reels", "추천 수당", "숏폼 배포", "부업 수익", feeLabel].map((t) => (
               <Tag key={t}>{t}</Tag>
             ))}
           </div>
@@ -1078,7 +1082,7 @@ export default function HomePage() {
             오늘이<br /><span style={{ color: "#f59e0b" }}>수익 D+1</span>이<br />됩니다
           </h2>
           <p className="mx-auto mt-6 max-w-md text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
-            가입비 0원 · 영상 경험 불필요 · 오늘 가입하면 이번 달 안에 첫 수익.
+            {feeLabel} · 영상 경험 불필요 · 오늘 가입하면 이번 달 안에 첫 수익.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link href={creatorCtaHref} className="rounded-full px-10 py-4 text-lg font-black text-black transition-all hover:scale-105 active:scale-95" style={{ background: "#f59e0b" }}>
@@ -1096,7 +1100,7 @@ export default function HomePage() {
                 <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
               </span>
             </Link>
-            <p className="mt-3 max-w-xs text-sm text-gray-500">숏폼 크리에이터·광고주 플랫폼 · 가입비 0원 · 4대 플랫폼 동시 배포</p>
+            <p className="mt-3 max-w-xs text-sm text-gray-500">숏폼 크리에이터·광고주 플랫폼 · {feeLabel} · 4대 플랫폼 동시 배포</p>
           </div>
           <div className="flex shrink-0 gap-6 text-[11px] leading-5 text-gray-500">
             <div className="space-y-3">

@@ -4,9 +4,14 @@ import { createHmac, timingSafeEqual } from "crypto";
 // ===========================================================================
 // 세션 = 서명된 쿠키(HMAC). 로컬 모드 전용 Mock Auth.
 // [TODO] Supabase 전환 시 supabase.auth 세션으로 대체.
+//
+// 토큰 형식: <userId>.<sessionVersion>.<issuedAt(base36 ms)>.<hmac-sha256-hex>
+// - 서버에서 발급 시각을 검사해 7일이 지나면 무효 (쿠키 maxAge 와 별개로 서버가 만료를 강제)
+// - 로그아웃·비밀번호 변경 시 회원의 session_version 을 올려 이전에 발급된 모든 토큰을 무효화
 // ===========================================================================
 
 const COOKIE_NAME = "vf_session";
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 // SESSION_SECRET 환경변수 처리
 // - production: 미설정 시 에러 throw
@@ -31,35 +36,49 @@ function getSecret(): string {
   return cachedSecret;
 }
 
-function sign(userId: string): string {
-  const sig = createHmac("sha256", getSecret()).update(userId).digest("hex");
-  return `${userId}.${sig}`;
+function hmac(payload: string): string {
+  return createHmac("sha256", getSecret()).update(payload).digest("hex");
 }
 
-function verify(token: string | undefined): string | null {
+export function signSessionToken(userId: string, version: number, issuedAtMs: number = Date.now()): string {
+  const payload = `${userId}.${Math.max(0, Math.floor(version))}.${issuedAtMs.toString(36)}`;
+  return `${payload}.${hmac(payload)}`;
+}
+
+export interface SessionClaims {
+  userId: string;
+  version: number;
+  issuedAt: number;
+}
+
+export function verifySessionToken(token: string | undefined, nowMs: number = Date.now()): SessionClaims | null {
   if (!token) return null;
-  const idx = token.lastIndexOf(".");
-  if (idx < 0) return null;
-  const userId = token.slice(0, idx);
-  const sig = token.slice(idx + 1);
-  const expected = createHmac("sha256", getSecret()).update(userId).digest("hex");
+  const parts = token.split(".");
+  if (parts.length !== 4) return null;
+  const [userId, versionText, iatText, sig] = parts;
+  if (!userId || !/^\d+$/.test(versionText) || !/^[0-9a-z]+$/.test(iatText) || !/^[0-9a-f]{64}$/.test(sig)) return null;
+  const expected = hmac(`${userId}.${versionText}.${iatText}`);
   try {
     const a = Buffer.from(sig, "hex");
     const b = Buffer.from(expected, "hex");
-    if (a.length !== b.length) return null;
-    return timingSafeEqual(a, b) ? userId : null;
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   } catch {
     return null;
   }
+  const issuedAt = parseInt(iatText, 36);
+  if (!Number.isFinite(issuedAt)) return null;
+  // 서버 측 만료: 발급 후 7일, 미래 시각(시계 조작) 토큰 거부
+  if (nowMs - issuedAt > SESSION_MAX_AGE_SECONDS * 1000 || issuedAt - nowMs > 5 * 60 * 1000) return null;
+  return { userId, version: Number(versionText), issuedAt };
 }
 
-export function setSession(userId: string): void {
-  cookies().set(COOKIE_NAME, sign(userId), {
+export function setSession(userId: string, version = 0): void {
+  cookies().set(COOKIE_NAME, signSessionToken(userId, version), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 }
 
@@ -67,7 +86,12 @@ export function clearSession(): void {
   cookies().delete(COOKIE_NAME);
 }
 
-export function getSessionUserId(): string | null {
+/** 서명·만료가 유효한 세션 정보 (회원의 세션 버전 비교는 auth.ts 에서 한다) */
+export function getSessionClaims(): SessionClaims | null {
   const token = cookies().get(COOKIE_NAME)?.value;
-  return verify(token);
+  return verifySessionToken(token);
+}
+
+export function getSessionUserId(): string | null {
+  return getSessionClaims()?.userId ?? null;
 }

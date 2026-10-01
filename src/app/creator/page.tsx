@@ -7,6 +7,8 @@ import { statusLabel, statusTone, WALLET_TX_TYPE_LABELS } from "@/lib/labels";
 import { displayName } from "@/lib/schema";
 import { startSubscriptionAction } from "@/lib/actions/video-actions";
 import { ReferralCard } from "@/components/referral-card";
+import { aiShortsAccess } from "@/lib/ai/settings";
+import { formatFunny, funnyBalance } from "@/lib/funny";
 import {
   IconFilm, IconMegaphone, IconDollarSign, IconTrendingUp,
   IconCheckCircle, IconBarChart, IconUsers, IconGlobe,
@@ -25,6 +27,8 @@ export default function CreatorDashboard() {
   const user = requireRole("creator");
   const db = getDb();
 
+  const aiShortsOpen = aiShortsAccess(db, user).open;
+  const funny = funnyBalance(db, user.id);
   const w = db.wallets.find((x) => x.user_id === user.id) ?? {
     pending_balance: 0, available_balance: 0, paid_balance: 0,
   };
@@ -101,6 +105,22 @@ export default function CreatorDashboard() {
             <form action={startSubscriptionAction}>
               <SubmitButton>구독하기</SubmitButton>
             </form>
+          </div>
+        </Card>
+      )}
+
+      {/* AI 숏츠 (최고관리자가 켰을 때만) */}
+      {aiShortsOpen && (
+        <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-bold text-gray-900">AI 숏츠 만들기</div>
+              <div className="text-sm text-gray-600">주제만 입력하면 대본·이미지·내레이션·자막까지 AI가 만들어 줍니다. 보유 퍼니 <b className="text-brand-purple">{formatFunny(funny.available)}</b></div>
+            </div>
+            <div className="flex gap-2">
+              <LinkButton href="/creator/funny" variant="outline" size="sm">퍼니 충전</LinkButton>
+              <LinkButton href="/creator/ai-shorts" size="sm">숏츠 만들기</LinkButton>
+            </div>
           </div>
         </Card>
       )}

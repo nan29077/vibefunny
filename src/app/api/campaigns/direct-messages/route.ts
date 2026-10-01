@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 import { getDb, tx } from "@/lib/db";
 import type { CampaignDirectMessage, Database, Profile } from "@/lib/schema";
 import { notifyUser } from "@/lib/services";
@@ -15,8 +15,10 @@ function canAccess(db: Database, user: Profile, participationId: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   const { searchParams } = new URL(req.url);
   const db = getDb();
   let participationId = searchParams.get("participation_id");
@@ -33,8 +35,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   const input = (await req.json().catch(() => ({}))) as { participation_id?: string; content?: string };
   const content = input.content?.trim() ?? "";
   if (!input.participation_id || !content || content.length > 3000) {
@@ -72,8 +76,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   const input = (await req.json().catch(() => ({}))) as { participation_id?: string };
   if (!input.participation_id) return NextResponse.json({ error: "participation_id가 필요합니다." }, { status: 400 });
   const result = tx<{ status: number; body: unknown }>((db) => {

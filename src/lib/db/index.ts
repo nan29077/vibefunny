@@ -8,12 +8,12 @@
 // (src/lib/db.ts 가 이 파일을 배럴 re-export 함)
 // ===========================================================================
 
-export { getDb, saveDb, tx } from "./json-provider";
+export { getDb, peekDb, saveDb, tx } from "./json-provider";
 
 // TODO: DATABASE_TYPE=postgres 전환 시 아래와 같이 교체
 // import { config } from "../config";
 // if (config.database.type === "postgres") {
 //   export { getDb, saveDb, tx } from "./prisma-provider";
 // } else {
-//   export { getDb, saveDb, tx } from "./json-provider";
+//   export { getDb, peekDb, saveDb, tx } from "./json-provider";
 // }

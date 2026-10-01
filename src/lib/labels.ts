@@ -73,6 +73,28 @@ export function statusTone(status: string): BadgeTone {
   return M[status]?.tone ?? "gray";
 }
 
+// 수익 지갑 거래 상태 (영상/결제 상태와 같은 영문 키를 쓰지만 뜻이 다르므로 별도 라벨)
+const WALLET_TX_STATUS: Record<string, LabelDef> = {
+  pending: { label: "지급대기", tone: "yellow" },
+  available: { label: "지급가능", tone: "green" },
+  requested: { label: "출금신청", tone: "blue" },
+  paid: { label: "출금완료", tone: "gray" },
+  cancelled: { label: "취소", tone: "red" },
+};
+// 출금 신청 상태
+const PAYOUT_STATUS: Record<string, LabelDef> = {
+  requested: { label: "출금신청", tone: "yellow" },
+  approved: { label: "승인", tone: "blue" },
+  rejected: { label: "반려", tone: "red" },
+  paid: { label: "지급완료", tone: "green" },
+};
+export function walletTxStatusLabel(status: string): LabelDef {
+  return WALLET_TX_STATUS[status] ?? { label: status, tone: "gray" };
+}
+export function payoutStatusLabel(status: string): LabelDef {
+  return PAYOUT_STATUS[status] ?? { label: status, tone: "gray" };
+}
+
 export const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   video_sale: "영상 판매",
   custom_video: "제작 의뢰",
@@ -98,6 +120,7 @@ export const PAYMENT_TYPE_LABELS: Record<string, string> = {
   video_purchase: "영상 구매",
   custom_video_order: "제작 의뢰",
   point_charge: "포인트 충전",
+  funny_charge: "퍼니 충전",
 };
 
 export const CAMPAIGN_TYPE_LABELS: Record<string, string> = {

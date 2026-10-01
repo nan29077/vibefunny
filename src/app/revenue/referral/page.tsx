@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { getDb } from "@/lib/db";
+import { creatorReferralReward, won } from "@/lib/marketing";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "추천 수당 수익 | VIBEFUNNY",
@@ -52,6 +56,8 @@ function FullBg({
 }
 
 export default function ReferralRevenuePage() {
+  // 수당 예시는 관리자 정책 설정(크리에이터 추천 수당) 기준으로 계산한다
+  const reward = creatorReferralReward(getDb().settings);
   return (
     <div className="vf-marketing vf-revenue-detail">
       {/* dangerouslySetInnerHTML: 템플릿 문자열 텍스트 노드의 서버/클라이언트 하이드레이션 불일치 경고 방지 */}
@@ -104,9 +110,9 @@ export default function ReferralRevenuePage() {
             <p className="mb-4 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>수익 시뮬레이션 (예시)</p>
             <div className="space-y-3">
               {[
-                { n: "10명 추천", earn: "6,000,000원" },
-                { n: "50명 추천", earn: "30,000,000원" },
-                { n: "100명 추천", earn: "60,000,000원+" },
+                { n: "10명 추천", earn: `${won(reward * 10)}원` },
+                { n: "50명 추천", earn: `${won(reward * 50)}원` },
+                { n: "100명 추천", earn: `${won(reward * 100)}원+` },
               ].map((r) => (
                 <div key={r.n} className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.06)" }}>
                   <span className="text-sm font-semibold text-white">{r.n}</span>
@@ -114,7 +120,7 @@ export default function ReferralRevenuePage() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>* 1명당 추천 수당 600,000원 기준 예시입니다. 실제 지급 조건은 운영 정책을 따릅니다.</p>
+            <p className="mt-3 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>* 1명당 추천 수당 {won(reward)}원(현재 정책) 기준 예시입니다. 추천한 친구의 가입비 결제가 완료되어야 지급됩니다.</p>
           </div>
 
           <div className="mt-10 flex flex-wrap gap-4">

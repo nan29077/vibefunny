@@ -7,7 +7,7 @@ export interface NavItem {
   group?: string;
 }
 
-export function navForRole(role: Role, advertiserType?: AdvertiserType | null): NavItem[] {
+export function navForRole(role: Role, advertiserType?: AdvertiserType | null, opts: { aiShorts?: boolean } = {}): NavItem[] {
   switch (role) {
     case "admin":
       return [
@@ -30,16 +30,27 @@ export function navForRole(role: Role, advertiserType?: AdvertiserType | null): 
         { href: "/admin/site", label: "사이트 관리", icon: "IconGlobe" },
         { href: "/admin/vibeporter", label: "바이브포터 연동", icon: "IconLink" },
         { href: "/admin/ai-story", label: "AI스토리 연동", icon: "IconPenLine" },
+        { href: "/admin/ai-shorts", label: "AI 숏츠 설정", icon: "IconZap", group: "AI 숏츠" },
+        { href: "/admin/ai-shorts/providers", label: "AI 공급사·모델", icon: "IconSettings" },
+        { href: "/admin/ai-shorts/jobs", label: "작업 모니터", icon: "IconClipboardList" },
+        { href: "/admin/ai-shorts/funny", label: "퍼니 관리", icon: "IconStar" },
       ];
     case "creator":
       return [
         { href: "/creator", label: "대시보드", icon: "IconDashboard" },
         { href: "/creator/videos", label: "영상판매", icon: "IconFilm", group: "콘텐츠" },
+        // AI 숏츠: 최고관리자 스위치가 켜져 있을 때(또는 이전에 만든 숏츠가 있을 때)만 노출
+        ...(opts.aiShorts
+          ? [
+              { href: "/creator/ai-shorts", label: "AI 숏츠 만들기", icon: "IconZap" },
+              { href: "/creator/funny", label: "퍼니 충전·내역", icon: "IconStar" },
+            ]
+          : []),
         { href: "/creator/campaigns", label: "캠페인", icon: "IconMegaphone", group: "수익" },
         { href: "/creator/requests", label: "영상 제작 의뢰", icon: "IconClipboard" },
         { href: "/creator/notifications", label: "알림", icon: "IconBell" },
         { href: "/creator/shorts-commerce", label: "쇼츠 커머스", icon: "IconShoppingBag" },
-        { href: "/creator/points", label: "포인트 / 출금", icon: "IconGem" },
+        { href: "/creator/points", label: "캠페인 수익 / 출금", icon: "IconGem" },
         { href: "/creator/wallet", label: "수익 현황", icon: "IconWallet" },
         { href: "/creator/community", label: "SNS 맞구독", icon: "IconHeartHandshake", group: "커뮤니티" },
         { href: "/creator/social", label: "내 SNS 계정", icon: "IconLink", group: "계정" },

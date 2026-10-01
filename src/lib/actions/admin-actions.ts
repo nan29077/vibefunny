@@ -21,6 +21,8 @@ export async function updateFeesAction(fd: FormData): Promise<void> {
   const roles: Role[] = ["creator", "advertiser"];
   tx((db) => {
     for (const role of roles) {
+      // 화면에 그 역할의 입력칸이 없으면 기존 값을 그대로 둔다 (빈 값이 0원으로 저장되던 문제 방지)
+      if (!fd.has(`${role}_referral_amount`)) continue;
       const f = db.settings.fees[role];
       // 광고주는 가입비 항목 미사용
       if (role === "creator") {

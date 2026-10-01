@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 import { tx } from "@/lib/db";
 import { notifyUser } from "@/lib/services";
+import { isOwnPrivateFileOrExternal } from "@/lib/campaign-workflow";
 
 function isHttpUrl(value: string): boolean {
   if (/^\/api\/files\/[0-9a-f-]{36}$/.test(value)) return true;
@@ -18,8 +19,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   if (user.role !== "creator") return NextResponse.json({ error: "크리에이터 권한이 필요합니다." }, { status: 403 });
 
   const input = (await req.json().catch(() => ({}))) as { video_url?: string; message?: string };
@@ -34,6 +37,10 @@ export async function POST(
     }
     if (!["in_progress", "revision_requested"].includes(request.status)) {
       return { status: 409, body: { error: "진행 중이거나 수정 요청된 의뢰만 제출할 수 있습니다." } };
+    }
+    // 남의 비공개 파일을 결과물로 지정해 열람 권한을 얻는 것을 막는다
+    if (!isOwnPrivateFileOrExternal(db, videoUrl, user.id)) {
+      return { status: 403, body: { error: "본인이 업로드한 파일만 제출할 수 있습니다." } };
     }
 
     request.submitted_video_url = videoUrl;

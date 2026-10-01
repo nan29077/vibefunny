@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 
 // AI스토리 프로젝트의 data/story_requests.json 을 공유 파일로 사용.
 // 배포 환경에서는 AI_STORY_REQUESTS_FILE 환경변수로 경로를 지정한다 (미지정 시 로컬 개발용 기본 경로).
@@ -11,14 +11,13 @@ const DATA_FILE = process.env.AI_STORY_REQUESTS_FILE
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   // 인증: 로그인 필수
-  const user = getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
-  }
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   if (user.role !== "creator" && user.role !== "admin") return NextResponse.json({ error: "접근 권한이 없습니다." }, { status: 403 });
 
   const { id } = params;
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   try {
     const raw = await fs.readFile(DATA_FILE, "utf-8");
     const data = JSON.parse(raw);

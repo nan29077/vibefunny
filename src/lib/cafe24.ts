@@ -1,4 +1,5 @@
 import type { Cafe24Settings, Product } from "./schema";
+import { decryptSensitive } from "./crypto";
 
 // ===========================================================================
 // 카페24 Open API 연동 어댑터 (mock / real)
@@ -88,7 +89,7 @@ export async function cafe24CreateProduct(
     const res = await fetch(base, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${s.access_token}`,
+        Authorization: `Bearer ${decryptSensitive(s.access_token)}`,
         "Content-Type": "application/json",
         "X-Cafe24-Api-Version": s.api_version || "2024-06-01",
       },

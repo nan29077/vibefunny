@@ -6,6 +6,7 @@ import { getCurrentUser } from "../auth";
 import { getPaymentProvider } from "../payment/provider";
 import { applyPaymentEffects } from "../payment/effects";
 import { audit } from "../services";
+import { aiShortsAccess } from "../ai/settings";
 
 const now = () => new Date().toISOString();
 
@@ -27,6 +28,20 @@ export async function confirmPaymentAction(formData: FormData): Promise<void> {
   // 본인 결제만 처리 (관리자 제외)
   if (payment0.user_id !== user.id && user.role !== "admin") return;
   if (payment0.status !== "pending") return;
+
+  // 퍼니 충전: AI 숏츠 스위치가 꺼졌으면(또는 대상이 아니면) 실제 결제 승인 전에 취소한다
+  const owner = db0.profiles.find((p) => p.id === payment0.user_id) ?? null;
+  if (payment0.payment_type === "funny_charge" && !aiShortsAccess(db0, owner).open) {
+    tx((db) => {
+      const payment = db.payments.find((p) => p.id === paymentId);
+      if (!payment || payment.status !== "pending") return;
+      payment.status = "cancelled";
+      payment.metadata_json = { ...payment.metadata_json, cancel_reason: "ai_shorts_closed" };
+      audit(db, { actorId: user.id, action: "funny_charge_blocked", targetTable: "payments", targetId: payment.id });
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
 
   // 프로바이더 승인 시도 (Mock)
   const provider = getPaymentProvider();

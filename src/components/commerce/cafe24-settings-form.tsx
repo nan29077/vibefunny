@@ -8,9 +8,12 @@ import type { Cafe24Settings } from "@/lib/schema";
 
 export function Cafe24SettingsForm({
   settings,
+  secretHints,
   defaultCommission,
 }: {
+  /** 비밀값(client_secret·토큰)은 빈 값으로 넘어온다 — 화면 HTML 에 비밀값을 싣지 않기 위함 */
   settings: Cafe24Settings;
+  secretHints: { client_secret: string; access_token: string; refresh_token: string };
   defaultCommission: number;
 }) {
   const [state, action] = useFormState(saveCafe24SettingsAction, initialActionState);
@@ -40,14 +43,29 @@ export function Cafe24SettingsForm({
           <Field label="Client ID">
             <Input name="client_id" defaultValue={settings.client_id} placeholder="앱 Client ID" />
           </Field>
-          <Field label="Client Secret">
-            <Input name="client_secret" type="password" defaultValue={settings.client_secret} placeholder="앱 Client Secret" />
+          <Field label="Client Secret" hint={secretHints.client_secret ? `저장됨 ${secretHints.client_secret} · 변경할 때만 입력` : "미입력"}>
+            <Input name="client_secret" type="password" autoComplete="off" placeholder={secretHints.client_secret ? "변경할 때만 입력" : "앱 Client Secret"} />
+            {secretHints.client_secret && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                <input type="checkbox" name="clear_client_secret" className="h-3.5 w-3.5 rounded border-gray-300" /> 저장된 값 삭제
+              </label>
+            )}
           </Field>
-          <Field label="Access Token">
-            <Input name="access_token" type="password" defaultValue={settings.access_token} placeholder="OAuth Access Token" />
+          <Field label="Access Token" hint={secretHints.access_token ? `저장됨 ${secretHints.access_token} · 변경할 때만 입력` : "미입력"}>
+            <Input name="access_token" type="password" autoComplete="off" placeholder={secretHints.access_token ? "변경할 때만 입력" : "OAuth Access Token"} />
+            {secretHints.access_token && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                <input type="checkbox" name="clear_access_token" className="h-3.5 w-3.5 rounded border-gray-300" /> 저장된 값 삭제
+              </label>
+            )}
           </Field>
-          <Field label="Refresh Token">
-            <Input name="refresh_token" type="password" defaultValue={settings.refresh_token} placeholder="OAuth Refresh Token" />
+          <Field label="Refresh Token" hint={secretHints.refresh_token ? `저장됨 ${secretHints.refresh_token} · 변경할 때만 입력` : "미입력"}>
+            <Input name="refresh_token" type="password" autoComplete="off" placeholder={secretHints.refresh_token ? "변경할 때만 입력" : "OAuth Refresh Token"} />
+            {secretHints.refresh_token && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                <input type="checkbox" name="clear_refresh_token" className="h-3.5 w-3.5 rounded border-gray-300" /> 저장된 값 삭제
+              </label>
+            )}
           </Field>
           <Field label="쇼핑몰 번호 (shop_no)">
             <Input type="number" name="shop_no" min={1} defaultValue={settings.shop_no || 1} />

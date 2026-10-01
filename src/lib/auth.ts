@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDb } from "./db";
-import { getSessionUserId } from "./session";
+import { getSessionClaims } from "./session";
 import type { Profile, Role } from "./schema";
 
 // ===========================================================================
@@ -9,11 +9,13 @@ import type { Profile, Role } from "./schema";
 
 /** 현재 로그인 사용자 (없으면 null) */
 export function getCurrentUser(): Profile | null {
-  const uid = getSessionUserId();
-  if (!uid) return null;
+  const claims = getSessionClaims();
+  if (!claims) return null;
   const db = getDb();
-  const user = db.profiles.find((p) => p.id === uid) ?? null;
+  const user = db.profiles.find((p) => p.id === claims.userId) ?? null;
   if (!user || user.status === "suspended" || user.status === "withdrawn") return null;
+  // 로그아웃·비밀번호 변경 이후 발급 전 토큰은 무효
+  if ((user.session_version ?? 0) !== claims.version) return null;
   return user;
 }
 

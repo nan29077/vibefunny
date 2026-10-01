@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { getDb } from "@/lib/db";
+import { signupFeeLabel, won } from "@/lib/marketing";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "숏폼 배포 수익 | VIBEFUNNY",
@@ -58,13 +62,6 @@ const STEPS = [
   { n: "04", title: "수익 자동 적립", desc: "검증이 완료되면 건당 고정 단가가 지갑에 즉시 적립됩니다. 출금은 언제든 신청 가능합니다." },
 ];
 
-const INCOME_TABLE = [
-  { platform: "YouTube Shorts", unit: "1회 배포", min: "2,000", max: "8,000", note: "채널 규모에 따라 상이" },
-  { platform: "Instagram Reels", unit: "1회 배포", min: "2,000", max: "8,000", note: "릴스 커버리지 기준" },
-  { platform: "TikTok", unit: "1회 배포", min: "2,000", max: "6,000", note: "국내 계정 기준" },
-  { platform: "Facebook Reels", unit: "1회 배포", min: "2,000", max: "7,000", note: "메타 플랫폼 기준" },
-  { platform: "4개 동시 배포", unit: "1세트", min: "8,000", max: "29,000", note: "세트 할인 적용" },
-];
 
 function FullBg({
   src,
@@ -92,6 +89,10 @@ function FullBg({
 }
 
 export default function DistributionRevenuePage() {
+  // 배포 단가·가입비는 관리자 정책 설정값을 그대로 보여 준다
+  const settings = getDb().settings;
+  const feeLabel = signupFeeLabel(settings);
+  const rates = (settings.distribution_rates ?? []).filter((r) => r.creator_payout > 0);
   return (
     <div className="vf-marketing vf-revenue-detail">
       <style>{`
@@ -233,26 +234,27 @@ export default function DistributionRevenuePage() {
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-600">Earnings</p>
             <h2 className="text-4xl font-black text-white md:text-5xl">예상 배포 수익</h2>
             <p className="mx-auto mt-4 max-w-md text-base text-gray-500">
-              플랫폼별·캠페인별로 단가가 다릅니다. 아래는 참고용 범위입니다.
+              플랫폼별 1회 배포 단가입니다. (현재 운영 정책 기준)
             </p>
           </div>
           <div className="overflow-hidden rounded-2xl border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-            <div className="grid grid-cols-4 px-6 py-3 text-xs font-black uppercase tracking-widest text-gray-500" style={{ background: "rgba(255,255,255,0.06)" }}>
-              <span>배포 방식</span>
+            <div className="grid grid-cols-3 px-6 py-3 text-xs font-black uppercase tracking-widest text-gray-500" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <span>배포 플랫폼</span>
               <span className="text-center">단위</span>
-              <span className="text-center">최소</span>
-              <span className="text-right">최대</span>
+              <span className="text-right">크리에이터 수익</span>
             </div>
-            {INCOME_TABLE.map((row, i) => (
+            {rates.length === 0 && (
+              <div className="px-6 py-6 text-center text-sm text-gray-500">단가는 캠페인별로 안내됩니다.</div>
+            )}
+            {rates.map((row, i) => (
               <div
                 key={row.platform}
-                className="grid grid-cols-4 px-6 py-4 text-sm"
+                className="grid grid-cols-3 px-6 py-4 text-sm"
                 style={{ background: i % 2 === 0 ? "rgba(255,255,255,0.03)" : "transparent", borderTop: "1px solid rgba(255,255,255,0.04)" }}
               >
-                <span className="font-bold text-white">{row.platform}</span>
-                <span className="text-center text-gray-400">{row.unit}</span>
-                <span className="text-center font-medium" style={{ color: "#f59e0b" }}>₩{row.min}</span>
-                <span className="text-right font-medium text-white">₩{row.max}</span>
+                <span className="font-bold text-white">{row.label}</span>
+                <span className="text-center text-gray-400">1회 배포</span>
+                <span className="text-right font-medium" style={{ color: "#f59e0b" }}>₩{won(row.creator_payout)}</span>
               </div>
             ))}
           </div>
@@ -268,7 +270,7 @@ export default function DistributionRevenuePage() {
             내 채널이<br /><span style={{ color: "#f59e0b" }}>수익 파이프라인</span><br />이 됩니다
           </h2>
           <p className="mx-auto mt-6 max-w-md text-lg" style={{ color: "rgba(255,255,255,0.55)" }}>
-            구독자 수 무관 · 가입비 0원 · 건당 고정 수익
+            구독자 수 무관 · {feeLabel} · 건당 고정 수익
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link href="/signup" className="rounded-full px-8 py-4 text-base font-black text-black hover:scale-105 transition-all" style={{ background: "#f59e0b" }}>

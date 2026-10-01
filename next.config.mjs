@@ -14,17 +14,21 @@ const nextConfig = {
   },
 
   images: {
-    formats: ["image/avif", "image/webp"],
+    // 보안: 외부 임의 주소 이미지 최적화(열린 프록시) 차단. next/image 는 사이트 내부 이미지(/images/...)만 사용한다.
+    // AVIF 인코딩 경로의 알려진 취약점을 피하기 위해 webp 만 사용한다.
+    formats: ["image/webp"],
     minimumCacheTTL: 60,
-    remotePatterns: [
-      { protocol: "https", hostname: "**" },
-    ],
+    remotePatterns: [],
   },
 
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    // AI 숏츠 작업 엔진(백그라운드 처리)을 서버 시작 시 함께 띄운다 (src/instrumentation.ts)
+    instrumentationHook: true,
+    // ffmpeg 실행 파일 경로를 런타임에 찾으므로 번들에서 제외한다
+    serverComponentsExternalPackages: ["ffmpeg-static"],
   },
 
   webpack: (config, { dev }) => {
@@ -41,6 +45,9 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // 브라우저가 항상 https 로 접속하도록 (http 로컬 개발에서는 브라우저가 무시함)
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
       {

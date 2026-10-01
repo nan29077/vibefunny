@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 
 export async function GET() {
   // 인증: admin 역할 필수
-  const user = getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
-  }
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   if (user.role !== "admin") {
     return NextResponse.json({ error: "관리자 권한이 필요합니다" }, { status: 403 });
   }

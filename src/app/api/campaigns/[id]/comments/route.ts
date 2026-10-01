@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 import { getDb, tx } from "@/lib/db";
 import { audit, notifyUser } from "@/lib/services";
 import { campaignLinkFor, canCreatorViewCampaign } from "@/lib/campaign-workflow";
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   const db = getDb();
   const campaign = db.ad_campaigns.find((item) => item.id === params.id);
   if (!campaign) return NextResponse.json({ error: "캠페인을 찾을 수 없습니다." }, { status: 404 });
@@ -18,8 +20,10 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   const input = (await req.json().catch(() => ({}))) as { content?: string };
   const content = input.content?.trim() ?? "";
   if (!content || content.length > 3000) return NextResponse.json({ error: "댓글은 1~3000자여야 합니다." }, { status: 400 });

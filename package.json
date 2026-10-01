@@ -12,16 +12,20 @@
     "audit:ledgers": "node ./scripts/reconcile-ledgers.mjs",
     "audit:ledgers:repair": "node ./scripts/reconcile-ledgers.mjs --apply",
     "test": "node --test ./scripts/tests/security-regression.test.mjs",
-    "seed:reset": "node ./scripts/reset-db.mjs"
+    "seed:reset": "node ./scripts/reset-db.mjs",
+    "admin:create": "node ./scripts/admin-create.mjs",
+    "migrate:security": "node ./scripts/migrate-2026-10-security.mjs"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "clsx": "^2.1.1",
+    "ffmpeg-static": "^5.3.0",
+    "lucide-react": "^0.400.0",
+    "nanoid": "^3.3.19",
+    "next": "14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zod": "^3.23.8",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.4.0",
-    "lucide-react": "^0.400.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

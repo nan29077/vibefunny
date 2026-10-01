@@ -140,6 +140,19 @@ export function privateFileIdOf(url: string | null | undefined): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * 제출하려는 주소가 비공개 파일(/api/files/<id>)이면, 그 파일이 제출자 본인의 것인지 확인한다.
+ * 외부 http(s) 주소는 true. 남의 파일·존재하지 않는 파일은 false.
+ * (제출물 주소에 연결되면 상대방에게 열람 권한이 생기므로 반드시 확인해야 한다)
+ */
+export function isOwnPrivateFileOrExternal(db: Database, url: string, userId: string): boolean {
+  if (!/^\/api\/files\//.test(url)) return true;
+  const fileId = privateFileIdOf(url);
+  if (!fileId) return false;
+  const file = (db.private_files ?? []).find((item) => item.id === fileId);
+  return !!file && file.owner_id === userId;
+}
+
 // --- 참여 신청 ------------------------------------------------------------------
 
 export function joinParticipation(

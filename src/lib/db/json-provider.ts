@@ -8,11 +8,14 @@
 import fs from "fs";
 import path from "path";
 import type { Database, AdCampaign } from "../schema";
-import { seedDatabase, seedProductCategories, seedDemoProducts, seedDemoOrders, defaultCafe24Settings, defaultAiStorySettings } from "../seed";
+import { seedDatabase, createProductionDatabase, seedProductCategories, seedDemoProducts, seedDemoOrders, defaultCafe24Settings, defaultAiStorySettings } from "../seed";
 import { syncAllCampaignVideos } from "../distribution";
 import { profileAvatarForSeed, randomProfileAvatar } from "../profile-avatars";
 
 const PROFILE_CHARACTER_MIGRATION_VERSION = 2;
+
+/** 운영 모드: 데모 시드·더미 데이터 주입을 하지 않는다. */
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 /**
  * 누락된 컬렉션/설정을 채운다 (구버전 db.json 마이그레이션). @returns 변경 여부
@@ -22,14 +25,14 @@ function ensureCommerceCollections(db: Database): boolean {
   if (!db.product_categories) { db.product_categories = seedProductCategories(); dirty = true; }
   if (!db.products) {
     const adminId = db.profiles?.find((p) => p.role === "admin")?.id ?? "admin";
-    db.products = seedDemoProducts(db.product_categories, adminId);
+    db.products = IS_PRODUCTION ? [] : seedDemoProducts(db.product_categories, adminId);
     dirty = true;
   }
   if (!db.creator_youtube_channels) { db.creator_youtube_channels = []; dirty = true; }
   if (!db.creator_shorts_links) { db.creator_shorts_links = []; dirty = true; }
   if (!db.product_orders) {
     const creator = db.profiles?.find((p) => p.role === "creator");
-    db.product_orders = creator
+    db.product_orders = creator && !IS_PRODUCTION
       ? seedDemoOrders(db.products ?? [], creator.id, creator.name)
       : [];
     dirty = true;
@@ -65,6 +68,16 @@ function ensureCommerceCollections(db: Database): boolean {
     }
   }
   return dirty;
+}
+
+/** AI 숏츠·퍼니 컬렉션 (구버전 db.json 호환) */
+function ensureAiCollections(db: Database): void {
+  if (!db.ai_providers) db.ai_providers = [];
+  if (!db.ai_models) db.ai_models = [];
+  if (!db.ai_jobs) db.ai_jobs = [];
+  if (!db.shorts_projects) db.shorts_projects = [];
+  if (!db.funny_wallets) db.funny_wallets = [];
+  if (!db.funny_transactions) db.funny_transactions = [];
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -174,8 +187,24 @@ function extraDummyCampaigns(): AdCampaign[] {
 function ensureFile(): void {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DB_PATH)) {
-    const seeded = seedDatabase();
-    fs.writeFileSync(DB_PATH, JSON.stringify(seeded, null, 2), "utf-8");
+    // 운영: 데모 계정(공개된 비밀번호) 없이 빈 DB + 환경변수로 지정한 최고관리자 1명만 만든다.
+    // 개발: 기존처럼 데모 시드 데이터로 채운다.
+    const initial = IS_PRODUCTION
+      ? createProductionDatabase({
+          adminEmail: process.env.ADMIN_EMAIL,
+          adminPassword: process.env.ADMIN_PASSWORD,
+          adminName: process.env.ADMIN_NAME,
+        })
+      : seedDatabase();
+    if (IS_PRODUCTION && initial.profiles.length === 0) {
+      console.warn("[db] 운영 DB를 새로 만들었지만 ADMIN_EMAIL/ADMIN_PASSWORD 가 없어 관리자 계정이 없습니다. `npm run admin:create` 로 관리자를 만드세요.");
+    }
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(initial, null, 2), { encoding: "utf-8", flag: "wx" });
+    } catch (error) {
+      // 다른 프로세스가 먼저 만든 경우는 정상
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
   }
 }
 
@@ -197,6 +226,7 @@ export function getDb(): Database {
     if (!db.notifications) db.notifications = [];
     if (!db.private_files) db.private_files = [];
     if (!db.audit_logs) db.audit_logs = [];
+    ensureAiCollections(db);
     const __commerceDirty = ensureCommerceCollections(db);
     if (!db.settings.member_video_sale_price_tiers || db.settings.member_video_sale_price_tiers.length === 0) {
       db.settings.member_video_sale_price_tiers = [
@@ -246,9 +276,11 @@ export function getDb(): Database {
           }
         }
       }
-      const ids = new Set(db.ad_campaigns.map((c) => c.id));
-      for (const extra of extraDummyCampaigns()) {
-        if (!ids.has(extra.id)) { db.ad_campaigns.push(extra); __campDirty = true; }
+      if (!IS_PRODUCTION) {
+        const ids = new Set(db.ad_campaigns.map((c) => c.id));
+        for (const extra of extraDummyCampaigns()) {
+          if (!ids.has(extra.id)) { db.ad_campaigns.push(extra); __campDirty = true; }
+        }
       }
     }
     // 배포용 영상 풀(campaign_videos) 백필 (제작 승인분 / 레거시 단일 영상)
@@ -269,6 +301,16 @@ export function getDb(): Database {
   }
 }
 
+/** 마이그레이션 없이 파일만 읽는다 (백그라운드 작업 엔진의 잦은 상태 확인용) */
+export function peekDb(): Database {
+  ensureFile();
+  try {
+    return JSON.parse(fs.readFileSync(DB_PATH, "utf-8")) as Database;
+  } catch {
+    return getDb();
+  }
+}
+
 /** DB 스냅샷을 디스크에 저장한다. */
 export function saveDb(db: Database): void {
   withDbLock(() => atomicWriteDb(db));
@@ -283,6 +325,7 @@ export function tx<T>(mutator: (db: Database) => T): T {
     if (!db.campaign_favorites) db.campaign_favorites = [];
     if (!db.notifications) db.notifications = [];
     if (!db.private_files) db.private_files = [];
+    ensureAiCollections(db);
     const result = mutator(db);
     atomicWriteDb(db);
     return result;

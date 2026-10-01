@@ -6,4 +6,4 @@
 //   - db/types.ts          : 공통 타입 정의
 // ===========================================================================
 
-export { getDb, saveDb, tx } from "./db/index";
+export { getDb, peekDb, saveDb, tx } from "./db/index";

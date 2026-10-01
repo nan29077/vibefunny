@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { storage } from "@/lib/storage";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   const db = getDb();
   const file = (db.private_files ?? []).find((item) => item.id === params.id);
   if (!file) return NextResponse.json({ error: "파일을 찾을 수 없습니다." }, { status: 404 });

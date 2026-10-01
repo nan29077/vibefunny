@@ -1,9 +1,9 @@
 import { getDb } from "@/lib/db";
-import { Card, PageHeader, Table, Th, Td, StatusBadge, EmptyState, Badge } from "@/components/ui";
+import { Card, PageHeader, Table, Th, Td, EmptyState, Badge } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
-import { WALLET_TX_TYPE_LABELS } from "@/lib/labels";
+import { WALLET_TX_TYPE_LABELS, payoutStatusLabel } from "@/lib/labels";
 import { processPayoutAction, releaseWalletTxAction, clearSsnAction } from "@/lib/actions/admin-actions";
 import { decryptSensitive } from "@/lib/crypto";
 import { requireAdmin } from "@/lib/auth";
@@ -93,7 +93,7 @@ export default function AdminPayoutsPage({
                     )}
                   </Td>
                   <Td>
-                    <StatusBadge status={p.status} />
+                    <Badge tone={payoutStatusLabel(p.status).tone}>{payoutStatusLabel(p.status).label}</Badge>
                     {["requested", "approved", "paid"].includes(p.status) &&
                       !db.wallet_transactions.some((t) => t.type === "payout" && t.related_table === "payout_requests" && t.related_id === p.id && t.status !== "cancelled") && (
                         <div className="mt-1 text-[11px] font-semibold text-red-600">원장 누락 · 데이터 보정 필요</div>

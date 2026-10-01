@@ -4,13 +4,20 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { tx, getDb } from "../db";
 import { genId, genReferralCode, hashPassword, verifyPassword } from "../crypto";
-import { setSession, clearSession } from "../session";
+import { setSession, clearSession, getSessionUserId } from "../session";
 import { audit } from "../services";
 import type { AdvertiserType, Payment, Profile, Role } from "../schema";
 import type { ActionState } from "@/components/form";
 import { roleHome } from "../routes";
 import { randomProfileAvatar } from "../profile-avatars";
 import { normalizeEmail } from "../email-verification";
+import { clientIp, formatWait, rateLimit, recordHit, resetRateLimit } from "../rate-limit";
+
+// 운영 환경에서 공개된 예시 비밀번호로는 로그인할 수 없다 (데모 계정 악용 방지)
+const PUBLIC_DEMO_PASSWORDS = new Set(["Admin1234!", "Test1234!"]);
+const LOGIN_FAIL_LIMIT = 5; // 같은 이메일 15분에 5회 실패 시 잠금
+const LOGIN_IP_LIMIT = 30; // 같은 IP 15분에 30회 시도
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 const now = () => new Date().toISOString();
 
@@ -207,7 +214,7 @@ export async function signupAction(
       after: { role, advertiserType },
     });
 
-    setSession(user.id);
+    setSession(user.id, user.session_version ?? 0);
     redirectTo = needsSignupFee ? "/payment/activate" : roleHome(role);
     return { ok: true };
   });
@@ -228,11 +235,32 @@ export async function loginAction(
     return { ok: false, message: "이메일과 비밀번호를 입력하세요." };
   }
 
+  // 횟수 제한: IP 단위 시도 횟수 + 이메일 단위 실패 횟수
+  const ip = clientIp();
+  const ipWait = rateLimit(`login-ip:${ip}`, LOGIN_IP_LIMIT, LOGIN_WINDOW_MS);
+  if (ipWait > 0) {
+    return { ok: false, message: `로그인 시도가 너무 많습니다. ${formatWait(ipWait)} 후 다시 시도하세요.` };
+  }
+  // 같은 IP+이메일 5회 실패 시 잠금, 이메일 전체(여러 IP 합산) 30회 실패 시 잠금
+  // (이메일만으로 잠그면 남이 일부러 틀려 관리자 계정을 계속 잠글 수 있음)
+  const failKey = `login-fail:${email}:${ip}`;
+  const failAllKey = `login-fail-all:${email}`;
+  const lockWait = rateLimit(failKey, LOGIN_FAIL_LIMIT, LOGIN_WINDOW_MS, false) || rateLimit(failAllKey, LOGIN_FAIL_LIMIT * 6, LOGIN_WINDOW_MS, false);
+  if (lockWait > 0) {
+    return { ok: false, message: `비밀번호를 여러 번 틀려 잠시 로그인이 제한되었습니다. ${formatWait(lockWait)} 후 다시 시도하세요.` };
+  }
+
   const db = getDb();
   const user = db.profiles.find((p) => p.email === email);
   if (!user || !verifyPassword(password, user.password_hash)) {
+    recordHit(failKey);
+    recordHit(failAllKey);
     return { ok: false, message: "이메일 또는 비밀번호가 올바르지 않습니다." };
   }
+  if (process.env.NODE_ENV === "production" && PUBLIC_DEMO_PASSWORDS.has(password)) {
+    return { ok: false, message: "공개된 예시 비밀번호는 사용할 수 없습니다. 관리자에게 비밀번호 재설정을 요청하세요." };
+  }
+  resetRateLimit(failKey);
   if (user.status === "withdrawn") {
     return { ok: false, message: "탈퇴한 계정입니다." };
   }
@@ -240,13 +268,25 @@ export async function loginAction(
     return { ok: false, message: "정지된 계정입니다. 관리자에게 문의하세요." };
   }
 
-  setSession(user.id);
+  setSession(user.id, user.session_version ?? 0);
   if (user.status === "pending") redirect("/payment/activate");
   redirect(roleHome(user.role));
 }
 
 // --- 로그아웃 -----------------------------------------------------------
 export async function logoutAction(): Promise<void> {
+  // 세션 버전을 올려 이 계정으로 발급된 기존 세션 토큰(탈취된 쿠키 포함)을 모두 무효화한다.
+  const userId = getSessionUserId();
+  if (userId) {
+    try {
+      tx((db) => {
+        const user = db.profiles.find((p) => p.id === userId);
+        if (user) user.session_version = (user.session_version ?? 0) + 1;
+      });
+    } catch {
+      /* 로그아웃 자체는 계속 진행 */
+    }
+  }
   clearSession();
   redirect("/login");
 }
@@ -257,7 +297,7 @@ async function loginAs(email: string): Promise<void> {
   const db = getDb();
   const user = db.profiles.find((p) => p.email === email);
   if (!user) return;
-  setSession(user.id);
+  setSession(user.id, user.session_version ?? 0);
   redirect(roleHome(user.role));
 }
 

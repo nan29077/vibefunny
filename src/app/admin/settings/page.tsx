@@ -18,7 +18,7 @@ export default function AdminSettingsPage() {
   requireAdmin();
   const db = getDb();
   const s = db.settings;
-  const roles: Role[] = ["creator"];
+  const roles: Role[] = ["creator", "advertiser"];
 
   return (
     <div className="space-y-6">
@@ -93,8 +93,8 @@ export default function AdminSettingsPage() {
 
       {/* 크리에이터 가입비 · 구독료 · 추천 수당 */}
       <Card>
-        <h2 className="text-lg font-bold text-gray-900">크리에이터 가입비 · 구독료 · 추천 수당</h2>
-        <p className="mt-1 mb-4 text-sm text-gray-500">크리에이터 가입비, 구독료, 추천인 고정 수당을 설정합니다.</p>
+        <h2 className="text-lg font-bold text-gray-900">가입비 · 구독료 · 추천 수당</h2>
+        <p className="mt-1 mb-4 text-sm text-gray-500">크리에이터 가입비·구독료와 역할별 추천인 고정 수당을 설정합니다. (광고주는 가입비 없음)</p>
         <form action={updateFeesAction} className="space-y-5">
           {roles.map((role) => {
             const f = s.fees[role];

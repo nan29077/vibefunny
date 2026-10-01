@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { tx } from "../db";
 import { requireUser } from "../auth";
 import { hashPassword, verifyPassword } from "../crypto";
+import { setSession } from "../session";
 import { audit } from "../services";
 import type { ActionState } from "@/components/form";
 import type { NotificationCategory } from "../schema";
@@ -73,6 +74,7 @@ export async function changePasswordAction(
   if (next !== confirm) return { ok: false, message: "새 비밀번호 확인이 일치하지 않습니다." };
 
   let outcome: ActionState = { ok: false };
+  let newVersion: number | null = null;
   tx((db) => {
     const p = db.profiles.find((x) => x.id === user.id);
     if (!p) {
@@ -84,10 +86,14 @@ export async function changePasswordAction(
       return;
     }
     p.password_hash = hashPassword(next);
+    // 다른 기기(탈취된 쿠키 포함)의 세션은 모두 끊고, 지금 기기만 새 토큰으로 유지한다.
+    p.session_version = (p.session_version ?? 0) + 1;
     p.updated_at = now();
+    newVersion = p.session_version;
     audit(db, { actorId: user.id, action: "change_password", targetTable: "profiles", targetId: user.id });
-    outcome = { ok: true, message: "비밀번호가 변경되었습니다." };
+    outcome = { ok: true, message: "비밀번호가 변경되었습니다. 다른 기기에서는 다시 로그인해야 합니다." };
   });
+  if (newVersion !== null) setSession(user.id, newVersion);
   revalidatePath("/creator/settings");
   return outcome;
 }

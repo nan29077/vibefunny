@@ -89,5 +89,54 @@ test("ledger snapshot is reconciled and contains no duplicate rewards", () => {
   const result = spawnSync(process.execPath, ["scripts/reconcile-ledgers.mjs"], { cwd: root, encoding: "utf8" });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const report = JSON.parse(result.stdout);
-  assert.deepEqual(report.summary, { wallet_mismatches: 0, point_mismatches: 0, duplicate_reward_groups: 0, payout_link_issues: 0 });
+  assert.deepEqual(report.summary, { wallet_mismatches: 0, point_mismatches: 0, duplicate_reward_groups: 0, payout_link_issues: 0, funny_mismatches: 0, funny_charge_issues: 0 });
+});
+
+// --- 2026-10 보안 수정 회귀 테스트 ---------------------------------------------
+
+test("production first run never creates demo accounts", () => {
+  const source = read("src/lib/db/json-provider.ts");
+  assert.match(source, /IS_PRODUCTION\s*\?\s*createProductionDatabase/);
+  assert.match(read("src/lib/seed.ts"), /export function createProductionDatabase/);
+  assert.doesNotMatch(read("README.md"), /Admin1234!/);
+});
+
+test("custom request delivery cannot attach someone else's private file", () => {
+  assert.match(read("src/app/api/creator/requests/[id]/submit/route.ts"), /isOwnPrivateFileOrExternal\(db, videoUrl, user\.id\)/);
+  assert.match(read("src/lib/actions/request-actions.ts"), /isOwnPrivateFileOrExternal\(db, videoUrl, user\.id\)/);
+});
+
+test("session tokens carry a version and server-side expiry", () => {
+  const session = read("src/lib/session.ts");
+  assert.match(session, /SESSION_MAX_AGE_SECONDS \* 1000/);
+  assert.match(read("src/lib/auth.ts"), /session_version \?\? 0\) !== claims\.version/);
+  assert.match(read("src/lib/actions/auth-actions.ts"), /session_version = \(user\.session_version \?\? 0\) \+ 1/);
+});
+
+test("login and verification email are rate limited", () => {
+  assert.match(read("src/lib/actions/auth-actions.ts"), /rateLimit\(`login-ip:/);
+  assert.match(read("src/app/api/auth/email-verification/send/route.ts"), /rateLimit\(`email-send-ip10m:/);
+});
+
+test("pending accounts cannot use upload / file APIs", () => {
+  for (const file of ["src/app/api/creator/requests/upload/route.ts", "src/app/api/files/[id]/route.ts", "src/app/api/campaigns/direct-messages/route.ts"]) {
+    assert.match(read(file), /authorizeApi\(/, file);
+  }
+});
+
+test("integration secrets are encrypted and never sent back to the browser", () => {
+  assert.match(read("src/lib/actions/commerce-actions.ts"), /keepOrReplaceSecret\(fd, "access_token"/);
+  assert.match(read("src/app/admin/products/cafe24/page.tsx"), /access_token: ""/);
+  assert.doesNotMatch(read("src/components/commerce/ai-story-settings-form.tsx"), /defaultValue=\{settings\.api_key\}/);
+});
+
+test("saving fee policy keeps roles that are not on the form", () => {
+  assert.match(read("src/lib/actions/admin-actions.ts"), /if \(!fd\.has\(`\$\{role\}_referral_amount`\)\) continue;/);
+});
+
+test("AI shorts: closed switch blocks new jobs and funny charging, AI keys are encrypted", () => {
+  assert.match(read("src/lib/ai/engine.ts"), /if \(!access\.open && !opts\.allowWhenClosed\) throw/);
+  assert.match(read("src/lib/actions/funny-actions.ts"), /aiShortsAccess\(db, user\)/);
+  assert.match(read("src/lib/actions/payment-actions.ts"), /funny_charge" && !aiShortsAccess/);
+  assert.match(read("src/lib/actions/ai-admin-actions.ts"), /api_key_enc: kind === "mock" \? "" : encryptSensitive\(key\)/);
 });

@@ -1,5 +1,7 @@
 "use server";
 
+import { encryptSensitive } from "../crypto";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -18,6 +20,17 @@ import type {
 } from "../schema";
 import type { ActionState } from "@/components/form";
 import { isHttpUrl } from "../url";
+
+/**
+ * 비밀값 입력칸 처리: 새 값을 입력하면 암호화해 교체, 비워 두면 기존 값을 유지(평문이면 이번에 암호화),
+ * "clear_<이름>" 체크 시 삭제. 비밀값은 화면(HTML)으로 다시 내려보내지 않는다.
+ */
+function keepOrReplaceSecret(fd: FormData, name: string, previous: string | undefined): string {
+  if (fd.get(`clear_${name}`) === "on") return "";
+  const next = String(fd.get(name) || "").trim();
+  if (next) return encryptSensitive(next);
+  return previous ? encryptSensitive(previous) : "";
+}
 
 const now = () => new Date().toISOString();
 
@@ -67,13 +80,15 @@ export async function saveCafe24SettingsAction(
 ): Promise<ActionState> {
   const admin = requireRole("admin");
   tx((db) => {
+    const prev = db.settings.cafe24;
     db.settings.cafe24 = {
       enabled: fd.get("enabled") === "on",
       mall_id: String(fd.get("mall_id") || "").trim(),
       client_id: String(fd.get("client_id") || "").trim(),
-      client_secret: String(fd.get("client_secret") || "").trim(),
-      access_token: String(fd.get("access_token") || "").trim(),
-      refresh_token: String(fd.get("refresh_token") || "").trim(),
+      // 비밀값: 새로 입력한 경우에만 교체, 비워 두면 기존 값 유지 (모두 암호화 저장)
+      client_secret: keepOrReplaceSecret(fd, "client_secret", prev?.client_secret),
+      access_token: keepOrReplaceSecret(fd, "access_token", prev?.access_token),
+      refresh_token: keepOrReplaceSecret(fd, "refresh_token", prev?.refresh_token),
       api_version: String(fd.get("api_version") || "2024-06-01").trim(),
       shop_no: Math.max(1, Math.floor(Number(fd.get("shop_no") || 1))),
     };
@@ -493,11 +508,12 @@ export async function saveAiStorySettingsAction(
 ): Promise<ActionState> {
   const admin = requireRole("admin");
   tx((db) => {
+    const prev = db.settings.ai_story;
     db.settings.ai_story = {
       enabled: fd.get("enabled") === "on",
       api_base: String(fd.get("api_base") || "").trim(),
-      api_key: String(fd.get("api_key") || "").trim(),
-      webhook_secret: String(fd.get("webhook_secret") || "").trim(),
+      api_key: keepOrReplaceSecret(fd, "api_key", prev?.api_key),
+      webhook_secret: keepOrReplaceSecret(fd, "webhook_secret", prev?.webhook_secret),
       auto_import: fd.get("auto_import") === "on",
     };
     db.settings.updated_at = now();

@@ -27,13 +27,18 @@ npm run dev
 # http://localhost:3000
 ```
 
-최초 실행 시 `/data/db.json` 이 자동 생성되며 시드 데이터(관리자/설정/카테고리)가 채워집니다.
+최초 실행 시 `/data/db.json` 이 자동 생성됩니다.
 
-### 기본 관리자 계정
+- **개발 모드(`npm run dev`)**: 데모 시드 데이터(테스트 계정·캠페인·상품)가 채워집니다. 테스트 계정 정보는 `src/lib/seed.ts` 를 참고하세요. 로그인 화면의 "테스트 로그인" 버튼은 개발 모드에서만 보입니다.
+- **운영 모드(`NODE_ENV=production`)**: 데모 데이터 없이 빈 DB가 만들어집니다. 최고관리자는 환경변수 `ADMIN_EMAIL` / `ADMIN_PASSWORD`(영문+숫자 10자 이상)로 1명 생성되며, 없으면 아래 명령으로 만듭니다.
+
+```bash
+npm run admin:create -- --email admin@회사도메인 --password '영문숫자10자이상'
+npm run admin:create -- --suspend-demo   # 기존 DB를 운영에 쓸 때 데모 계정 일괄 정지
+npm run migrate:security                 # 평문으로 남은 계좌번호·연동 키 암호화
 ```
-이메일:    admin@vibeaction.com
-비밀번호:  Admin1234!
-```
+
+> 운영 환경에서는 공개된 예시 비밀번호로 로그인할 수 없습니다.
 
 ### 기타 명령어
 ```bash

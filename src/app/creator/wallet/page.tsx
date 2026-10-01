@@ -1,9 +1,9 @@
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { getDb } from "@/lib/db";
-import { Card, PageHeader, StatCard, Table, Th, Td, StatusBadge, EmptyState, Badge } from "@/components/ui";
+import { Card, PageHeader, StatCard, Table, Th, Td, EmptyState, Badge } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
-import { WALLET_TX_TYPE_LABELS } from "@/lib/labels";
+import { WALLET_TX_TYPE_LABELS, payoutStatusLabel, walletTxStatusLabel } from "@/lib/labels";
 import { PayoutForm } from "@/components/forms/payout-form";
 import { maskBankAccount } from "@/lib/crypto";
 
@@ -26,7 +26,7 @@ export default function CreatorWalletPage() {
     <div className="space-y-6">
       <PageHeader title="수익 / 출금" description="정산 현황과 출금 신청" />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="지급 대기" value={formatKRW(w.pending_balance)} accent="yellow" />
         <StatCard label="지급 가능" value={formatKRW(w.available_balance)} accent="purple" />
         <StatCard label="지급 완료" value={formatKRW(w.paid_balance)} accent="gray" />
@@ -53,7 +53,7 @@ export default function CreatorWalletPage() {
                   <Td className={t.amount >= 0 ? "text-green-600" : "text-red-500"}>
                     {t.amount >= 0 ? "+" : ""}{formatKRW(t.amount)}
                   </Td>
-                  <Td><StatusBadge status={t.status} /></Td>
+                  <Td><Badge tone={walletTxStatusLabel(t.status).tone}>{walletTxStatusLabel(t.status).label}</Badge></Td>
                   <Td className="text-gray-500">{t.memo ?? "-"}</Td>
                   <Td className="text-xs text-gray-400">{t.created_at.slice(0, 16).replace("T", " ")}</Td>
                 </tr>
@@ -75,7 +75,7 @@ export default function CreatorWalletPage() {
                 <tr key={p.id}>
                   <Td>{formatKRW(p.amount)}</Td>
                   <Td className="text-xs text-gray-500">{p.bank_name} {maskBankAccount(p.bank_account_number)}</Td>
-                  <Td><StatusBadge status={p.status} /></Td>
+                  <Td><Badge tone={payoutStatusLabel(p.status).tone}>{payoutStatusLabel(p.status).label}</Badge></Td>
                   <Td className="text-xs text-gray-400">{formatDate(p.requested_at)}</Td>
                 </tr>
               ))}

@@ -5,6 +5,8 @@ import { Card, Badge } from "@/components/ui";
 import { IconPenLine, IconUsers, IconClock, IconCheckCircle, IconInfo } from "@/components/icons";
 import { defaultAiStorySettings } from "@/lib/seed";
 import { AiStorySettingsForm } from "@/components/commerce/ai-story-settings-form";
+import { secretHint } from "@/lib/crypto";
+import { statusLabel, statusTone } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +58,7 @@ export default function AdminAiStoryPage() {
       </div>
 
       {/* 연동 설정 */}
-      <AiStorySettingsForm settings={settings} />
+      <AiStorySettingsForm settings={{ ...settings, api_key: "", webhook_secret: "" }} secretHints={{ api_key: secretHint(settings.api_key), webhook_secret: secretHint(settings.webhook_secret) }} />
 
       {/* 동화 제작 의뢰 목록 */}
       <div>
@@ -76,7 +78,7 @@ export default function AdminAiStoryPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate font-bold text-gray-900">{c.title}</h3>
                         <Badge tone="purple">AI스토리</Badge>
-                        <Badge tone="blue">{c.status}</Badge>
+                        <Badge tone={statusTone(c.status)}>{statusLabel(c.status)}</Badge>
                       </div>
                       <p className="mt-1 line-clamp-2 text-sm text-gray-500">{c.description}</p>
                     </div>

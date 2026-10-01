@@ -12,8 +12,8 @@ const COOKIE_NAME = "vf_session";
 
 export function middleware(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value ?? "";
-  // 형식: <userId>.<hex-hmac-sha256>
-  const valid = /^[^.\s]+\.[0-9a-f]{64}$/i.test(token);
+  // 형식: <userId>.<sessionVersion>.<issuedAt>.<hex-hmac-sha256> (서명·만료·버전 검증은 서버 auth.ts)
+  const valid = /^[^.\s]+\.\d+\.[0-9a-z]+\.[0-9a-f]{64}$/.test(token);
   if (valid) return NextResponse.next();
 
   const url = req.nextUrl.clone();

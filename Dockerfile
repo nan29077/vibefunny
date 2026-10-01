@@ -8,6 +8,10 @@
 #   SESSION_SECRET, DATA_ENCRYPTION_KEY, EMAIL_VERIFICATION_HASH_SECRET
 #   RESEND_API_KEY, STORAGE_TYPE, DATABASE_TYPE
 #   NEXT_PUBLIC_APP_URL
+#   ADMIN_EMAIL, ADMIN_PASSWORD  (최초 실행 시 최고관리자 1명 생성 — 데모 계정은 만들지 않음)
+#
+# AI 숏츠 합성: ffmpeg-static(정적 ffmpeg) + assets/fonts(한글 자막 폰트)를 이미지에 포함한다.
+# 작업 엔진은 서버 프로세스 안에서 돈다 → 컨테이너는 1개(단일 인스턴스)로 운영할 것.
 #
 # 주의: STORAGE_TYPE=local 시 /app/data 볼륨 마운트가 필요합니다.
 #   docker run -v vibefunny-data:/app/data ...
@@ -57,6 +61,10 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# AI 숏츠: 한글 자막 폰트 + 정적 ffmpeg 실행 파일 (standalone 출력에는 자동 포함되지 않음)
+COPY --from=builder /app/assets ./assets
+COPY --from=deps /app/node_modules/ffmpeg-static ./node_modules/ffmpeg-static
+ENV FFMPEG_PATH=/app/node_modules/ffmpeg-static/ffmpeg
 
 # data/ 디렉토리 생성 (볼륨 마운트 포인트)
 # STORAGE_TYPE=local 시 db.json, private-uploads/ 이 여기에 저장됨

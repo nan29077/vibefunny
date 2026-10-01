@@ -73,6 +73,7 @@ export interface Profile {
   creator_gender?: "female" | "male" | "other" | null;
   creator_age_group?: "teens" | "20s" | "30s" | "40plus" | null;
   subscription_active_until: string | null; // 구독 만료일(ISO). null이면 미구독
+  session_version?: number; // 로그아웃·비밀번호 변경 시 증가 → 이전 세션 토큰 무효화
   created_at: string;
   updated_at: string;
 }
@@ -213,6 +214,7 @@ export interface AppSettings {
   cafe24?: Cafe24Settings;                  // 카페24 Open API 연동 설정
   shorts_commerce_default_commission_rate?: number; // 쇼츠 커머스 기본 판매 수수료율 %(크리에이터 수익)
   ai_story?: AiStorySettings;               // AI스토리(동화 제작 의뢰) 연동 설정
+  ai_shorts?: AiShortsSettings;             // AI 숏츠 제작(퍼니 과금) 설정
   updated_at: string;
   updated_by: string | null;
 }
@@ -329,7 +331,8 @@ export type PaymentType =
   | "subscription"
   | "video_purchase"
   | "custom_video_order"
-  | "point_charge";
+  | "point_charge"
+  | "funny_charge";
 export type PaymentStatus =
   | "pending"
   | "paid"
@@ -845,6 +848,7 @@ export interface PrivateFile {
   original_name: string;
   mime_type: string;
   size: number;
+  source?: "upload" | "ai_shorts"; // ai_shorts: AI 숏츠 제작 결과물(업로드 용량 제한에서 제외)
   created_at: string;
 }
 
@@ -1006,6 +1010,178 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: "취소",
 };
 
+// ===========================================================================
+// AI 숏츠 제작 + 퍼니(크리에이터 AI 제작 크레딧)
+// ---------------------------------------------------------------------------
+// - 퍼니: 크리에이터가 충전해 AI 숏츠 제작에 쓰는 선불 크레딧. 1퍼니 = 10원.
+//   수익 지갑(wallets, 출금 대상)과 완전히 분리된 별도 잔액이며 출금·이전 불가.
+// - 충전 퍼니(paid)와 관리자 지급 퍼니(bonus)를 나눠 관리하고, 보너스부터 사용.
+// - AI 작업을 시작할 때 예상 퍼니를 예약(held)하고, 성공하면 실제 사용량만 차감 후 나머지 반환,
+//   실패·취소하면 전액 반환.
+// ===========================================================================
+export type AiCapability = "text" | "image" | "video" | "tts" | "music";
+export type AiProviderKind = "gemini" | "openai" | "fal" | "elevenlabs" | "mock";
+
+export interface AiShortsChargeProduct {
+  id: string;
+  won: number;    // 결제 금액(원)
+  bonus: number;  // 추가 지급 퍼니(보너스)
+}
+
+export interface AiShortsSettings {
+  enabled: boolean;                  // 최고관리자 스위치: 켜면 크리에이터에게 AI 숏츠 제작 활성화
+  audience: "all" | "selected";      // 전체 크리에이터 / 지정한 크리에이터만(베타)
+  allowed_creator_ids: string[];
+  won_per_funny: number;             // 1퍼니 = 10원 (고정)
+  usd_krw_rate: number;              // 원가 계산 환율
+  margin_rate: number;               // 판매가 = 원가 × margin_rate% (최소 100)
+  monthly_budget_won: number;        // 플랫폼 월 AI 원가 한도 (0 = 제한 없음). 넘으면 신규 작업 자동 차단
+  daily_limit_funny: number;         // 크리에이터 1인 하루 사용 한도 (0 = 제한 없음)
+  max_active_jobs_per_user: number;  // 크리에이터 1인 동시 대기·진행 작업 수
+  concurrency: number;               // 서버 전체 동시 AI 작업 수
+  default_models: Partial<Record<AiCapability, string>>; // 작업별 사용할 모델(AiModel.id)
+  charge_products: AiShortsChargeProduct[];
+  blocked_terms: string;             // 금칙어 (줄바꿈/쉼표 구분)
+  budget_alert_sent_month?: string | null; // 월 예산 초과 알림 1회 발송 기록 (YYYY-MM)
+  updated_at: string | null;
+}
+
+export interface AiProvider {
+  id: string;
+  kind: AiProviderKind;
+  name: string;
+  base_url: string;
+  api_key_enc: string;        // 암호화 저장 (enc:v1:...)
+  active: boolean;
+  status: "untested" | "ok" | "error";
+  last_test_at: string | null;
+  last_test_message: string | null;
+  fail_streak: number;
+  cooldown_until: string | null; // 연속 실패 시 잠시 사용 중지
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiModel {
+  id: string;
+  provider_id: string;
+  capability: AiCapability;
+  model_id: string;
+  label: string;
+  cost_usd: number;           // 단위당 원가(USD) — text: 1천 토큰, image: 1장, video: 1초, tts: 1천 자, music: 1초
+  price_funny: number;        // 단위당 판매가(퍼니). 0 = 원가×환율×마진으로 자동 계산
+  max_seconds: number | null; // 영상·음악 최대 길이
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AiJobKind = "script" | "shot_image" | "shot_tts" | "shot_video" | "music" | "compose";
+export type AiJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+
+export interface AiJob {
+  id: string;
+  user_id: string;
+  project_id: string;
+  shot_id: string | null;
+  kind: AiJobKind;
+  capability: AiCapability | null; // compose 는 null (AI 미사용, 무료)
+  model_ref: string | null;        // AiModel.id
+  input: Record<string, unknown>;
+  status: AiJobStatus;
+  attempts: number;
+  vendor_ref: string | null;       // 공급사 비동기 작업 번호(영상 등)
+  next_poll_at: string | null;
+  lease_until: string | null;      // 작업을 잡은 워커의 임대 만료 시각 (만료 시 다른 워커가 이어받음)
+  worker_id: string | null;
+  units: number;                   // 예상 사용량(단위)
+  hold_paid: number;
+  hold_bonus: number;
+  charged_funny: number;           // 실제 차감 퍼니
+  cost_won: number;                // 실제 원가(원)
+  progress: number;                // 0~1 (합성)
+  error: string | null;            // 크리에이터에게 보여줄 정리된 오류
+  error_detail: string | null;     // 관리자 전용 원문
+  result_file_id: string | null;
+  idempotency_key: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+}
+
+export interface ShortsShot {
+  id: string;
+  narration: string;      // 내레이션(음성으로 읽을 문장)
+  caption: string;        // 화면 자막
+  visual: string;         // 장면 묘사(이미지·영상 프롬프트)
+  camera_move: string;    // 정지 이미지 움직임 연출
+  seconds: number;        // 컷 길이(초)
+  use_video: boolean;     // 합성 시 AI 영상 클립 사용 여부(있을 때)
+  image_file_id: string | null;
+  audio_file_id: string | null;
+  audio_seconds: number | null;
+  audio_text?: string | null; // 음성을 만들 때의 내레이션 (지금 내레이션과 다르면 다시 만들라고 안내)
+  video_file_id: string | null;
+}
+
+export type ShortsProjectStatus = "draft" | "scripted" | "composing" | "composed" | "failed";
+
+export interface ShortsProject {
+  id: string;
+  user_id: string;
+  title: string;
+  template: string;
+  topic: string;
+  tone: string;
+  target_seconds: number; // 15 / 30 / 45 / 60
+  voice: string;          // 음성 이름(공급사별)
+  hook: string;
+  description: string;
+  hashtags: string[];
+  shots: ShortsShot[];
+  bgm_prompt: string;
+  bgm_file_id: string | null;
+  bgm_volume: number;
+  subtitle_position: "bottom" | "middle" | "top";
+  status: ShortsProjectStatus;
+  output_file_id: string | null;
+  output_seconds: number | null;
+  compose_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FunnyWallet {
+  id: string;
+  user_id: string;
+  paid_balance: number;   // 사용 가능 충전 퍼니
+  bonus_balance: number;  // 사용 가능 보너스(관리자 지급·충전 보너스) 퍼니
+  held_paid: number;      // 작업 진행 중 예약된 충전 퍼니
+  held_bonus: number;     // 작업 진행 중 예약된 보너스 퍼니
+  created_at: string;
+  updated_at: string;
+}
+
+export type FunnyTxType = "charge" | "charge_bonus" | "grant" | "revoke" | "hold" | "spend" | "release" | "refund";
+export interface FunnyTransaction {
+  id: string;
+  user_id: string;
+  type: FunnyTxType;
+  paid_delta: number;   // 사용 가능 충전 퍼니 변화량
+  bonus_delta: number;  // 사용 가능 보너스 퍼니 변화량
+  held_delta: number;   // 예약 퍼니 변화량
+  paid_after: number;
+  bonus_after: number;
+  held_after: number;
+  charged: number;      // spend: 실제 사용 퍼니
+  payment_id: string | null;
+  job_id: string | null;
+  memo: string | null;
+  actor_id: string | null;
+  created_at: string;
+}
+
 // 전체 DB 스냅샷 (로컬 JSON 스토어) --------------------------------------
 export interface Database {
 
@@ -1052,4 +1228,11 @@ export interface Database {
   support_threads: SupportThread[];
   support_messages: SupportMessage[];
   email_verifications: EmailVerification[];
+  // AI 숏츠 제작 + 퍼니 (구버전 db.json 에는 없을 수 있음 → json-provider 에서 빈 배열로 채움)
+  ai_providers?: AiProvider[];
+  ai_models?: AiModel[];
+  ai_jobs?: AiJob[];
+  shorts_projects?: ShortsProject[];
+  funny_wallets?: FunnyWallet[];
+  funny_transactions?: FunnyTransaction[];
 }

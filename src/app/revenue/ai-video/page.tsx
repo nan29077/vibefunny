@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { getDb } from "@/lib/db";
+import { signupFeeLabel, won } from "@/lib/marketing";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "AI 영상 제작 수익 | VIBEFUNNY",
@@ -44,12 +48,6 @@ const TOOLS = [
   { name: "ElevenLabs", desc: "AI 보이스오버 생성", tag: "음성 AI" },
 ];
 
-const INCOME_TABLE = [
-  { type: "15초 이하", min: "15,000", max: "30,000", note: "가장 수요 多" },
-  { type: "30초 이하", min: "25,000", max: "50,000", note: "배포용 표준" },
-  { type: "60초 이하", min: "40,000", max: "80,000", note: "브랜드 스토리" },
-  { type: "직접 협의", min: "80,000", max: "-", note: "특수 포맷" },
-];
 
 function FullBg({
   src,
@@ -82,6 +80,11 @@ function FullBg({
 }
 
 export default function AiVideoRevenuePage() {
+  // 단가표·가입비는 관리자 정책 설정(영상 제작 단가)을 그대로 보여 준다
+  const settings = getDb().settings;
+  const feeLabel = signupFeeLabel(settings);
+  const tiers = (settings.video_pricing_tiers ?? []).filter((t) => t.amount > 0);
+  const maxTier = tiers.reduce((m, t) => Math.max(m, t.amount), 0);
   return (
     <div className="vf-marketing vf-revenue-detail">
       <style>{`
@@ -126,7 +129,7 @@ export default function AiVideoRevenuePage() {
           <div className="mt-10 grid max-w-lg grid-cols-3 gap-4">
             {[
               { v: "₩0", l: "장비 투자 비용" },
-              { v: "24만+", l: "월 평균 납품 수익" },
+              { v: maxTier > 0 ? `₩${won(maxTier)}` : "-", l: "건당 최대 제작 단가" },
               { v: "1~3일", l: "평균 제작 소요 시간" },
             ].map((s) => (
               <div key={s.l} className="rounded-2xl border p-4 text-center" style={{ background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }}>
@@ -213,26 +216,27 @@ export default function AiVideoRevenuePage() {
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-600">Pricing</p>
             <h2 className="text-4xl font-black text-white md:text-5xl">예상 납품 단가</h2>
             <p className="mx-auto mt-4 max-w-md text-base text-gray-500">
-              영상 길이와 퀄리티에 따라 단가가 결정됩니다. 아래는 참고용 범위입니다.
+              영상 길이에 따라 단가가 정해집니다. 아래는 현재 운영 정책 기준 단가입니다.
             </p>
           </div>
           <div className="overflow-hidden rounded-2xl border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-            <div className="grid grid-cols-4 px-6 py-3 text-xs font-black uppercase tracking-widest text-gray-500" style={{ background: "rgba(255,255,255,0.06)" }}>
-              <span>영상 타입</span>
-              <span className="text-center">최소 단가</span>
-              <span className="text-center">최대 단가</span>
+            <div className="grid grid-cols-3 px-6 py-3 text-xs font-black uppercase tracking-widest text-gray-500" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <span>영상 길이</span>
+              <span className="text-center">제작 단가(1건)</span>
               <span className="text-right">비고</span>
             </div>
-            {INCOME_TABLE.map((row, i) => (
+            {tiers.length === 0 && (
+              <div className="px-6 py-6 text-center text-sm text-gray-500">단가는 캠페인별로 안내됩니다.</div>
+            )}
+            {tiers.map((row, i) => (
               <div
-                key={row.type}
-                className="grid grid-cols-4 px-6 py-4 text-sm"
+                key={row.key}
+                className="grid grid-cols-3 px-6 py-4 text-sm"
                 style={{ background: i % 2 === 0 ? "rgba(255,255,255,0.03)" : "transparent", borderTop: "1px solid rgba(255,255,255,0.04)" }}
               >
-                <span className="font-bold text-white">{row.type}</span>
-                <span className="text-center font-medium" style={{ color: "#f59e0b" }}>₩{row.min}</span>
-                <span className="text-center font-medium text-white">{row.max !== "-" ? `₩${row.max}` : "-"}</span>
-                <span className="text-right text-gray-500">{row.note}</span>
+                <span className="font-bold text-white">{row.label}</span>
+                <span className="text-center font-medium" style={{ color: "#f59e0b" }}>₩{won(row.amount)}</span>
+                <span className="text-right text-gray-500">{row.max_seconds ? `최대 ${row.max_seconds}초` : "길이 협의"}</span>
               </div>
             ))}
           </div>
@@ -248,7 +252,7 @@ export default function AiVideoRevenuePage() {
             지금 바로<br /><span style={{ color: "#f59e0b" }}>AI 제작</span><br />시작하기
           </h2>
           <p className="mx-auto mt-6 max-w-md text-lg" style={{ color: "rgba(255,255,255,0.55)" }}>
-            가입비 0원 · AI 제작 가이드 제공 · 즉시 캠페인 참여 가능
+            {feeLabel} · AI 제작 가이드 제공 · 즉시 캠페인 참여 가능
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link href="/signup" className="rounded-full px-8 py-4 text-base font-black text-black hover:scale-105 transition-all" style={{ background: "#f59e0b" }}>

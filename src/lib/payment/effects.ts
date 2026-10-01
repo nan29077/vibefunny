@@ -7,6 +7,8 @@ import {
   createSignupReferralReward,
 } from "../services";
 import { applyAgencyCommission } from "../campaign-workflow";
+import { creditFunnyCharge, FUNNY_WON, formatFunny } from "../funny";
+import { notifyUser } from "../services";
 
 // ===========================================================================
 // 결제 성공 시 비즈니스 효과 (요구사항 13). db.tx() 내부에서 호출.
@@ -113,6 +115,22 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
         relatedTable: "videos",
         relatedId: video.id,
         memo: `영상 판매 수익 (플랫폼 수수료 ${fee}% 차감)`,
+      });
+      break;
+    }
+
+    case "funny_charge": {
+      // 퍼니 충전 성공 → 충전 퍼니 + 보너스 퍼니 지급 (결제 1건당 1회, 결제 시점 환산 기준 사용)
+      const meta = payment.metadata_json as { funny?: number; bonus?: number; won_per_funny?: number };
+      const rate = Number(meta.won_per_funny) > 0 ? Number(meta.won_per_funny) : FUNNY_WON;
+      const funny = Math.floor(Number(meta.funny) > 0 ? Number(meta.funny) : payment.amount / rate);
+      const bonus = Math.max(0, Math.floor(Number(meta.bonus) || 0));
+      creditFunnyCharge(db, { userId: payment.user_id, paid: funny, bonus, paymentId: payment.id, memo: `퍼니 충전 (${payment.amount.toLocaleString()}원)` });
+      notifyUser(db, {
+        recipientId: payment.user_id,
+        title: "퍼니 충전 완료",
+        message: `${formatFunny(funny)}${bonus > 0 ? ` + 보너스 ${formatFunny(bonus)}` : ""}가 충전되었습니다.`,
+        link: "/creator/funny",
       });
       break;
     }

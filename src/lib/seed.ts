@@ -1772,3 +1772,89 @@ export function seedDatabase(): Database {
     email_verifications: [],
   };
 }
+
+// ===========================================================================
+// 운영(production) 첫 실행용 빈 DB
+// ---------------------------------------------------------------------------
+// 운영 환경에서는 데모 계정·데모 캠페인·데모 상품을 절대 만들지 않는다.
+// 최고관리자는 환경변수 ADMIN_EMAIL / ADMIN_PASSWORD 가 있을 때만 1명 생성한다.
+// (없으면 `npm run admin:create` 스크립트로 만든다)
+// ===========================================================================
+export function isStrongAdminPassword(password: string): boolean {
+  return (
+    password.length >= 10 &&
+    /[A-Za-z]/.test(password) &&
+    /\d/.test(password) &&
+    !["Admin1234!", "Test1234!"].includes(password)
+  );
+}
+
+export function createProductionDatabase(env: { adminEmail?: string; adminPassword?: string; adminName?: string } = {}): Database {
+  const now = new Date().toISOString();
+  const profiles: Profile[] = [];
+  const email = (env.adminEmail ?? "").trim().toLowerCase();
+  const password = env.adminPassword ?? "";
+  if (email && password) {
+    if (!isStrongAdminPassword(password)) {
+      throw new Error("ADMIN_PASSWORD 는 영문+숫자 포함 10자 이상이어야 하며 예시 비밀번호는 사용할 수 없습니다.");
+    }
+    profiles.push({
+      id: genId(),
+      email,
+      password_hash: hashPassword(password),
+      email_verified_at: now,
+      name: env.adminName?.trim() || "최고관리자",
+      phone: null,
+      role: "admin",
+      advertiser_type: null,
+      parent_advertiser_id: null,
+      referral_code: genReferralCode(),
+      referred_by_user_id: null,
+      status: "active",
+      avatar_url: null,
+      subscription_active_until: null,
+      created_at: now,
+      updated_at: now,
+    });
+  }
+  return {
+    profile_character_migration_version: 0,
+    profiles,
+    settings: defaultSettings(),
+    referral_rewards: [],
+    referral_relations: [],
+    wallets: [],
+    wallet_transactions: [],
+    point_wallets: [],
+    point_transactions: [],
+    payments: [],
+    categories: seedCategories(),
+    videos: [],
+    video_purchases: [],
+    custom_video_requests: [],
+    custom_video_applications: [],
+    custom_video_deliveries: [],
+    ad_campaigns: [],
+    campaign_applications: [],
+    campaign_deliveries: [],
+    social_accounts: [],
+    payout_requests: [],
+    audit_logs: [],
+    campaign_submissions: [],
+    submission_comments: [],
+    campaign_participations: [],
+    campaign_videos: [],
+    campaign_comments: [],
+    campaign_direct_messages: [],
+    vibeporter_requests: [],
+    participation_comments: [],
+    product_categories: seedProductCategories(),
+    products: [],
+    creator_youtube_channels: [],
+    creator_shorts_links: [],
+    product_orders: [],
+    support_threads: [],
+    support_messages: [],
+    email_verifications: [],
+  };
+}

@@ -63,9 +63,27 @@ export function decryptSensitive(value?: string | null): string {
   if (!value || !value.startsWith(SENSITIVE_PREFIX)) return value ?? "";
   const [ivText, tagText, dataText] = value.slice(SENSITIVE_PREFIX.length).split(".");
   if (!ivText || !tagText || !dataText) return "";
-  const decipher = createDecipheriv("aes-256-gcm", sensitiveKey(), Buffer.from(ivText, "base64url"));
-  decipher.setAuthTag(Buffer.from(tagText, "base64url"));
-  return Buffer.concat([decipher.update(Buffer.from(dataText, "base64url")), decipher.final()]).toString("utf8");
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", sensitiveKey(), Buffer.from(ivText, "base64url"));
+    decipher.setAuthTag(Buffer.from(tagText, "base64url"));
+    return Buffer.concat([decipher.update(Buffer.from(dataText, "base64url")), decipher.final()]).toString("utf8");
+  } catch (error) {
+    // 암호화 키(DATA_ENCRYPTION_KEY)가 바뀌었거나 값이 손상된 경우: 화면 전체가 500 오류로 멈추지 않게 빈 값으로 처리
+    console.error("[crypto] 민감정보 복호화 실패 — DATA_ENCRYPTION_KEY 변경 여부를 확인하세요.", (error as Error).message);
+    return "";
+  }
+}
+
+/** 암호화된 값인지 */
+export function isEncrypted(value?: string | null): boolean {
+  return !!value && value.startsWith(SENSITIVE_PREFIX);
+}
+
+/** 비밀값 화면 표시용: 끝 4자리만 */
+export function secretHint(value?: string | null): string {
+  const plain = decryptSensitive(value);
+  if (!plain) return "";
+  return `••••${plain.slice(-4)}`;
 }
 
 export function maskBankAccount(value?: string | null): string {

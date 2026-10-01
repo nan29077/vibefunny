@@ -47,7 +47,18 @@ export default function CheckoutPage({
       <h1 className="text-center text-2xl font-extrabold text-gray-900">{orderName} 결제</h1>
 
       {payment.status === "pending" && (
-        <MockCheckout paymentId={payment.id} amount={payment.amount} orderName={orderName} />
+        <>
+          {payment.payment_type === "funny_charge" && (
+            <Card className="text-sm text-gray-600">
+              충전 퍼니: <b className="text-gray-900">{Number((payment.metadata_json as { funny?: number }).funny ?? 0).toLocaleString()}퍼니</b>
+              {Number((payment.metadata_json as { bonus?: number }).bonus ?? 0) > 0 && (
+                <> + 보너스 <b className="text-brand-purple">{Number((payment.metadata_json as { bonus?: number }).bonus).toLocaleString()}퍼니</b></>
+              )}
+              <span className="block text-xs text-gray-400">1퍼니 = 10원 · AI 숏츠 제작 전용 · 현금 출금 불가</span>
+            </Card>
+          )}
+          <MockCheckout paymentId={payment.id} amount={payment.amount} orderName={orderName} />
+        </>
       )}
 
       {payment.status === "paid" && (
@@ -56,6 +67,21 @@ export default function CheckoutPage({
           <h2 className="mt-3 text-lg font-bold">결제가 완료되었습니다!</h2>
           <div className="mt-5">
             <LinkButton href={next} className="w-full">계속하기</LinkButton>
+          </div>
+        </Card>
+      )}
+
+      {payment.status === "cancelled" && (
+        <Card className="text-center">
+          <IconXCircle size={48} className="text-gray-400 mx-auto" strokeWidth={1.5} />
+          <h2 className="mt-3 text-lg font-bold">결제가 취소되었습니다.</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {payment.payment_type === "funny_charge" && (payment.metadata_json as { cancel_reason?: string }).cancel_reason === "ai_shorts_closed"
+              ? "현재 AI 숏츠 제작이 운영 중이 아니어서 퍼니 충전을 진행할 수 없습니다. 청구된 금액은 없습니다."
+              : "청구된 금액은 없습니다."}
+          </p>
+          <div className="mt-5">
+            <LinkButton href={next} className="w-full">돌아가기</LinkButton>
           </div>
         </Card>
       )}

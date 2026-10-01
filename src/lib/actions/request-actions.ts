@@ -8,6 +8,7 @@ import { requireRole, getCurrentUser } from "../auth";
 import { genId } from "../crypto";
 import { addWalletTxOnce, audit, createPayment } from "../services";
 import { isHttpUrl } from "../url";
+import { isOwnPrivateFileOrExternal } from "../campaign-workflow";
 import type { CustomVideoRequest, Platform } from "../schema";
 import type { ActionState } from "@/components/form";
 
@@ -147,6 +148,8 @@ export async function deliverRequestAction(fd: FormData): Promise<void> {
     const req = db.custom_video_requests.find((r) => r.id === requestId);
     if (!req || req.assigned_creator_id !== user.id) return;
     if (!["in_progress", "revision_requested"].includes(req.status)) return;
+    // 남의 비공개 파일을 결과물로 지정해 열람 권한을 얻는 것을 막는다
+    if (!isOwnPrivateFileOrExternal(db, videoUrl, user.id)) return;
     db.custom_video_deliveries.push({
       id: genId(),
       request_id: requestId,

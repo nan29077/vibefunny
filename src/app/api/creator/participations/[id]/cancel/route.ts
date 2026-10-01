@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { authorizeApi } from "@/lib/auth";
 import { tx } from "@/lib/db";
 import { audit, notifyUser } from "@/lib/services";
 import { releaseVideo } from "@/lib/distribution";
 import { campaignLinkFor } from "@/lib/campaign-workflow";
 
 export async function POST(_: Request, { params }: { params: { id: string } }) {
-  const user = getCurrentUser();
-  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  // 로그인 + 활성 계정(가입비 미결제 pending·정지 계정 제외)만 허용
+  const auth = authorizeApi();
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const user = auth.user;
   if (user.role !== "creator") return NextResponse.json({ error: "크리에이터 권한이 필요합니다." }, { status: 403 });
   const result = tx<{ status: number; body: unknown }>((db) => {
     const participation = (db.campaign_participations ?? []).find((item) => item.id === params.id);

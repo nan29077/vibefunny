@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { Card, PageHeader, StatCard, Table, Th, Td, EmptyState, Badge } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
 import { PayoutForm } from "@/components/forms/payout-form";
+import { walletTxStatusLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ export default function CreatorPointsPage() {
                       +{formatKRW(t.amount)}
                     </Td>
                     <Td>
-                      <Badge tone="green">적립 완료</Badge>
+                      <Badge tone={walletTxStatusLabel(t.status).tone}>{walletTxStatusLabel(t.status).label}</Badge>
                     </Td>
                     <Td className="text-xs text-gray-400">
                       {formatDate(t.created_at)}

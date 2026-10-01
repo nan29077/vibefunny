@@ -6,7 +6,14 @@ import { SubmitButton, FormMessage, initialActionState } from "@/components/form
 import { saveAiStorySettingsAction } from "@/lib/actions/commerce-actions";
 import type { AiStorySettings } from "@/lib/schema";
 
-export function AiStorySettingsForm({ settings }: { settings: AiStorySettings }) {
+export function AiStorySettingsForm({
+  settings,
+  secretHints,
+}: {
+  /** api_key·webhook_secret 은 빈 값으로 넘어온다 — 화면 HTML 에 비밀값을 싣지 않기 위함 */
+  settings: AiStorySettings;
+  secretHints: { api_key: string; webhook_secret: string };
+}) {
   const [state, action] = useFormState(saveAiStorySettingsAction, initialActionState);
   return (
     <form action={action} className="space-y-6">
@@ -23,11 +30,21 @@ export function AiStorySettingsForm({ settings }: { settings: AiStorySettings })
           <Field label="API Base URL" className="sm:col-span-2">
             <Input name="api_base" defaultValue={settings.api_base} placeholder="https://api.ai-story.example.com" />
           </Field>
-          <Field label="API Key">
-            <Input name="api_key" type="password" defaultValue={settings.api_key} placeholder="AI스토리 API Key" />
+          <Field label="API Key" hint={secretHints.api_key ? `저장됨 ${secretHints.api_key} · 변경할 때만 입력` : "미입력"}>
+            <Input name="api_key" type="password" autoComplete="off" placeholder={secretHints.api_key ? "변경할 때만 입력" : "AI스토리 API Key"} />
+            {secretHints.api_key && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                <input type="checkbox" name="clear_api_key" className="h-3.5 w-3.5 rounded border-gray-300" /> 저장된 값 삭제
+              </label>
+            )}
           </Field>
-          <Field label="Webhook 시크릿" hint="동화 의뢰 수신 서명 검증용">
-            <Input name="webhook_secret" type="password" defaultValue={settings.webhook_secret} placeholder="Webhook Secret" />
+          <Field label="Webhook 시크릿" hint={secretHints.webhook_secret ? `저장됨 ${secretHints.webhook_secret} · 동화 의뢰 수신 서명 검증용` : "동화 의뢰 수신 서명 검증용"}>
+            <Input name="webhook_secret" type="password" autoComplete="off" placeholder={secretHints.webhook_secret ? "변경할 때만 입력" : "Webhook Secret"} />
+            {secretHints.webhook_secret && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                <input type="checkbox" name="clear_webhook_secret" className="h-3.5 w-3.5 rounded border-gray-300" /> 저장된 값 삭제
+              </label>
+            )}
           </Field>
         </div>
         <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">

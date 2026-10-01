@@ -21,3 +21,6 @@ next-env.d.ts
 data/*.bak
 data/*.tmp
 data/private-uploads/
+
+# 점검·수정 작업 백업 (커밋 제외)
+/_audit_tmp/

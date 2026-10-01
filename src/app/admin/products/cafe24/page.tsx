@@ -3,13 +3,21 @@ import { getDb } from "@/lib/db";
 import { PageHeader, Card, LinkButton } from "@/components/ui";
 import { Cafe24SettingsForm } from "@/components/commerce/cafe24-settings-form";
 import { defaultCafe24Settings } from "@/lib/seed";
+import { secretHint } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
 export default function AdminCafe24Page() {
   requireRole("admin");
   const db = getDb();
-  const settings = db.settings.cafe24 ?? defaultCafe24Settings();
+  const stored = db.settings.cafe24 ?? defaultCafe24Settings();
+  // 비밀값은 클라이언트 컴포넌트로 넘기지 않는다(끝 4자리 힌트만)
+  const secretHints = {
+    client_secret: secretHint(stored.client_secret),
+    access_token: secretHint(stored.access_token),
+    refresh_token: secretHint(stored.refresh_token),
+  };
+  const settings = { ...stored, client_secret: "", access_token: "", refresh_token: "" };
   const defaultCommission = db.settings.shorts_commerce_default_commission_rate ?? 10;
 
   return (
@@ -25,7 +33,7 @@ export default function AdminCafe24Page() {
           (필요 권한 스코프: <code>mall.write_product</code>) 키가 없으면 미리보기로 안전하게 동작합니다.
         </p>
       </Card>
-      <Cafe24SettingsForm settings={settings} defaultCommission={defaultCommission} />
+      <Cafe24SettingsForm settings={settings} secretHints={secretHints} defaultCommission={defaultCommission} />
     </div>
   );
 }

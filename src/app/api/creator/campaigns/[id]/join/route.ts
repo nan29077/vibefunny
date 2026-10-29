@@ -12,7 +12,7 @@ export async function POST(
   if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const user = auth.user;
 
-  let body: { participation_type?: ParticipationType };
+  let body: { participation_type?: ParticipationType; platform?: string };
   try {
     body = await req.json();
   } catch {
@@ -24,7 +24,7 @@ export async function POST(
   }
 
   // tx() 내부에서 검증 + 영상 배정까지 원자적으로 처리 (동시 신청 시 중복 배정 방지)
-  const result = tx((db) => joinParticipation(db, user, params.id, participationType));
+  const result = tx((db) => joinParticipation(db, user, params.id, participationType, typeof body.platform === "string" ? body.platform : null));
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.body, { status: 200 });
 }

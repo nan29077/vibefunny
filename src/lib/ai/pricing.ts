@@ -1,4 +1,4 @@
-import type { AiCapability, AiModel, AiShortsSettings } from "../schema";
+import type { AiCapability, AiModel, AiProviderKind, AiShortsSettings } from "../schema";
 import { FUNNY_WON } from "../funny";
 import { videoSeconds, type AiInput } from "./providers";
 
@@ -16,18 +16,27 @@ export function funnyPerUnit(model: Pick<AiModel, "price_funny" | "cost_usd">, s
   return (Number(model.cost_usd || 0) * Number(settings.usd_krw_rate || 0) * margin) / 100 / FUNNY_WON;
 }
 
-export function unitsFor(capability: AiCapability, input: AiInput, model?: Pick<AiModel, "model_id" | "max_seconds"> | null): number {
+/** 배경음악 길이: 5초 이상, 모델 최대 길이 이하 — 과금 길이와 실제 요청 길이가 같도록 엔진도 이 값을 쓴다 */
+export function musicSeconds(input: Pick<AiInput, "seconds">, model?: Pick<AiModel, "max_seconds"> | null): number {
+  const s = Math.max(5, Math.round(Number(input.seconds) || 30));
+  return model?.max_seconds ? Math.max(1, Math.min(s, Math.round(model.max_seconds))) : s;
+}
+
+/** 영상 길이: 모델이 실제로 만드는 길이. OpenAI 는 모델 이름과 상관없이 Sora 길이 규칙을 쓴다(어댑터와 동일). */
+export function videoUnits(input: Pick<AiInput, "seconds">, model?: Pick<AiModel, "model_id"> | null, providerKind?: AiProviderKind): number {
+  if (providerKind === "openai") return videoSeconds("sora", input.seconds);
+  return model?.model_id ? videoSeconds(model.model_id, input.seconds) : Math.max(1, Number(input.seconds) || 5);
+}
+
+export function unitsFor(capability: AiCapability, input: AiInput, model?: Pick<AiModel, "model_id" | "max_seconds"> | null, providerKind?: AiProviderKind): number {
   if (capability === "text") {
     const chars = String(input.system || "").length + String(input.prompt || "").length;
     return (chars / 2 + (input.maxTokens || 3000) * 0.6) / 1000;
   }
   if (capability === "image") return 1;
-  if (capability === "video") return model?.model_id ? videoSeconds(model.model_id, input.seconds) : Math.max(1, Number(input.seconds) || 5);
+  if (capability === "video") return videoUnits(input, model, providerKind);
   if (capability === "tts") return Math.max(0.1, String(input.text || "").length / 1000);
-  if (capability === "music") {
-    const s = Math.max(5, Math.round(Number(input.seconds) || 30));
-    return model?.max_seconds ? Math.min(s, model.max_seconds) : s;
-  }
+  if (capability === "music") return musicSeconds(input, model);
   return 1;
 }
 

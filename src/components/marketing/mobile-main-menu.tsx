@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { openModalFlag } from "@/lib/modal-flag";
 import {
   IconBarChart, IconCalendar, IconGlobe, IconHome, IconInfo,
   IconMegaphone, IconMenu, IconPieChart, IconUser, IconX,
@@ -20,12 +21,27 @@ const menuItems = [
 
 export function MobileMainMenu({ myPageHref }: { myPageHref: string }) {
   const [open, setOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
+  // 메뉴가 열리면 창으로 포커스 이동, Esc 로 닫기, 닫히면 메뉴 버튼으로 포커스 복귀
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    drawerRef.current?.focus();
+    const closeFlag = openModalFlag();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      closeFlag();
+      previous?.focus?.();
+    };
+  }, [open]);
   return (
     <div className="vf-mobile-menu">
       <button type="button" className="vf-hamburger" onClick={() => setOpen(true)} aria-label="전체 메뉴 열기"><IconMenu size={22} /></button>
       {open && <div className="vf-mobile-menu-layer">
         <button type="button" aria-label="메뉴 닫기" className="vf-menu-backdrop" onClick={() => setOpen(false)} />
-        <aside className="vf-mobile-drawer" aria-label="전체 메뉴">
+        <aside ref={drawerRef} tabIndex={-1} role="dialog" aria-modal="true" className="vf-mobile-drawer" aria-label="전체 메뉴">
           <div className="vf-drawer-top"><span className="vf-drawer-logo">VIBE<b>FUNNY</b></span><button type="button" onClick={() => setOpen(false)} aria-label="메뉴 닫기"><IconX size={22} /></button></div>
           <p>MENU</p>
           <nav>{menuItems.map(({ href, label, Icon }) => <Link key={href} href={href} onClick={() => setOpen(false)}><Icon size={20} /><span>{label}</span></Link>)}<Link href={myPageHref} onClick={() => setOpen(false)}><IconUser size={20} /><span>마이페이지</span></Link></nav>

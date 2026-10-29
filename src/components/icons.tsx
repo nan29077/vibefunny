@@ -260,11 +260,13 @@ export function IconWallet(p: IconProps) {
   );
 }
 
+// 원화(₩) 아이콘 — 금액이 모두 원화이므로 달러 기호 대신 사용 (이름은 기존 호환을 위해 유지)
 export function IconDollarSign(p: IconProps) {
   return (
     <Svg {...p}>
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      <path d="M4 5l4 14 4-12 4 12 4-14" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+      <line x1="3" y1="14" x2="21" y2="14" />
     </Svg>
   );
 }

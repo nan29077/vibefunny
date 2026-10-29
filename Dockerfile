@@ -65,6 +65,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/assets ./assets
 COPY --from=deps /app/node_modules/ffmpeg-static ./node_modules/ffmpeg-static
 ENV FFMPEG_PATH=/app/node_modules/ffmpeg-static/ffmpeg
+# 운영 관리 스크립트 (npm run admin:create · audit:ledgers · migrate:* 를 컨테이너 안에서 실행)
+# 외부 패키지 없이 Node 내장 모듈만 사용한다
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/package.json ./package.json
 
 # data/ 디렉토리 생성 (볼륨 마운트 포인트)
 # STORAGE_TYPE=local 시 db.json, private-uploads/ 이 여기에 저장됨

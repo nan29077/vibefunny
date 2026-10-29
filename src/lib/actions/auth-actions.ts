@@ -10,14 +10,18 @@ import type { AdvertiserType, Payment, Profile, Role } from "../schema";
 import type { ActionState } from "@/components/form";
 import { roleHome } from "../routes";
 import { randomProfileAvatar } from "../profile-avatars";
-import { normalizeEmail } from "../email-verification";
-import { clientIp, formatWait, rateLimit, recordHit, resetRateLimit } from "../rate-limit";
+import { EMAIL_VERIFIED_TTL_MS, EMAIL_VERIFY_COOKIE, normalizeEmail, verifyTokenMatches } from "../email-verification";
+import { cookies } from "next/headers";
+import { clientIp, formatWait, hitCount, rateLimit, recordHit, resetRateLimit } from "../rate-limit";
+import { canBeMentor } from "../membership";
+import { notifyUser } from "../services";
 
 // 운영 환경에서 공개된 예시 비밀번호로는 로그인할 수 없다 (데모 계정 악용 방지)
 const PUBLIC_DEMO_PASSWORDS = new Set(["Admin1234!", "Test1234!"]);
 const LOGIN_FAIL_LIMIT = 5; // 같은 이메일 15분에 5회 실패 시 잠금
 const LOGIN_IP_LIMIT = 30; // 같은 IP 15분에 30회 시도
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_SLOWDOWN_AFTER = 10; // 이메일 전체 기준 15분에 10회 실패부터 응답 지연
 
 const now = () => new Date().toISOString();
 
@@ -48,7 +52,8 @@ export async function signupAction(
     name: formData.get("name"),
     role: formData.get("role"),
     advertiser_type: formData.get("advertiser_type") || undefined,
-    referral_code: (formData.get("referral_code") as string)?.trim() || undefined,
+    // 추천인 코드는 대소문자 구분 없이 받는다 (코드는 대문자로 발급)
+    referral_code: (formData.get("referral_code") as string)?.trim().toUpperCase() || undefined,
     no_referral_agency: formData.get("no_referral_agency") === "true",
   });
 
@@ -68,16 +73,23 @@ export async function signupAction(
     return { ok: false, message: "광고주 유형(실행사/대행사)을 선택하세요." };
   }
 
+  // 가입 시도 제한: 같은 IP 1시간 60회 (설명회 등 같은 와이파이에서 여러 명이 가입하는 경우 고려)
+  const signupWait = rateLimit(`signup-ip:${clientIp()}`, 60, 60 * 60 * 1000);
+  if (signupWait > 0) return { ok: false, message: `가입 시도가 너무 많습니다. ${formatWait(signupWait)} 후 다시 시도하세요.` };
+  const verifyCookie = cookies().get(EMAIL_VERIFY_COOKIE)?.value;
+
   let redirectTo: string | null = null;
+  let newSession: { id: string; version: number } | null = null;
   const result = tx<ActionState>((db) => {
     if (db.profiles.some((p) => normalizeEmail(p.email) === data.email)) {
       return { ok: false, message: "이미 가입된 이메일입니다." };
     }
 
     const emailVerification = [...db.email_verifications]
-      .filter((item) => item.email === data.email && item.verified_at && !item.consumed_at)
+      .filter((item) => item.email === data.email && item.verified_at && !item.consumed_at && verifyTokenMatches(verifyCookie, item))
       .sort((a, b) => Date.parse(b.requested_at) - Date.parse(a.requested_at))[0];
-    if (!emailVerification || Date.parse(emailVerification.expires_at) < Date.now()) {
+    // 인증 완료 후 30분 안에 같은 브라우저에서 가입해야 한다
+    if (!emailVerification || Date.parse(emailVerification.verified_at as string) + EMAIL_VERIFIED_TTL_MS < Date.now()) {
       return {
         ok: false,
         message: "이메일 인증을 완료한 후 가입해 주세요.",
@@ -85,20 +97,38 @@ export async function signupAction(
       };
     }
 
-    if (role === "creator" && db.settings.referral_system_enabled && !data.referral_code) {
+    // 크리에이터는 항상 추천인(멘토) 코드가 있어야 가입할 수 있다
+    if (role === "creator" && !data.referral_code) {
       return {
         ok: false,
-        message: "현재 추천인 제도가 운영 중이므로 추천인 코드를 입력해야 합니다.",
+        message: "추천인 코드를 입력해야 가입할 수 있습니다.",
         fieldErrors: { referral_code: "추천인 코드는 필수입니다." } as Record<string, string>,
       };
     }
 
-    // 추천인 확인 (추천인 제도가 비활성화 상태면 코드 무시)
     let referredBy: Profile | null = null;
-    if (data.referral_code && db.settings.referral_system_enabled) {
-      referredBy =
-        db.profiles.find((p) => p.referral_code === data.referral_code) ?? null;
-      if (!referredBy) {
+    if (role === "creator") {
+      // 멘토는 가입비를 결제한 바이브회원 크리에이터만 될 수 있다
+      const mentor = db.profiles.find((p) => p.referral_code === data.referral_code) ?? null;
+      if (!mentor || (mentor.role !== "creator" && mentor.role !== "admin") || mentor.status !== "active") {
+        return {
+          ok: false,
+          message: "유효하지 않은 추천인 코드입니다.",
+          fieldErrors: { referral_code: "존재하지 않는 코드" } as Record<string, string>,
+        };
+      }
+      if (!canBeMentor(db, mentor)) {
+        return {
+          ok: false,
+          message: "바이브회원(가입비 결제 완료)의 추천인 코드만 사용할 수 있습니다.",
+          fieldErrors: { referral_code: "아직 바이브회원이 아닌 회원의 코드입니다" } as Record<string, string>,
+        };
+      }
+      referredBy = mentor;
+    } else if (data.referral_code && db.settings.referral_system_enabled) {
+      // 광고주(실행사): 추천인 제도가 켜져 있을 때만 추천인 코드 확인 (대행사는 아래 실행사 코드 확인)
+      referredBy = db.profiles.find((p) => p.referral_code === data.referral_code) ?? null;
+      if (!referredBy && !(advertiserType === "agency")) {
         return {
           ok: false,
           message: "유효하지 않은 추천인 코드입니다.",
@@ -144,6 +174,9 @@ export async function signupAction(
     // 가입비 설정 확인
     const fee = db.settings.fees[role];
     const needsSignupFee = fee.signup_fee_enabled && fee.signup_fee_amount > 0;
+    // 크리에이터: 가입비가 있어도 계정은 바로 활성(일반회원)이고, 결제하면 바이브회원이 된다.
+    // 그 밖의 역할은 기존처럼 결제 전까지 결제 대기(pending).
+    const isCreator = role === "creator";
 
     const user: Profile = {
       id: genId(),
@@ -157,10 +190,11 @@ export async function signupAction(
       parent_advertiser_id: parentAdvertiserId,
       referral_code: genReferralCode(),
       referred_by_user_id: referredBy?.id ?? null,
-      // 가입비 없음 -> 즉시 active / 있음 -> 결제 대기 pending
-      status: needsSignupFee ? "pending" : "active",
+      // 크리에이터는 항상 active(결제 전 = 일반회원). 그 밖의 역할: 가입비 없음 -> active / 있음 -> pending
+      status: isCreator || !needsSignupFee ? "active" : "pending",
       avatar_url: randomProfileAvatar(),
-      subscription_active_until: null,
+      // 가입비 제도가 꺼져 있을 때 가입한 크리에이터는 바로 바이브회원
+      vibe_member_at: isCreator && !needsSignupFee ? now() : null,
       created_at: now(),
       updated_at: now(),
     };
@@ -175,6 +209,15 @@ export async function signupAction(
         referral_type: "signup",
         created_at: now(),
       });
+      // 멘토에게 새 멘티 가입 알림 (결제 전/후는 '내 멘티 현황'에서 확인)
+      if (isCreator && referredBy.role === "creator") {
+        notifyUser(db, {
+          recipientId: referredBy.id,
+          title: "새 멘티가 가입했습니다",
+          message: `${data.name}님이 내 추천 코드로 가입했습니다. ${needsSignupFee ? "아직 가입비 결제 전(일반회원)입니다." : "바이브회원으로 가입했습니다."}`,
+          link: "/creator/referrals",
+        });
+      }
     }
     // 대행사-실행사 계층 관계 (추천인 제도와 별개로 항상 저장)
     if (parentAdvertiserId) {
@@ -214,11 +257,15 @@ export async function signupAction(
       after: { role, advertiserType },
     });
 
-    setSession(user.id, user.session_version ?? 0);
+    newSession = { id: user.id, version: user.session_version ?? 0 };
     redirectTo = needsSignupFee ? "/payment/activate" : roleHome(role);
     return { ok: true };
   });
 
+  // 세션 쿠키는 DB 저장(tx)이 끝난 뒤에 발급한다
+  const session = newSession as { id: string; version: number } | null;
+  if (result.ok && session) setSession(session.id, session.version);
+  if (result.ok) cookies().delete(EMAIL_VERIFY_COOKIE);
   if (result.ok && redirectTo) redirect(redirectTo);
   return result;
 }
@@ -241,20 +288,27 @@ export async function loginAction(
   if (ipWait > 0) {
     return { ok: false, message: `로그인 시도가 너무 많습니다. ${formatWait(ipWait)} 후 다시 시도하세요.` };
   }
-  // 같은 IP+이메일 5회 실패 시 잠금, 이메일 전체(여러 IP 합산) 30회 실패 시 잠금
-  // (이메일만으로 잠그면 남이 일부러 틀려 관리자 계정을 계속 잠글 수 있음)
+  // 같은 IP+이메일 5회 실패 시 잠금.
+  // 이메일 전체(여러 IP 합산)는 "잠금" 대신 점진적 지연을 건다:
+  //  - 하드 잠금은 남이 IP 를 바꿔가며 일부러 틀려 관리자 계정을 계속 잠그는 공격(DoS)에 악용되므로
+  //  - 10회 실패 이후 시도마다 응답을 0.5초~5초 늦춰 대입 속도만 크게 떨어뜨린다(본인은 계속 로그인 가능)
   const failKey = `login-fail:${email}:${ip}`;
   const failAllKey = `login-fail-all:${email}`;
-  const lockWait = rateLimit(failKey, LOGIN_FAIL_LIMIT, LOGIN_WINDOW_MS, false) || rateLimit(failAllKey, LOGIN_FAIL_LIMIT * 6, LOGIN_WINDOW_MS, false);
+  const lockWait = rateLimit(failKey, LOGIN_FAIL_LIMIT, LOGIN_WINDOW_MS, false);
   if (lockWait > 0) {
     return { ok: false, message: `비밀번호를 여러 번 틀려 잠시 로그인이 제한되었습니다. ${formatWait(lockWait)} 후 다시 시도하세요.` };
+  }
+  const accountFails = hitCount(failAllKey, LOGIN_WINDOW_MS);
+  if (accountFails >= LOGIN_SLOWDOWN_AFTER) {
+    const delayMs = Math.min(5000, 500 * 2 ** Math.min(4, accountFails - LOGIN_SLOWDOWN_AFTER));
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
 
   const db = getDb();
   const user = db.profiles.find((p) => p.email === email);
   if (!user || !verifyPassword(password, user.password_hash)) {
-    recordHit(failKey);
-    recordHit(failAllKey);
+    recordHit(failKey, LOGIN_WINDOW_MS);
+    recordHit(failAllKey, LOGIN_WINDOW_MS);
     return { ok: false, message: "이메일 또는 비밀번호가 올바르지 않습니다." };
   }
   if (process.env.NODE_ENV === "production" && PUBLIC_DEMO_PASSWORDS.has(password)) {

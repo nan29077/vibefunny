@@ -9,7 +9,7 @@ import type { Adapter, AiInput } from "./providers";
 // ===========================================================================
 // 개발용 가짜 AI — API 키 없이 숏츠 제작 전 과정을 끝까지 돌려 보기 위한 것.
 // 운영(NODE_ENV=production)에서는 AI_ALLOW_MOCK=1 이 아니면 사용할 수 없다.
-// 프롬프트에 MOCK_FAIL 이 들어 있으면 일부러 실패한다(환불 흐름 점검용).
+// 프롬프트에 MOCK_FAIL 이 들어 있으면 일부러 실패한다(환불 흐름 점검용). MOCK_EMPTY 는 빈 응답.
 // ===========================================================================
 
 const hash = (s: string) => parseInt(createHash("md5").update(String(s)).digest("hex").slice(0, 8), 16);
@@ -72,6 +72,9 @@ export const mockAdapter: Adapter = {
     if (delay) await wait(delay);
     const probe = `${input.prompt || ""} ${input.text || ""}`;
     if (/MOCK_FAIL/.test(probe)) throw new VendorError("가짜 AI가 일부러 실패했습니다.", { retryable: false });
+    // MOCK_EMPTY: 공급사가 빈 응답(안전 정책 차단 등)을 돌려준 상황 — 대본은 어댑터 오류, 미디어는 빈 파일
+    if (/MOCK_EMPTY/.test(probe) && capability === "text") throw new VendorError("AI가 빈 응답을 돌려줬습니다.", { contentIssue: true });
+    if (/MOCK_EMPTY/.test(probe) && capability === "image") return { status: "done", result: { data: Buffer.alloc(0), mime: "image/jpeg" } };
     if (capability === "text") {
       const out = JSON.stringify(/MOCK_BADJSON/.test(probe) ? { oops: true } : mockScript(input));
       const text = /MOCK_BADJSON/.test(probe) ? out.slice(0, 5) : out;

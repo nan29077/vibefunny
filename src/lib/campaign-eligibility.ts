@@ -1,4 +1,4 @@
-import type { AdCampaign, Database, Profile } from "./schema";
+import type { AdCampaign, Database, Profile, SocialPlatform } from "./schema";
 
 const FOLLOWER_MINIMUM: Record<string, number> = {
   none: 0, "10k": 10_000, "50k": 50_000, "100k": 100_000, "500k": 500_000, "1m": 1_000_000,
@@ -49,4 +49,47 @@ export function participationCapacity(db: Database, campaign: AdCampaign, type: 
     : Math.max(0, campaign.distribution_count ?? 0);
   const limit = typeLimit > 0 ? typeLimit : (campaign.participation_limit ?? 0);
   return { active, limit, full: limit > 0 && active >= limit };
+}
+
+/** 캠페인에 플랫폼별 배포 건수가 지정돼 있으면 그 목표치를, 아니면 null */
+export function platformTargets(campaign: AdCampaign): Partial<Record<SocialPlatform, number>> | null {
+  const dist = campaign.platform_distributions;
+  if (!dist) return null;
+  const entries = Object.entries(dist).filter(([p, n]) => campaign.platforms.includes(p as SocialPlatform) && (n ?? 0) > 0);
+  if (entries.length === 0) return null;
+  return Object.fromEntries(entries) as Partial<Record<SocialPlatform, number>>;
+}
+
+/** 플랫폼별 배포 정원 (플랫폼 목표가 없으면 limit=0 → 제한 없음) */
+export function platformCapacity(db: Database, campaign: AdCampaign, platform: SocialPlatform) {
+  const targets = platformTargets(campaign);
+  const limit = targets ? Math.max(0, Math.floor(targets[platform] ?? 0)) : 0;
+  const active = (db.campaign_participations ?? []).filter(
+    (item) =>
+      item.campaign_id === campaign.id &&
+      (item.participation_type ?? "deploy") === "deploy" &&
+      item.platform === platform &&
+      !CAPACITY_EXCLUDED_STATUSES.has(item.status)
+  ).length;
+  // 목표가 있는 캠페인에서 목표에 없는 플랫폼(0건)은 참여 불가
+  const closed = targets ? limit === 0 : false;
+  return { active, limit, full: closed || (limit > 0 && active >= limit) };
+}
+
+/** 크리에이터가 인증받은 채널 중 이 캠페인에 배포할 수 있는 플랫폼 목록 (정원이 남은 순) */
+export function deployablePlatforms(db: Database, creatorId: string, campaign: AdCampaign): SocialPlatform[] {
+  const verified = new Set(
+    (db.social_accounts ?? [])
+      .filter((a) => a.creator_id === creatorId && a.verified_status === "verified")
+      .map((a) => a.platform)
+  );
+  return campaign.platforms
+    .filter((p) => verified.has(p) && !platformCapacity(db, campaign, p).full)
+    .sort((a, b) => {
+      const ca = platformCapacity(db, campaign, a);
+      const cb = platformCapacity(db, campaign, b);
+      const ra = ca.limit > 0 ? ca.limit - ca.active : Number.MAX_SAFE_INTEGER;
+      const rb = cb.limit > 0 ? cb.limit - cb.active : Number.MAX_SAFE_INTEGER;
+      return rb - ra;
+    });
 }

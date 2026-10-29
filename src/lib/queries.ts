@@ -1,5 +1,5 @@
 import { getDb } from "./db";
-import type { Database, Platform, SocialPlatform } from "./schema";
+import type { AdCampaign, Database, Platform, SocialPlatform } from "./schema";
 
 // ===========================================================================
 // 읽기 전용 조회 헬퍼 (서버 컴포넌트에서 사용)
@@ -52,7 +52,6 @@ export function adminStats() {
     totalPointCharged,
     totalAdSpend,
     pendingPayout,
-    videosForSale: db.videos.filter((v) => v.status === "available").length,
     activeCampaigns: db.ad_campaigns.filter((c) =>
       ["published", "recruiting", "in_progress", "submitted"].includes(c.status)
     ).length,
@@ -79,14 +78,22 @@ export function advertiserVideoCharge(db: Database, tierKey?: string | null): nu
 }
 
 /** 영상 길이 구간(키)별 크리에이터 제작 단가(지급액). 미지정 시 extra_creation_creator_payout로 폴백 */
-export function creatorVideoPayout(db: Database, tierKey?: string | null): number {
+export function creatorVideoPayout(db: Database, tierKey?: string | null, campaign?: Pick<AdCampaign, "creator_rate_snapshot"> | null): number {
+  // 등록(결제) 시점에 고정한 단가가 있으면 그 값 — 이후 관리자 단가 변경이 기존 캠페인에 영향 주지 않도록
+  const snap = campaign?.creator_rate_snapshot;
+  if (snap && typeof snap.video_payout === "number") return snap.video_payout;
   const tier = (db.settings.video_pricing_tiers ?? []).find((t) => t.key === tierKey);
   if (tier && typeof tier.amount === "number") return tier.amount;
   return db.settings.extra_creation_creator_payout;
 }
 
 /** 캠페인 플랫폼 기준 배포 1건당 크리에이터 지급액(평균) */
-export function creatorDeployPayout(db: Database, platforms: SocialPlatform[]): number {
+export function creatorDeployPayout(db: Database, platforms: SocialPlatform[], campaign?: Pick<AdCampaign, "creator_rate_snapshot"> | null): number {
+  const snap = campaign?.creator_rate_snapshot?.deploy_payouts;
+  if (snap) {
+    const values = platforms.map((p) => snap[p]).filter((v): v is number => typeof v === "number");
+    if (values.length > 0) return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+  }
   const rates = db.settings.distribution_rates.filter((r) => platforms.includes(r.platform));
   if (rates.length === 0) return 0;
   return Math.round(rates.reduce((s, r) => s + r.creator_payout, 0) / rates.length);
@@ -136,6 +143,13 @@ export function computeCampaignCost(db: Database, input: CampaignCostInput) {
     creationCost,
     total: distributionCost + creationCost,
   };
+}
+
+/** 캠페인 등록 시점의 크리에이터 지급 단가 스냅샷 */
+export function creatorRateSnapshot(db: Database, videoDurationTier?: string | null): NonNullable<AdCampaign["creator_rate_snapshot"]> {
+  const deploy_payouts: Partial<Record<SocialPlatform, number>> = {};
+  for (const r of db.settings.distribution_rates) deploy_payouts[r.platform] = r.creator_payout;
+  return { video_payout: creatorVideoPayout(db, videoDurationTier), deploy_payouts, captured_at: new Date().toISOString() };
 }
 
 /** 영상 길이 -> 제작 단가 (관리자 설정 기준) */

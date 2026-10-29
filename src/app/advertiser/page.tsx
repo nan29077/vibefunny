@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { SiteHowto } from "@/components/site/site-content";
 import { PageHeader, StatCard, Card, LinkButton } from "@/components/ui";
 import { formatKRW, formatPoint } from "@/lib/money";
 import { ADVERTISER_TYPE_LABELS } from "@/lib/schema";
@@ -316,6 +317,7 @@ export default function AdvertiserDashboard() {
           </div>
         </Card>
       )}
+      <SiteHowto blocks={db.settings.site_howto_blocks} role="advertiser" />
     </div>
   );
 }

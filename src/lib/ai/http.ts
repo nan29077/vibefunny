@@ -15,12 +15,24 @@ export class VendorError extends Error {
   transient: boolean;
   /** 요청이 공급사에 도달했는지 알 수 없는 경우(시간 초과 등) — 영상처럼 비싼 작업은 다시 보내지 않는다 */
   unknownDelivery: boolean;
-  constructor(message: string, opts: { status?: number; retryable?: boolean; transient?: boolean; unknownDelivery?: boolean } = {}) {
+  /**
+   * 빈 응답·안전 정책 차단·금칙어 등 "내용" 문제 — 다시 보내도 같은 결과이므로 재시도하지 않고,
+   * 공급사 장애가 아니므로 연속 실패(차단기) 집계에도 넣지 않는다.
+   */
+  contentIssue: boolean;
+  /**
+   * 공급사가 이 요청을 과금했는가. false = 확실히 과금 안 됨(HTTP 오류 응답·연결 실패).
+   * undefined = 응답은 받았거나(빈 응답 등) 알 수 없음 → 월 예산 집계에서는 과금된 것으로 본다.
+   */
+  billed?: boolean;
+  constructor(message: string, opts: { status?: number; retryable?: boolean; transient?: boolean; unknownDelivery?: boolean; contentIssue?: boolean; billed?: boolean } = {}) {
     super(message);
     this.status = opts.status ?? 502;
-    this.retryable = opts.retryable ?? true;
+    this.contentIssue = opts.contentIssue ?? false;
+    this.retryable = this.contentIssue ? false : (opts.retryable ?? true);
     this.transient = opts.transient ?? false;
     this.unknownDelivery = opts.unknownDelivery ?? false;
+    this.billed = opts.billed;
   }
 }
 
@@ -62,6 +74,35 @@ export async function safeUrl(url: string): Promise<boolean> {
   }
 }
 
+/**
+ * 기본 프리셋 공급사 API 주소(공개 고정 도메인) — DNS 확인 비용을 아끼기 위해 첫 요청 검사를 건너뛴다.
+ * (관리자가 바꾼 base_url·결과 확인 주소 등 그 밖의 호스트는 매번 safeUrl 로 공인 IP 인지 확인)
+ */
+const PRESET_HOSTS = new Set(["generativelanguage.googleapis.com", "api.openai.com", "queue.fal.run", "api.elevenlabs.io"]);
+
+/** 요청 보낼 주소 검사: 프리셋 호스트(https)는 통과, 그 밖에는 safeUrl (https + 내부망 아님 + 모든 DNS 결과가 공인 IP) */
+export async function safeCallUrl(url: string): Promise<boolean> {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "https:" && !u.username && !u.password && PRESET_HOSTS.has(u.hostname.toLowerCase())) return true;
+  } catch {
+    return false;
+  }
+  return safeUrl(url);
+}
+
+/** host 가 domains 중 하나이거나 그 하위 도메인인가 */
+export function hostIn(url: string, domains: string[]): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    const h = u.hostname.toLowerCase().replace(/\.$/, "");
+    return domains.some((d) => h === d || h.endsWith("." + d));
+  } catch {
+    return false;
+  }
+}
+
 async function readLimited(res: Response, limit: number): Promise<Buffer> {
   const declared = Number(res.headers.get("content-length") || 0);
   if (declared > limit) throw new VendorError("결과 파일이 너무 큽니다.", { retryable: false });
@@ -97,6 +138,10 @@ export async function call(url: string, opts: CallOptions = {}): Promise<any> {
   let res: Response;
   let current = url;
   let sendHeaders: Record<string, string> = json !== undefined ? { "Content-Type": "application/json", ...headers } : headers;
+  // SSRF 방지: 첫 주소도 검사한다 (API 키가 실려 나가므로 내부망·메타데이터 주소로 보내지 않는다)
+  // 한계: 검사(DNS 조회)와 fetch 의 실제 연결 사이에 DNS 가 바뀌는 재바인딩(TOCTOU)은 완전히 막지 못한다.
+  //       (Node 내장 fetch 에 조회 결과를 고정하려면 undici Agent(connect.lookup)가 필요한데 별도 의존성이라 적용하지 않음)
+  if (!(await safeCallUrl(current))) throw new VendorError("안전하지 않은 공급사 주소입니다.", { retryable: false, billed: false });
   for (let hop = 0; ; hop++) {
     try {
       res = await fetch(current, {
@@ -113,14 +158,15 @@ export async function call(url: string, opts: CallOptions = {}): Promise<any> {
         transient: true,
         // 시간 초과는 요청이 이미 접수됐을 수 있다
         unknownDelivery: timedOut,
+        billed: timedOut ? undefined : false,
       });
     }
     if (![301, 302, 303, 307, 308].includes(res.status)) break;
     const location = res.headers.get("location");
-    if (!location || hop >= MAX_REDIRECTS) throw new VendorError("AI 공급사 주소가 너무 여러 번 바뀌었습니다.", { retryable: false });
+    if (!location || hop >= MAX_REDIRECTS) throw new VendorError("AI 공급사 주소가 너무 여러 번 바뀌었습니다.", { retryable: false, billed: false });
     const next = new URL(location, current).toString();
     if (new URL(next).origin !== new URL(current).origin) {
-      if (!(await safeUrl(next))) throw new VendorError("안전하지 않은 공급사 주소입니다.", { retryable: false });
+      if (!(await safeUrl(next))) throw new VendorError("안전하지 않은 공급사 주소입니다.", { retryable: false, billed: false });
       sendHeaders = json !== undefined ? { "Content-Type": "application/json" } : {};
     }
     current = next;
@@ -139,6 +185,8 @@ export async function call(url: string, opts: CallOptions = {}): Promise<any> {
       status: res.status === 401 ? 401 : res.status === 403 ? 403 : res.status === 400 || res.status === 422 ? 400 : 502,
       retryable: res.status === 429 || res.status >= 500,
       transient: res.status === 429 || res.status >= 500,
+      // 오류 응답은 공급사가 과금하지 않는다
+      billed: false,
     });
   }
   const payload = await readLimited(res, raw ? MAX_DOWNLOAD : 64 * 1024 * 1024);

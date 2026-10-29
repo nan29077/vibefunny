@@ -4,6 +4,7 @@ import { formatPoint } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { POINT_TX_TYPE_LABELS } from "@/lib/labels";
 import { requireAdmin } from "@/lib/auth";
+import { formatDateTime } from "@/lib/date";
 
 export default function AdminPointsPage() {
   requireAdmin();
@@ -29,7 +30,7 @@ export default function AdminPointsPage() {
                 </Td>
                 <Td>{formatPoint(t.balance_after)}</Td>
                 <Td className="text-gray-500">{t.memo ?? "-"}</Td>
-                <Td className="text-xs text-gray-400">{t.created_at.slice(0, 16).replace("T", " ")}</Td>
+                <Td className="text-xs text-gray-400">{formatDateTime(t.created_at)}</Td>
               </tr>
             ))}
           </tbody>

@@ -7,8 +7,8 @@
 
 import fs from "fs";
 import path from "path";
-import type { Database, AdCampaign } from "../schema";
-import { seedDatabase, createProductionDatabase, seedProductCategories, seedDemoProducts, seedDemoOrders, defaultCafe24Settings, defaultAiStorySettings } from "../seed";
+import type { Database } from "../schema";
+import { seedDatabase, createProductionDatabase, seedProductCategories, seedDemoProducts, seedDemoOrders, defaultCafe24Settings } from "../seed";
 import { syncAllCampaignVideos } from "../distribution";
 import { profileAvatarForSeed, randomProfileAvatar } from "../profile-avatars";
 
@@ -61,7 +61,6 @@ function ensureCommerceCollections(db: Database): boolean {
     if (!db.settings.support_hours_timezone) { db.settings.support_hours_timezone = "Asia/Seoul"; dirty = true; }
     if (db.settings.verification_sender_email === undefined) { db.settings.verification_sender_email = ""; dirty = true; }
     if (!db.settings.cafe24) { db.settings.cafe24 = defaultCafe24Settings(); dirty = true; }
-    if (!db.settings.ai_story) { db.settings.ai_story = defaultAiStorySettings(); dirty = true; }
     if (db.settings.shorts_commerce_default_commission_rate === undefined) {
       db.settings.shorts_commerce_default_commission_rate = 10;
       dirty = true;
@@ -123,65 +122,23 @@ function withDbLock<T>(work: () => T): T {
 
 function atomicWriteDb(db: Database): void {
   const tempPath = path.join(DATA_DIR, `db.${process.pid}.${Date.now()}.tmp`);
-  fs.writeFileSync(tempPath, JSON.stringify(db, null, 2), "utf-8");
-  const tempHandle = fs.openSync(tempPath, "r");
   try {
-    try { fs.fsyncSync(tempHandle); }
-    catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== "EPERM" && code !== "EINVAL" && code !== "ENOTSUP") throw error;
-    }
-  } finally { fs.closeSync(tempHandle); }
-  if (fs.existsSync(DB_PATH)) fs.copyFileSync(DB_PATH, DB_BACKUP_PATH);
-  fs.renameSync(tempPath, DB_PATH);
-}
-
-// 동화(story_creation) 캠페인 목소리 파일 백필 데이터
-const STORY_VOICES: Record<string, { label: string; name: string; url: string }> = {
-  camp_story_001: { label: "엄마 목소리", name: "지유_엄마목소리.mp3", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
-  camp_story_002: { label: "아빠 목소리", name: "도윤_아빠목소리.mp3", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
-  camp_story_005: { label: "엄마 목소리", name: "유나_엄마목소리.mp3", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
-};
-
-// 추가 더미 캠페인(바이브포터 영상제작 / AI스토리 동화제작) — 기존 db.json에 없으면 주입
-function extraDummyCampaigns(): AdCampaign[] {
-  const ago = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
-  const soon = new Date(Date.now() + 25 * 86400000).toISOString();
-  const base = {
-    category_id: null, reference_links: null, admin_memo: null, total_cost: 0, point_spent: 0,
-    status: "recruiting" as const, created_at: ago(1), updated_at: ago(1), approved_at: ago(1),
-    published_at: ago(1), start_date: ago(1), end_date: soon,
-  };
-  return [
-    {
-      ...base, id: "camp_demo_vp4", advertiser_id: "vibeporter_system",
-      title: "동물병원 브랜드 홍보 숏폼 제작·배포 (바이브포터)",
-      description: "바이브포터 제작 의뢰. 반려동물 병원 브랜드 홍보 영상 제작 후 인스타·틱톡 배포.",
-      campaign_type: "create_and_distribute", platforms: ["instagram", "tiktok"], video_required: true,
-      uploaded_video_url: null, distribution_count: 16, video_production_count: 4, video_duration_tier: "30s",
-      target_keywords: "반려동물,동물병원,펫케어", source_type: "vibeporter", participation_limit: 8,
-      brand_name: "행복한동물병원",
-    } as AdCampaign,
-    {
-      ...base, id: "camp_story_005", advertiser_id: "vibeporter_system",
-      title: "우리 아이 맞춤 동화 제작 - 구름나라 여행",
-      description: "AI스토리 맞춤 동화 의뢰. 구름나라를 여행하는 상상력 가득한 그림동화 제작.",
-      campaign_type: "story_creation", platforms: [], video_required: false, uploaded_video_url: null,
-      distribution_count: 0, video_production_count: 1, video_duration_tier: null,
-      target_keywords: "동화,그림책,맞춤동화,구름", source_type: "ai_story", participation_limit: 3,
-      story_brief: {
-        source: "ai_story", source_request_id: "req-005", child_name: "유나", child_age: 5,
-        child_photo_url: "", story_theme: "구름나라 여행",
-        story_note: "솜사탕 구름을 타고 하늘나라 친구들을 만나는 상상 가득한 이야기.",
-        art_style: "몽환적인 파스텔 수채화", tone: "포근하고 몽글몽글한", page_count: 12,
-        target_age_range: "4~7세", key_characters: "주인공 유나, 구름 친구 '몽실', 무지개 새",
-        moral_lesson: "상상력은 무엇이든 가능하게 한다", language: "한국어", requester_name: "최은영",
-        style_requirements: "전체적으로 부드럽고 따뜻한 색감, 잠자기 전 읽기 좋은 분위기",
-        reference_image_urls: [], voice_label: "엄마 목소리", voice_file_name: "유나_엄마목소리.mp3",
-        voice_file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-      },
-    } as AdCampaign,
-  ];
+    fs.writeFileSync(tempPath, JSON.stringify(db, null, 2), "utf-8");
+    const tempHandle = fs.openSync(tempPath, "r");
+    try {
+      try { fs.fsyncSync(tempHandle); }
+      catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "EPERM" && code !== "EINVAL" && code !== "ENOTSUP") throw error;
+      }
+    } finally { fs.closeSync(tempHandle); }
+    if (fs.existsSync(DB_PATH)) fs.copyFileSync(DB_PATH, DB_BACKUP_PATH);
+    fs.renameSync(tempPath, DB_PATH);
+  } catch (error) {
+    // 저장 실패 시 임시 파일을 남기지 않는다 (data 폴더에 .tmp 가 쌓이던 문제)
+    try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch { /* ignore */ }
+    throw error;
+  }
 }
 
 function ensureFile(): void {
@@ -208,97 +165,141 @@ function ensureFile(): void {
   }
 }
 
-/** 현재 DB 스냅샷을 디스크에서 읽어온다. */
-export function getDb(): Database {
-  ensureFile();
+/**
+ * 구버전 db.json 보정(컬렉션 기본값, 설정 백필, 영상 풀 동기화).
+ * getDb()와 tx() 모두에서 적용해 "화면에 보이는 데이터 = 저장 시 사용하는 데이터"가 되게 한다.
+ * (tx() 에서 적용된 보정은 저장 시 함께 디스크에 영속화된다)
+ */
+/**
+ * 1회성: 구독료 제거 + 크리에이터 회원 등급(일반/바이브) 도입
+ * - 결제 대기(pending) 크리에이터 → 활성 일반회원(가입비 결제 전)
+ * - 이미 활성(또는 정지)인 크리에이터 → 바이브회원 (가입비 결제일, 없으면 가입일 기준)
+ * - 구독료 설정·구독 만료일 필드 삭제
+ */
+function migrateMembership(db: Database): void {
+  if (db.membership_migrated_at) return;
+  for (const p of db.profiles ?? []) {
+    const legacy = p as unknown as Record<string, unknown>;
+    if ("subscription_active_until" in legacy) delete legacy.subscription_active_until;
+    if (p.role !== "creator" || p.vibe_member_at !== undefined && p.vibe_member_at !== null) continue;
+    // 가입비 결제 완료 기록이 있으면 상태와 관계없이 바이브회원 (결제 후 pending 으로 남은 계정 포함)
+    const paid = (db.payments ?? [])
+      .filter((x) => x.user_id === p.id && x.payment_type === "signup_fee" && x.status === "paid")
+      .sort((a, b) => (a.paid_at ?? a.created_at).localeCompare(b.paid_at ?? b.created_at))[0];
+    const wasPending = p.status === "pending";
+    if (wasPending) p.status = "active";
+    if (paid) {
+      p.vibe_member_at = paid.paid_at ?? paid.created_at;
+    } else if (!wasPending && p.status === "active") {
+      // 결제 기록 없이 이미 활동 중이던 계정(가입비 제도 이전 가입·관리자 활성화)은 기존 권한 유지
+      p.vibe_member_at = p.created_at;
+    } else {
+      // 결제 전 대기 계정·정지·탈퇴 계정은 일반회원
+      p.vibe_member_at = null;
+    }
+  }
+  for (const fee of Object.values(db.settings?.fees ?? {})) {
+    const legacy = fee as unknown as Record<string, unknown>;
+    delete legacy.subscription_enabled;
+    delete legacy.subscription_amount;
+  }
+  db.membership_migrated_at = new Date().toISOString();
+}
+
+/** 예전 기본 배너·이용방법 문구(무료 가입·영상 판매·없는 /register 링크)를 현재 문구로 교체 — 관리자가 고친 문구는 건드리지 않는다 */
+function migrateSiteCopy(db: Database): void {
+  const st = db.settings as unknown as Record<string, unknown> | undefined;
+  if (!st) return;
+  const banners = (st.site_banners ?? []) as Array<Record<string, unknown>>;
+  for (const b of banners) {
+    if (b.subtitle === "숏폼 영상 제작부터 배포, 판매까지 한 곳에서") b.subtitle = "캠페인 배포·영상 제작·쇼츠 커머스·추천 수당까지 한 곳에서";
+    if (b.cta_label === "무료로 시작하기") b.cta_label = "추천 코드로 가입하기";
+    if (b.cta_href === "/register") b.cta_href = "/signup";
+  }
+  const blocks = (st.site_howto_blocks ?? []) as Array<Record<string, unknown>>;
+  for (const h of blocks) {
+    if (h.title === "영상 업로드" && h.description === "숏폼 영상을 업로드하세요.") {
+      h.title = "가입비 결제";
+      h.description = "가입비를 결제하면 바이브회원이 됩니다.";
+    }
+    if (h.description === "배포 수익과 판매 수익을 받으세요.") h.description = "캠페인 배포·영상 제작 수익과 추천 수당을 받으세요.";
+  }
+}
+
+/** 이번 변경 전의 선발 취소 기록에 취소 주체를 채운다 (기본 사유 문구로 판별) — 선발 취소 후 재신청 방지 */
+function migrateCancelledBy(db: Database): void {
+  const reviewerReasons = new Set(["광고주가 선발을 취소했습니다.", "관리자가 선발을 취소했습니다."]);
+  for (const p of db.campaign_participations ?? []) {
+    if (p.status !== "cancelled" || p.cancelled_by) continue;
+    if (p.rejection_reason && reviewerReasons.has(p.rejection_reason)) p.cancelled_by = "reviewer";
+  }
+}
+
+function applyMigrations(db: Database): void {
+  migrateMembership(db);
+  migrateSiteCopy(db);
+  migrateCancelledBy(db);
+  if (!db.campaign_participations) db.campaign_participations = [];
+  if (!db.campaign_favorites) db.campaign_favorites = [];
+  if (!db.campaign_videos) db.campaign_videos = [];
+  if (!db.campaign_comments) db.campaign_comments = [];
+  if (!db.campaign_direct_messages) db.campaign_direct_messages = [];
+  if (!db.campaign_submissions) db.campaign_submissions = [];
+  if (!db.submission_comments) db.submission_comments = [];
+  if (!db.participation_comments) db.participation_comments = [];
+  if (!db.notifications) db.notifications = [];
+  if (!db.private_files) db.private_files = [];
+  if (!db.audit_logs) db.audit_logs = [];
+  ensureAiCollections(db);
+  const __commerceDirty = ensureCommerceCollections(db);
+  // ── 마이그레이션: 영상 제작 단가 구간에 광고주 청구단가 백필 ──
+  const VP_CHARGE_DEFAULT: Record<string, number> = { "15s": 10000, "30s": 15000, "60s": 25000, "90s": 35000, custom: 0 };
+  for (const t of db.settings.video_pricing_tiers ?? []) {
+    if ((t as { advertiser_charge?: number }).advertiser_charge === undefined) {
+      (t as { advertiser_charge: number }).advertiser_charge = VP_CHARGE_DEFAULT[t.key] ?? Math.max(0, (t.amount ?? 0) * 3);
+    }
+  }
+  // ── 마이그레이션: 숏폼 배포 단가에 Facebook 추가 ──
+  if (db.settings.distribution_rates && !db.settings.distribution_rates.some((r) => r.platform === "facebook")) {
+    db.settings.distribution_rates.push({
+      platform: "facebook",
+      label: "Facebook Reels",
+      creator_payout: 10000,
+      advertiser_charge: 15000,
+    });
+  }
+  // 배포용 영상 풀(campaign_videos) 백필 (제작 승인분 / 레거시 단일 영상)
+  let __videosDirty = false;
+  try { __videosDirty = syncAllCampaignVideos(db); } catch { /* ignore */ }
+  void __commerceDirty;
+  void __videosDirty;
+}
+
+/**
+ * db.json 을 읽는다. 파일이 깨져 있으면(저장 중 중단 등) 직전 백업(db.json.bak)으로 대체하고 경고를 남긴다.
+ * 백업으로 대체된 경우 다음 저장(tx) 때 db.json 이 백업 내용 기준으로 복구된다.
+ */
+function readDbFile(): Database {
   try {
-    const raw = fs.readFileSync(DB_PATH, "utf-8");
-    const db = JSON.parse(raw) as Database;
-    if (!db.campaign_participations) db.campaign_participations = [];
-    if (!db.campaign_favorites) db.campaign_favorites = [];
-    if (!db.campaign_videos) db.campaign_videos = [];
-    if (!db.campaign_comments) db.campaign_comments = [];
-    if (!db.campaign_direct_messages) db.campaign_direct_messages = [];
-    if (!db.vibeporter_requests) db.vibeporter_requests = [];
-    if (!db.campaign_submissions) db.campaign_submissions = [];
-    if (!db.submission_comments) db.submission_comments = [];
-    if (!db.participation_comments) db.participation_comments = [];
-    if (!db.notifications) db.notifications = [];
-    if (!db.private_files) db.private_files = [];
-    if (!db.audit_logs) db.audit_logs = [];
-    ensureAiCollections(db);
-    const __commerceDirty = ensureCommerceCollections(db);
-    if (!db.settings.member_video_sale_price_tiers || db.settings.member_video_sale_price_tiers.length === 0) {
-      db.settings.member_video_sale_price_tiers = [
-        { key: "30s",  label: "30초 이하", max_seconds: 30,   price: 3000,  creator_payout: 1500 },
-        { key: "60s",  label: "60초 이하", max_seconds: 60,   price: 5000,  creator_payout: 2500 },
-        { key: "90s",  label: "90초 이하", max_seconds: 90,   price: 7000,  creator_payout: 3500 },
-        { key: "long", label: "90초 초과", max_seconds: null, price: 10000, creator_payout: 5000 },
-      ];
-    }
-    if ((db.settings as unknown as Record<string, unknown>).member_video_sale_price !== undefined) {
-      delete (db.settings as unknown as Record<string, unknown>).member_video_sale_price;
-    }
-    // ── 마이그레이션: 회원 영상판매 가격 구간에 크리에이터 제작단가 백필 ──
-    for (const t of db.settings.member_video_sale_price_tiers) {
-      if ((t as { creator_payout?: number }).creator_payout === undefined) {
-        (t as { creator_payout: number }).creator_payout = Math.round((t.price ?? 0) / 2);
-      }
-    }
-    // ── 마이그레이션: 영상 제작 단가 구간에 광고주 청구단가 백필 ──
-    const VP_CHARGE_DEFAULT: Record<string, number> = { "15s": 10000, "30s": 15000, "60s": 25000, "90s": 35000, custom: 0 };
-    for (const t of db.settings.video_pricing_tiers ?? []) {
-      if ((t as { advertiser_charge?: number }).advertiser_charge === undefined) {
-        (t as { advertiser_charge: number }).advertiser_charge = VP_CHARGE_DEFAULT[t.key] ?? Math.max(0, (t.amount ?? 0) * 3);
-      }
-    }
-    // ── 마이그레이션: 숏폼 배포 단가에 Facebook 추가 ──
-    if (db.settings.distribution_rates && !db.settings.distribution_rates.some((r) => r.platform === "facebook")) {
-      db.settings.distribution_rates.push({
-        platform: "facebook",
-        label: "Facebook Reels",
-        creator_payout: 10000,
-        advertiser_charge: 15000,
-      });
-    }
-    // ── 마이그레이션: 동화 캠페인 출처(AI스토리)/목소리 백필 + 신규 더미 캠페인 주입 ──
-    let __campDirty = false;
-    if (Array.isArray(db.ad_campaigns)) {
-      for (const c of db.ad_campaigns) {
-        if (c.campaign_type === "story_creation") {
-          if (c.source_type !== "ai_story") { c.source_type = "ai_story"; __campDirty = true; }
-          const v = STORY_VOICES[c.id];
-          if (v && c.story_brief && !c.story_brief.voice_file_url) {
-            c.story_brief.voice_label = v.label;
-            c.story_brief.voice_file_name = v.name;
-            c.story_brief.voice_file_url = v.url;
-            __campDirty = true;
-          }
-        }
-      }
-      if (!IS_PRODUCTION) {
-        const ids = new Set(db.ad_campaigns.map((c) => c.id));
-        for (const extra of extraDummyCampaigns()) {
-          if (!ids.has(extra.id)) { db.ad_campaigns.push(extra); __campDirty = true; }
-        }
-      }
-    }
-    // 배포용 영상 풀(campaign_videos) 백필 (제작 승인분 / 레거시 단일 영상)
-    let __videosDirty = false;
-    try { __videosDirty = syncAllCampaignVideos(db); } catch { /* ignore */ }
-    // 변경분을 디스크에 영속화 → tx()(참여 신청 등)에서도 동일 데이터 인식
-    void __campDirty;
-    void __commerceDirty;
-    void __videosDirty;
-    return db;
+    return JSON.parse(fs.readFileSync(DB_PATH, "utf-8")) as Database;
   } catch (error) {
     if (fs.existsSync(DB_BACKUP_PATH)) {
       try {
-        return JSON.parse(fs.readFileSync(DB_BACKUP_PATH, "utf-8")) as Database;
+        const backup = JSON.parse(fs.readFileSync(DB_BACKUP_PATH, "utf-8")) as Database;
+        console.error("[db] db.json 을 읽을 수 없어 db.json.bak 으로 대체합니다.", error);
+        return backup;
       } catch { /* preserve the original error below */ }
     }
     throw new Error("데이터 파일을 읽을 수 없습니다. db.json과 db.json.bak를 확인하세요.", { cause: error });
   }
+}
+
+/** 현재 DB 스냅샷을 디스크에서 읽어온다. */
+export function getDb(): Database {
+  ensureFile();
+  const db = readDbFile();
+  applyMigrations(db);
+  return db;
 }
 
 /** 마이그레이션 없이 파일만 읽는다 (백그라운드 작업 엔진의 잦은 상태 확인용) */
@@ -318,14 +319,8 @@ export function saveDb(db: Database): void {
 
 export function tx<T>(mutator: (db: Database) => T): T {
   return withDbLock(() => {
-    const raw = fs.readFileSync(DB_PATH, "utf-8");
-    const db = JSON.parse(raw) as Database;
-    ensureCommerceCollections(db); // 구버전 db.json 안전 가드
-    if (!db.campaign_videos) db.campaign_videos = []; // 배포 영상 풀 가드
-    if (!db.campaign_favorites) db.campaign_favorites = [];
-    if (!db.notifications) db.notifications = [];
-    if (!db.private_files) db.private_files = [];
-    ensureAiCollections(db);
+    const db = readDbFile();
+    applyMigrations(db); // getDb()와 같은 보정을 적용하고 저장 시 영속화
     const result = mutator(db);
     atomicWriteDb(db);
     return result;

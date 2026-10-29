@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { tx } from "../db";
 import { requireAdmin } from "../auth";
+import { isHttpUrl, isInternalPath } from "../url";
 import type { SiteBanner, SiteHowtoBlock, SiteRevenueStat } from "../schema";
 
 const now = () => new Date().toISOString();
@@ -49,6 +50,7 @@ export async function updateAnnouncementAction(fd: FormData): Promise<void> {
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
 }
 
 // === 배너 추가 =============================================================
@@ -64,11 +66,14 @@ export async function addBannerAction(fd: FormData): Promise<void> {
     is_active: fd.get("is_active") === "on",
   };
   if (!banner.title) return;
+  // 버튼 링크는 사이트 내부 경로(/...) 또는 http(s) 주소만 허용
+  if (banner.cta_href && !isInternalPath(banner.cta_href) && !isHttpUrl(banner.cta_href)) banner.cta_href = "";
   tx((db) => {
     db.settings.site_banners = [...(db.settings.site_banners ?? []), banner];
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
 }
 
 // === 배너 활성/비활성 토글 =================================================
@@ -81,6 +86,7 @@ export async function toggleBannerAction(fd: FormData): Promise<void> {
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
 }
 
 // === 배너 삭제 =============================================================
@@ -92,6 +98,7 @@ export async function deleteBannerAction(fd: FormData): Promise<void> {
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
 }
 
 // === 이용 방법 블록 업데이트 ===============================================
@@ -113,6 +120,7 @@ export async function updateHowtoBlockAction(fd: FormData): Promise<void> {
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
 }
 
 // === 수익 현황 통계 업데이트 ===============================================
@@ -134,4 +142,5 @@ export async function updateRevenueStatsAction(fd: FormData): Promise<void> {
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
 }

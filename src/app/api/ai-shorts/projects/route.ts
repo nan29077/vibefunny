@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { tx } from "@/lib/db";
 import { audit } from "@/lib/services";
 import { aiShortsAccess } from "@/lib/ai/settings";
-import { createProject, createSchema } from "@/lib/ai/projects";
+import { assertNoBlockedTerms, createProject, createSchema } from "@/lib/ai/projects";
 import { AiError } from "@/lib/ai/engine";
 import { creatorOrAdmin, errorResponse } from "@/lib/ai/api";
 
@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     const project = tx((db) => {
       const access = aiShortsAccess(db, user);
       if (!access.open) throw new AiError(access.reason, 403, "closed");
+      assertNoBlockedTerms(db, { topic: input.topic, title: input.title });
       const p = createProject(db, user, input);
       audit(db, { actorId: user.id, action: "ai_shorts_create", targetTable: "shorts_projects", targetId: p.id });
       return p;

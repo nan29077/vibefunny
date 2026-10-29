@@ -10,6 +10,7 @@ import { requireRole } from "../auth";
 import { genId } from "../crypto";
 import { addWalletTxOnce, audit, notifyUser } from "../services";
 import { cafe24CreateProduct } from "../cafe24";
+import { isSellable } from "../commerce";
 import type {
   Product,
   ProductOption,
@@ -20,6 +21,7 @@ import type {
 } from "../schema";
 import type { ActionState } from "@/components/form";
 import { isHttpUrl } from "../url";
+import { vibeOnlyError } from "../membership";
 
 /**
  * 비밀값 입력칸 처리: 새 값을 입력하면 암호화해 교체, 비워 두면 기존 값을 유지(평문이면 이번에 암호화),
@@ -353,10 +355,6 @@ export async function saveShortsLinkAction(
   const title = String(fd.get("title") || "").trim();
   const contentNote = String(fd.get("content_note") || "").trim();
   const channelId = String(fd.get("channel_id") || "").trim() || null;
-  const videoSource = (String(fd.get("video_source") || "self").trim() === "vibeporter"
-    ? "vibeporter" : "self") as "self" | "vibeporter";
-  const sourceVideoId = String(fd.get("source_video_id") || "").trim() || null;
-  const sourceVideoTitle = String(fd.get("source_video_title") || "").trim() || null;
   const productIds = String(fd.get("product_ids") || "")
     .split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -366,9 +364,15 @@ export async function saveShortsLinkAction(
     return { ok: false, message: "유튜브 쇼츠 링크 형식이 아닙니다." };
   }
 
-  tx((db) => {
-    // 유효한 상품 id만 연동
-    const validIds = productIds.filter((id) => db.products.some((p) => p.id === id));
+  const result = tx<ActionState | null>((db) => {
+    const vibeBlock = vibeOnlyError(db, user);
+    if (vibeBlock) return { ok: false, message: vibeBlock };
+    // 본인 운영 채널만 연결 가능
+    if (channelId && !db.creator_youtube_channels.some((c) => c.id === channelId && c.creator_id === user.id)) {
+      return { ok: false, message: "본인 운영 채널만 선택할 수 있습니다." };
+    }
+    // 판매 중인(진열·판매 가능) 상품만 연동
+    const validIds = productIds.filter((id) => db.products.some((p) => p.id === id && isSellable(p)));
     const status = validIds.length > 0 ? "linked" : "draft";
     if (editId) {
       const link = db.creator_shorts_links.find(
@@ -381,9 +385,6 @@ export async function saveShortsLinkAction(
         link.channel_id = channelId;
         link.linked_product_ids = validIds;
         link.status = status;
-        link.video_source = videoSource;
-        link.source_video_id = videoSource === "vibeporter" ? sourceVideoId : null;
-        link.source_video_title = videoSource === "vibeporter" ? sourceVideoTitle : null;
         link.updated_at = now();
       }
     } else {
@@ -396,15 +397,14 @@ export async function saveShortsLinkAction(
         content_note: contentNote,
         linked_product_ids: validIds,
         status,
-        video_source: videoSource,
-        source_video_id: videoSource === "vibeporter" ? sourceVideoId : null,
-        source_video_title: videoSource === "vibeporter" ? sourceVideoTitle : null,
         created_at: now(),
         updated_at: now(),
       };
       db.creator_shorts_links.push(link);
     }
+    return null;
   });
+  if (result) return result;
   revalidatePath("/creator/shorts-commerce");
   return { ok: true, message: "쇼츠가 저장되었습니다." };
 }
@@ -497,28 +497,4 @@ export async function setOrderStatusAction(fd: FormData): Promise<void> {
     audit(db, { actorId: admin.id, action: `order_status_${status}`, targetTable: "product_orders", targetId: id, before: { status: before } });
   });
   revalidatePath("/admin/products/orders");
-}
-
-// ===========================================================================
-// 최고관리자 — AI스토리(동화 제작 의뢰) 연동 설정
-// ===========================================================================
-export async function saveAiStorySettingsAction(
-  _prev: ActionState,
-  fd: FormData
-): Promise<ActionState> {
-  const admin = requireRole("admin");
-  tx((db) => {
-    const prev = db.settings.ai_story;
-    db.settings.ai_story = {
-      enabled: fd.get("enabled") === "on",
-      api_base: String(fd.get("api_base") || "").trim(),
-      api_key: keepOrReplaceSecret(fd, "api_key", prev?.api_key),
-      webhook_secret: keepOrReplaceSecret(fd, "webhook_secret", prev?.webhook_secret),
-      auto_import: fd.get("auto_import") === "on",
-    };
-    db.settings.updated_at = now();
-    db.settings.updated_by = admin.id;
-  });
-  revalidatePath("/admin/ai-story");
-  return { ok: true, message: "AI스토리 연동 설정이 저장되었습니다." };
 }

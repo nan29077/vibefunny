@@ -120,7 +120,7 @@ export default function AdminProductsPage() {
                     </form>
                     <form action={deleteProductAction}>
                       <input type="hidden" name="product_id" value={p.id} />
-                      <SubmitButton size="sm" variant="danger">삭제</SubmitButton>
+                      <SubmitButton size="sm" variant="danger" confirmMessage="이 상품을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.">삭제</SubmitButton>
                     </form>
                   </div>
                 </Td>

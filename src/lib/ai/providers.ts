@@ -1,4 +1,4 @@
-import { call, dataUri, pcmToWav, safeUrl, VendorError } from "./http";
+import { call, dataUri, hostIn, pcmToWav, safeUrl, VendorError } from "./http";
 import type { AiCapability, AiModel, AiProvider, AiProviderKind } from "../schema";
 
 // ===========================================================================
@@ -89,8 +89,13 @@ const openai: Adapter = {
           ...(input.json ? { response_format: { type: "json_object" } } : {}),
         },
       });
-      const text = data.choices?.[0]?.message?.content;
-      if (!text) throw new VendorError("AI가 빈 응답을 돌려줬습니다.");
+      const choice = data.choices?.[0];
+      const text = choice?.message?.content;
+      if (!text) {
+        // 안전 정책 거절(refusal·content_filter)이나 빈 응답은 다시 보내도 같다 → 재시도·장애 집계 안 함
+        const blocked = !!choice?.message?.refusal || choice?.finish_reason === "content_filter";
+        throw new VendorError(blocked ? "AI가 안전 정책으로 요청을 거절했습니다. 주제나 요청을 바꿔 다시 시도해 주세요." : "AI가 빈 응답을 돌려줬습니다.", { contentIssue: true });
+      }
       return ok({ text, usage: { input: data.usage?.prompt_tokens || 0, output: data.usage?.completion_tokens || 0 } });
     }
     if (capability === "image") {
@@ -102,7 +107,7 @@ const openai: Adapter = {
       const item = data.data?.[0];
       if (item?.b64_json) return ok({ data: Buffer.from(item.b64_json, "base64"), mime: "image/png" });
       if (item?.url) return ok({ url: item.url });
-      throw new VendorError("이미지 결과가 없습니다.");
+      throw new VendorError("이미지 결과가 없습니다(안전 정책으로 걸러졌을 수 있습니다).", { contentIssue: true });
     }
     if (capability === "tts") {
       const data = await call(`${base}/audio/speech`, {
@@ -113,6 +118,7 @@ const openai: Adapter = {
       return ok({ data, mime: "audio/mpeg" });
     }
     if (capability === "video") {
+      // OpenAI 영상은 Sora 길이(4/8/12초)만 받는다 — 가격 계산(pricing.unitsFor)도 같은 규칙을 쓴다
       const seconds = String(videoSeconds("sora", input.seconds));
       let body: FormData | undefined;
       let json: unknown;
@@ -145,6 +151,8 @@ const openai: Adapter = {
 
 // ── Google Gemini · Veo ───────────────────────────────────────────────────
 const geminiHeaders = (key: string) => ({ "x-goog-api-key": key });
+/** Gemini 키(x-goog-api-key)를 실어 보내도 되는 Google 도메인 */
+const GOOGLE_DOMAINS = ["googleapis.com", "google.com", "googleusercontent.com"];
 const gemini: Adapter = {
   label: "Google Gemini · Veo (대본 · 이미지 · 음성 · 영상 — 키 1개로 전 과정)",
   capabilities: ["text", "image", "tts", "video"],
@@ -181,11 +189,14 @@ const gemini: Adapter = {
     const parts: Array<{ text?: string; inlineData?: { data: string; mimeType?: string } }> = data.candidates?.[0]?.content?.parts || [];
     if (capability === "text") {
       const text = parts.map((p) => p.text || "").join("");
-      if (!text) throw new VendorError("AI가 빈 응답을 돌려줬습니다.");
+      if (!text) {
+        const blocked = !!data.promptFeedback?.blockReason || /SAFETY|PROHIBITED|BLOCKLIST|RECITATION/.test(String(data.candidates?.[0]?.finishReason || ""));
+        throw new VendorError(blocked ? "AI가 안전 정책으로 요청을 거절했습니다. 주제나 요청을 바꿔 다시 시도해 주세요." : "AI가 빈 응답을 돌려줬습니다.", { contentIssue: true });
+      }
       return ok({ text, usage: { input: data.usageMetadata?.promptTokenCount || 0, output: data.usageMetadata?.candidatesTokenCount || 0 } });
     }
     const inline = parts.find((p) => p.inlineData)?.inlineData;
-    if (!inline) throw new VendorError(capability === "tts" ? "음성 결과가 없습니다." : "이미지 결과가 없습니다(안전 정책으로 걸러졌을 수 있습니다).", { retryable: false });
+    if (!inline) throw new VendorError(capability === "tts" ? "음성 결과가 없습니다." : "이미지 결과가 없습니다(안전 정책으로 걸러졌을 수 있습니다).", { contentIssue: true });
     const buffer = Buffer.from(inline.data, "base64");
     if (capability === "tts") {
       const rate = Number(/rate=(\d+)/.exec(inline.mimeType || "")?.[1] || 24000);
@@ -195,12 +206,18 @@ const gemini: Adapter = {
   },
   async poll({ provider, ref, key }) {
     const base = trimBase(provider.base_url, this.base);
-    const data = await call(`${base}/${ref}`, { method: "GET", headers: geminiHeaders(key) });
+    // 작업 번호(operations/...)는 공급사 응답 값 → 경로 조작(../, //, ?, #, 스킴)을 막고, 키를 Google 도메인으로만 보낸다
+    if (!/^[\w./-]{1,500}$/.test(ref) || ref.includes("..") || ref.startsWith("/")) throw new VendorError("안전하지 않은 작업 확인 주소입니다.", { retryable: false, billed: false });
+    const pollUrl = `${base}/${ref}`;
+    if (!hostIn(pollUrl, GOOGLE_DOMAINS)) throw new VendorError("안전하지 않은 작업 확인 주소입니다.", { retryable: false, billed: false });
+    const data = await call(pollUrl, { method: "GET", headers: geminiHeaders(key) });
     if (!data.done) return pending(ref);
     if (data.error) throw new VendorError("영상 생성 실패: " + (data.error.message || "원인 미상"), { retryable: false });
     const sample = data.response?.generateVideoResponse?.generatedSamples?.[0] || data.response?.generatedVideos?.[0];
     const uri = sample?.video?.uri;
-    if (!uri) throw new VendorError("영상 결과가 없습니다(안전 정책으로 걸러졌을 수 있습니다).", { retryable: false });
+    if (!uri) throw new VendorError("영상 결과가 없습니다(안전 정책으로 걸러졌을 수 있습니다).", { contentIssue: true });
+    // 결과 주소에도 API 키를 붙여 내려받으므로 Google 도메인(+ https·공인 IP)만 허용
+    if (typeof uri !== "string" || !hostIn(uri, GOOGLE_DOMAINS) || !(await safeUrl(uri))) throw new VendorError("안전하지 않은 결과 주소입니다.", { retryable: false });
     return ok({ url: uri, headers: geminiHeaders(key) });
   },
   async test({ provider, key }) {
@@ -256,7 +273,9 @@ const fal: Adapter = {
   },
   async poll({ ref, key }) {
     const { status, response } = JSON.parse(ref) as { status: string; response: string };
-    if (!(await safeUrl(status)) || !(await safeUrl(response))) throw new VendorError("안전하지 않은 작업 확인 주소입니다.", { retryable: false });
+    // fal 키가 실려 나가므로 fal 자체 도메인만 허용 (DNS 재바인딩 등으로 내부망에 키가 전송되는 것 방지)
+    const falHost = (u: string) => { try { const h = new URL(u).hostname.toLowerCase(); return h === "fal.run" || h.endsWith(".fal.run") || h === "fal.ai" || h.endsWith(".fal.ai") || h.endsWith(".fal.media"); } catch { return false; } };
+    if (!falHost(status) || !falHost(response) || !(await safeUrl(status)) || !(await safeUrl(response))) throw new VendorError("안전하지 않은 작업 확인 주소입니다.", { retryable: false });
     const s = await call(status, { method: "GET", headers: falHeaders(key) });
     if (s.status === "COMPLETED") {
       const out = await call(response, { method: "GET", headers: falHeaders(key) });

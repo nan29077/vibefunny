@@ -6,7 +6,8 @@ import { SubmitButton } from "@/components/form";
 import { ROLE_LABELS, ADVERTISER_TYPE_LABELS } from "@/lib/schema";
 import { nameOf } from "@/lib/queries";
 import { statusLabel, statusTone } from "@/lib/labels";
-import { setMemberStatusAction, setSocialVerificationAction } from "@/lib/actions/admin-actions";
+import { setMemberStatusAction, setSocialVerificationAction, setVibeMemberAction } from "@/lib/actions/admin-actions";
+import { isVibeMember, GENERAL_MEMBER_LABEL, VIBE_MEMBER_LABEL } from "@/lib/membership";
 import { SOCIAL_PLATFORM_LABELS, displayName } from "@/lib/schema";
 import { safeHref } from "@/lib/url";
 import {
@@ -24,11 +25,13 @@ const toneClass: Record<string, string> = {
   purple: "bg-purple-100 text-purple-700",
 };
 
-type Tab = "all" | "creator" | "advertiser" | "suspended";
+type Tab = "all" | "creator" | "general" | "vibe" | "advertiser" | "suspended";
 
 const TABS: { key: Tab; label: string; icon: typeof IconUsers }[] = [
   { key: "all",        label: "전체",     icon: IconUsers       },
   { key: "creator",    label: "크리에이터", icon: IconFilm        },
+  { key: "general",    label: "일반회원(결제 전)", icon: IconUsers  },
+  { key: "vibe",       label: "바이브회원",  icon: IconUsers      },
   { key: "advertiser", label: "광고주",    icon: IconMegaphone   },
   { key: "suspended",  label: "정지 회원", icon: IconShield      },
 ];
@@ -49,6 +52,8 @@ export default function AdminMembersPage({
   const filtered = allMembers.filter((m) => {
     if (tab === "all")        return true;
     if (tab === "suspended")  return m.status === "suspended";
+    if (tab === "general")    return m.role === "creator" && !isVibeMember(db, m);
+    if (tab === "vibe")       return m.role === "creator" && isVibeMember(db, m);
     return m.role === tab;
   });
 
@@ -60,6 +65,8 @@ export default function AdminMembersPage({
   const counts = {
     all:        allMembers.length,
     creator:    allMembers.filter((m) => m.role === "creator").length,
+    general:    allMembers.filter((m) => m.role === "creator" && !isVibeMember(db, m)).length,
+    vibe:       allMembers.filter((m) => m.role === "creator" && isVibeMember(db, m)).length,
     advertiser: allMembers.filter((m) => m.role === "advertiser").length,
     suspended:  allMembers.filter((m) => m.status === "suspended").length,
   };
@@ -98,7 +105,7 @@ export default function AdminMembersPage({
                     <form action={setSocialVerificationAction} className="flex items-center gap-1">
                       <input type="hidden" name="id" value={s.id} />
                       <input type="hidden" name="decision" value="reject" />
-                      <input name="memo" placeholder="반려 사유" className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs" />
+                      <input name="memo" aria-label="반려 사유" placeholder="반려 사유" className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs" />
                       <SubmitButton size="sm" variant="outline">반려</SubmitButton>
                     </form>
                   </div>
@@ -146,6 +153,7 @@ export default function AdminMembersPage({
                   <th className="px-4 py-3">추천코드</th>
                   <th className="px-4 py-3">추천인</th>
                   <th className="px-4 py-3">가입일</th>
+                  <th className="px-4 py-3">회원 등급</th>
                   <th className="px-4 py-3">상태</th>
                   <th className="px-4 py-3">관리</th>
                 </tr>
@@ -164,7 +172,7 @@ export default function AdminMembersPage({
                         </div>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">
                       {ROLE_LABELS[m.role]}
                       {m.advertiser_type && (
                         <span className="ml-1 text-xs text-gray-400">· {ADVERTISER_TYPE_LABELS[m.advertiser_type]}</span>
@@ -172,9 +180,21 @@ export default function AdminMembersPage({
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{m.referral_code}</td>
                     <td className="px-4 py-3 text-gray-500">{nameOf(db, m.referred_by_user_id) || "-"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{formatDate(m.created_at)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">{formatDate(m.created_at)}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${toneClass[statusTone(m.status)]}`}>
+                      {m.role === "creator" ? (
+                        isVibeMember(db, m) ? (
+                          <div>
+                            <span className="whitespace-nowrap rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">{VIBE_MEMBER_LABEL}</span>
+                            {m.vibe_member_at && <div className="mt-0.5 whitespace-nowrap text-[11px] text-gray-400">{formatDate(m.vibe_member_at)}</div>}
+                          </div>
+                        ) : (
+                          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">{GENERAL_MEMBER_LABEL} · 결제 전</span>
+                        )
+                      ) : <span className="text-xs text-gray-300">-</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${toneClass[statusTone(m.status)]}`}>
                         {statusLabel(m.status)}
                       </span>
                     </td>
@@ -186,18 +206,25 @@ export default function AdminMembersPage({
                         >
                           상세보기
                         </Link>
-                        {m.status !== "active" && (
+                        {m.status !== "active" && m.status !== "pending" && (
                           <form action={setMemberStatusAction}>
                             <input type="hidden" name="id" value={m.id} />
                             <input type="hidden" name="status" value="active" />
-                            <SubmitButton size="sm" variant="outline">활성</SubmitButton>
+                            <SubmitButton size="sm" variant="outline" confirmMessage="이 회원을 활성화할까요?">활성</SubmitButton>
+                          </form>
+                        )}
+                        {m.role === "creator" && !isVibeMember(db, m) && m.status !== "suspended" && (
+                          <form action={setVibeMemberAction}>
+                            <input type="hidden" name="id" value={m.id} />
+                            <input type="hidden" name="grant" value="1" />
+                            <SubmitButton size="sm" variant="outline" className="whitespace-nowrap" confirmMessage="가입비를 면제하고 바이브회원으로 전환할까요? (추천 수당은 발생하지 않습니다)">바이브 전환(면제)</SubmitButton>
                           </form>
                         )}
                         {m.status !== "suspended" && (
                           <form action={setMemberStatusAction}>
                             <input type="hidden" name="id" value={m.id} />
                             <input type="hidden" name="status" value="suspended" />
-                            <SubmitButton size="sm" variant="danger">정지</SubmitButton>
+                            <SubmitButton size="sm" variant="danger" className="whitespace-nowrap" confirmMessage="이 회원의 계정을 정지할까요? 정지된 회원은 로그인할 수 없습니다.">정지</SubmitButton>
                           </form>
                         )}
                       </div>

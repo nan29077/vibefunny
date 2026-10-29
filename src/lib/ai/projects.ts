@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { genId } from "../crypto";
 import type { AiJob, Database, Profile, ShortsProject, ShortsShot } from "../schema";
-import { AiError, aiTables, markFilesForCleanup } from "./engine";
+import { AiError, aiTables, composeSignature, markFilesForCleanup } from "./engine";
 import { CAMERA_MOVES, SHORTS_TEMPLATES, TONES } from "./prompts";
+import { blockedTermIn, blockedTermInAny, getAiShortsSettings } from "./settings";
 
 // ===========================================================================
 // AI 숏츠 프로젝트 (숏츠 1편 = 프로젝트 1개, 컷 3~12개)
@@ -88,7 +89,29 @@ export function createProject(db: Database, user: Pick<Profile, "id">, input: z.
   return project;
 }
 
+/** 저장 전 금칙어 검사 (정규화 후 비교 — 띄어쓰기·특수문자 우회 차단) */
+export function assertNoBlockedTerms(db: Database, patch: Partial<z.infer<typeof patchSchema>>) {
+  const settings = getAiShortsSettings(db);
+  const blocked = (term: string, where: string) => new AiError(`${where}에 사용할 수 없는 표현이 포함되어 있습니다: "${term}"`, 400, "blocked_term");
+  const fields: Array<[string | undefined, string]> = [
+    [patch.title, "제목"],
+    [patch.topic, "주제"],
+    [patch.description, "업로드 설명"],
+    [patch.bgm_prompt, "배경음악 분위기"],
+    ...(patch.hashtags ?? []).map((h): [string, string] => [h, "해시태그"]),
+  ];
+  for (const [text, where] of fields) {
+    const term = text ? blockedTermIn(text, settings) : null;
+    if (term) throw blocked(term, where);
+  }
+  (patch.shots ?? []).forEach((sp, i) => {
+    const term = blockedTermInAny([sp.caption, sp.narration, sp.visual], settings);
+    if (term) throw blocked(term, `${i + 1}번 컷`);
+  });
+}
+
 export function updateProject(db: Database, project: ShortsProject, patch: z.infer<typeof patchSchema>): ShortsProject {
+  assertNoBlockedTerms(db, patch);
   const cleanup: string[] = [];
   if (patch.title !== undefined) project.title = patch.title;
   if (patch.topic !== undefined) project.topic = patch.topic;
@@ -179,8 +202,19 @@ export function projectView(db: Database, project: ShortsProject) {
           charged: j.charged_funny,
           held: j.hold_paid + j.hold_bonus,
           canCancel: j.status === "queued" && !j.vendor_ref,
+          createdAt: j.created_at,
+          finishedAt: j.finished_at,
         }
       : null;
+  // 마지막으로 성공한 합성 이후 합성 재료가 바뀌었는가
+  const lastComposed = jobs.find((j) => j.kind === "compose" && j.status === "succeeded" && j.result_file_id === project.output_file_id);
+  const composedSig = lastComposed && typeof lastComposed.input?.signature === "string" ? (lastComposed.input.signature as string) : null;
+  const needsRecompose = !!project.output_file_id && !!composedSig && composedSig !== composeSignature(project);
+  // 컷별 마지막 성공 시각 (그 이후로는 예전 실패 메시지를 숨긴다)
+  const lastShotSuccess: Record<string, string> = {};
+  for (const j of jobs) {
+    if (j.shot_id && j.status === "succeeded" && j.finished_at && !(lastShotSuccess[j.shot_id] > j.finished_at)) lastShotSuccess[j.shot_id] = j.finished_at;
+  }
   return {
     project,
     activeCount: active.length,
@@ -197,6 +231,8 @@ export function projectView(db: Database, project: ShortsProject) {
         },
       ])
     ),
+    needsRecompose,
+    lastShotSuccess,
     spent: jobs.reduce((sum, j) => sum + (j.status === "succeeded" ? j.charged_funny : 0), 0),
   };
 }

@@ -1,5 +1,4 @@
 import type { Database, Payment } from "../schema";
-import { netAfterFee } from "../money";
 import {
   addPointTx,
   addWalletTx,
@@ -8,6 +7,7 @@ import {
 } from "../services";
 import { applyAgencyCommission } from "../campaign-workflow";
 import { creditFunnyCharge, FUNNY_WON, formatFunny } from "../funny";
+import { funnyChargeAllowed } from "../ai/settings";
 import { notifyUser } from "../services";
 
 // ===========================================================================
@@ -20,11 +20,31 @@ const now = () => new Date().toISOString();
 export function applyPaymentEffects(db: Database, payment: Payment): void {
   switch (payment.payment_type) {
     case "signup_fee": {
-      // 가입비 결제 성공 -> 회원 active + 추천 수당 생성
+      // 가입비 결제 성공 -> 회원 active(+ 크리에이터는 바이브회원 전환) + 멘토(추천인) 수당 생성
       const user = db.profiles.find((p) => p.id === payment.user_id);
+      if (user && user.role === "creator" && user.vibe_member_at) {
+        // 이미 바이브회원인데 결제가 또 들어온 경우(중복 결제): 수당 없이 결제를 취소 처리
+        // (실 PG 연동 시 이 지점에서 승인 취소 API 호출 필요)
+        payment.status = "cancelled";
+        payment.paid_at = null;
+        payment.metadata_json = { ...payment.metadata_json, cancel_reason: "already_vibe_member" };
+        audit(db, { actorId: user.id, action: "signup_fee_duplicate_cancelled", targetTable: "payments", targetId: payment.id });
+        break;
+      }
       if (user) {
         user.status = "active";
+        if (user.role === "creator") user.vibe_member_at = now();
         user.updated_at = now();
+        // 멘토에게 멘티 결제 완료 알림
+        const mentor = user.referred_by_user_id ? db.profiles.find((p) => p.id === user.referred_by_user_id) : null;
+        if (user.role === "creator" && mentor && mentor.role === "creator") {
+          notifyUser(db, {
+            recipientId: mentor.id,
+            title: "멘티가 가입비를 결제했습니다",
+            message: `${user.nickname || user.name}님이 가입비를 결제해 바이브회원이 되었습니다.`,
+            link: "/creator/referrals",
+          });
+        }
         createSignupReferralReward(db, user.id, payment.amount);
         audit(db, {
           actorId: user.id,
@@ -32,22 +52,6 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
           targetTable: "profiles",
           targetId: user.id,
         });
-      }
-      break;
-    }
-
-    case "subscription": {
-      // 구독료 결제 성공 -> 구독 활성(30일 연장)
-      const user = db.profiles.find((p) => p.id === payment.user_id);
-      if (user) {
-        const base =
-          user.subscription_active_until &&
-          new Date(user.subscription_active_until) > new Date()
-            ? new Date(user.subscription_active_until)
-            : new Date();
-        base.setDate(base.getDate() + 30);
-        user.subscription_active_until = base.toISOString();
-        user.updated_at = now();
       }
       break;
     }
@@ -74,52 +78,26 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
       break;
     }
 
-    case "video_purchase": {
-      // 영상 구매 성공 -> sold 처리 + 다운로드 권한 + 판매자 수익(수수료 차감)
-      const videoId = String(payment.metadata_json.video_id ?? "");
-      const video = db.videos.find((v) => v.id === videoId);
-      if (!video || video.status === "sold" || video.creator_id === payment.user_id) {
-        // 동시 결제 등으로 이미 판매된 영상: 예외로 트랜잭션 전체가 롤백되어 결제가 영구 대기 상태로
-        // 남던 문제를 막기 위해 결제를 취소 처리한다. (실 PG 연동 시 이 지점에서 승인 취소 API 호출 필요)
-        payment.status = "cancelled";
-        payment.paid_at = null;
-        payment.metadata_json = { ...payment.metadata_json, cancel_reason: !video ? "video_not_found" : video.status === "sold" ? "already_sold" : "own_video" };
-        const pending = db.video_purchases.find((p) => p.video_id === videoId && p.buyer_id === payment.user_id && p.status === "pending");
-        if (pending) { pending.status = "refunded"; pending.updated_at = now(); }
-        audit(db, { actorId: payment.user_id, action: "video_purchase_cancelled", targetTable: "payments", targetId: payment.id });
-        break;
-      }
-
-      video.status = "sold";
-      video.sold_to_user_id = payment.user_id;
-      video.sold_at = now();
-      video.updated_at = now();
-
-      const purchase = db.video_purchases.find(
-        (p) => p.video_id === videoId && p.buyer_id === payment.user_id && p.status === "pending"
-      );
-      if (purchase) {
-        purchase.status = "completed";
-        purchase.payment_id = payment.id;
-        purchase.updated_at = now();
-      }
-
-      // 판매자 정산: 플랫폼 수수료 차감 후 (판매는 즉시 완결 → available)
-      const fee = db.settings.video_sale_platform_fee_rate;
-      const net = netAfterFee(payment.amount, fee);
-      addWalletTx(db, {
-        userId: video.creator_id,
-        type: "video_sale",
-        amount: net,
-        status: "available",
-        relatedTable: "videos",
-        relatedId: video.id,
-        memo: `영상 판매 수익 (플랫폼 수수료 ${fee}% 차감)`,
-      });
-      break;
-    }
-
     case "funny_charge": {
+      // 결제 확인 직전에 스위치가 꺼졌거나 AI 준비가 해제된 경우: 퍼니를 지급하지 않고 결제를 취소 처리
+      // (실 PG 연동 시 이 지점에서 승인 취소 API 호출 필요)
+      {
+        const owner = db.profiles.find((p) => p.id === payment.user_id) ?? null;
+        const allowed = funnyChargeAllowed(db, owner);
+        if (!allowed.ok) {
+          payment.status = "cancelled";
+          payment.paid_at = null;
+          payment.metadata_json = { ...payment.metadata_json, cancel_reason: "funny_charge_not_allowed" };
+          audit(db, { actorId: payment.user_id, action: "funny_charge_cancelled_at_confirm", targetTable: "payments", targetId: payment.id });
+          notifyUser(db, {
+            recipientId: payment.user_id,
+            title: "퍼니 충전이 취소되었습니다",
+            message: `${allowed.reason ?? "지금은 퍼니를 충전할 수 없습니다."} 결제 금액은 청구되지 않습니다.`,
+            link: "/creator/funny",
+          });
+          break;
+        }
+      }
       // 퍼니 충전 성공 → 충전 퍼니 + 보너스 퍼니 지급 (결제 1건당 1회, 결제 시점 환산 기준 사용)
       const meta = payment.metadata_json as { funny?: number; bonus?: number; won_per_funny?: number };
       const rate = Number(meta.won_per_funny) > 0 ? Number(meta.won_per_funny) : FUNNY_WON;

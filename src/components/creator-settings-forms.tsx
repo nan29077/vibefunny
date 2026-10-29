@@ -20,7 +20,8 @@ export function CreatorSettingsForms({
   email: string;
   nickname: string;
   roleLabel: string;
-  referralCode: string;
+  /** 바이브회원이 아니면 null (코드 대신 안내 표시) */
+  referralCode: string | null;
   phone: string | null;
   joinedAt: string;
   creatorGender: string;
@@ -113,7 +114,11 @@ export function CreatorSettingsForms({
           </div>
           <div className="flex gap-4">
             <dt className="w-28 shrink-0 font-medium text-gray-500">추천 코드</dt>
-            <dd className="font-mono font-bold text-brand-purple">{referralCode}</dd>
+            {referralCode ? (
+              <dd className="font-mono font-bold text-brand-purple">{referralCode}</dd>
+            ) : (
+              <dd className="text-gray-500">가입비를 결제해 바이브회원이 되면 추천 코드를 사용할 수 있습니다.</dd>
+            )}
           </div>
           <div className="flex gap-4">
             <dt className="w-28 shrink-0 font-medium text-gray-500">가입일</dt>

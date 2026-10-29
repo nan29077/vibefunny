@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { displayName } from "@/lib/schema";
+import { vibeOnlyError } from "@/lib/membership";
 import { nanoid } from "nanoid";
 import { authorizeApi } from "@/lib/auth";
 import { getDb, tx } from "@/lib/db";
@@ -26,6 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const user = auth.user;
   const input = (await req.json().catch(() => ({}))) as { content?: string };
   const content = input.content?.trim() ?? "";
+  // 크리에이터 일반회원은 캠페인 참여 대상이 아니므로 댓글도 바이브회원만
+  const vibeBlock = vibeOnlyError(getDb(), user);
+  if (vibeBlock) return NextResponse.json({ error: vibeBlock }, { status: 403 });
   if (!content || content.length > 3000) return NextResponse.json({ error: "댓글은 1~3000자여야 합니다." }, { status: 400 });
   const result = tx<{ status: number; body: unknown }>((db) => {
     const campaign = db.ad_campaigns.find((item) => item.id === params.id);
@@ -33,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const creatorParticipates = (db.campaign_participations ?? []).some((item) => item.campaign_id === campaign.id && item.creator_id === user.id);
     if (user.role === "advertiser" && campaign.advertiser_id !== user.id) return { status: 403, body: { error: "접근 권한이 없습니다." } };
     if (user.role === "creator" && !creatorParticipates && !["published", "recruiting", "in_progress", "submitted"].includes(campaign.status)) return { status: 403, body: { error: "댓글 작성 권한이 없습니다." } };
-    const comment = { id: nanoid(), campaign_id: campaign.id, author_id: user.id, author_name: user.name, author_role: user.role, content, created_at: new Date().toISOString() };
+    const comment = { id: nanoid(), campaign_id: campaign.id, author_id: user.id, author_name: displayName(user), author_role: user.role, content, created_at: new Date().toISOString() };
     if (!db.campaign_comments) db.campaign_comments = [];
     db.campaign_comments.push(comment);
     audit(db, { actorId: user.id, action: "comment_campaign", targetTable: "ad_campaigns", targetId: campaign.id });

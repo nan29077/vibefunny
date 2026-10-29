@@ -7,15 +7,16 @@ import { SubmitButton } from "@/components/form";
 import { ROLE_LABELS, ADVERTISER_TYPE_LABELS, PLATFORM_LABELS, SOCIAL_PLATFORM_LABELS } from "@/lib/schema";
 import { formatKRW, formatPoint } from "@/lib/money";
 import { statusLabel, statusTone, WALLET_TX_TYPE_LABELS, POINT_TX_TYPE_LABELS, CAMPAIGN_TYPE_LABELS } from "@/lib/labels";
-import { setMemberStatusAction } from "@/lib/actions/admin-actions";
+import { setVibeMemberAction, setMemberStatusAction } from "@/lib/actions/admin-actions";
 import { decryptSensitive } from "@/lib/crypto";
 import {
-  IconUsers, IconFilm, IconMegaphone, IconDollarSign,
+  IconUsers, IconMegaphone, IconDollarSign,
   IconCreditCard, IconGlobe, IconShoppingBag, IconBuilding,
   IconCalendar, IconMail, IconShield,
 } from "@/components/icons";
 import { requireAdmin } from "@/lib/auth";
 import { setSocialVerificationAction } from "@/lib/actions/admin-actions";
+import { creatorSignupFeeRequired, isVibeMember, GENERAL_MEMBER_LABEL, VIBE_MEMBER_LABEL } from "@/lib/membership";
 
 const tone: Record<string, string> = {
   gray:   "bg-gray-100 text-gray-600",
@@ -46,15 +47,21 @@ export default function MemberDetailPage({
     .filter((t) => t.advertiser_id === member.id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 8);
-  const videos     = db.videos.filter((v) => v.creator_id === member.id);
   const socials    = db.social_accounts.filter((s) => s.creator_id === member.id);
   const payouts    = db.payout_requests.filter((r) => r.user_id === member.id);
   const campaigns  = db.ad_campaigns.filter((c) => c.advertiser_id === member.id);
-  const purchases  = db.video_purchases.filter((p) => p.buyer_id === member.id);
   const referrer   = member.referred_by_user_id
     ? db.profiles.find((p) => p.id === member.referred_by_user_id)
     : null;
   const referrals  = db.referral_relations.filter((r) => r.referrer_id === member.id && r.referral_type === "signup");
+  // 멘티(이 회원의 추천 코드로 가입한 회원)와 가입비 결제 여부
+  const mentees = referrals
+    .map((r) => db.profiles.find((p) => p.id === r.referee_id))
+    .filter((p): p is NonNullable<typeof p> => !!p)
+    .map((p) => ({ profile: p, paid: isVibeMember(db, p) }));
+  const signupPayments = db.payments
+    .filter((p) => p.user_id === member.id && p.payment_type === "signup_fee")
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const now = new Date();
   function ago(iso: string) {
@@ -88,6 +95,15 @@ export default function MemberDetailPage({
               <span className="rounded-full bg-purple-50 px-3 py-0.5 text-sm font-semibold text-purple-700">
                 {ROLE_LABELS[member.role]}
               </span>
+              {member.role === "creator" && (
+                isVibeMember(db, member) ? (
+                  <span className="rounded-full bg-purple-600 px-3 py-0.5 text-sm font-bold text-white">
+                    {VIBE_MEMBER_LABEL}{member.vibe_member_at ? ` · ${formatDate(member.vibe_member_at)}` : ""}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-amber-100 px-3 py-0.5 text-sm font-bold text-amber-800">{GENERAL_MEMBER_LABEL} · 가입비 결제 전</span>
+                )
+              )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-500">
               <span className="flex items-center gap-1.5"><IconMail size={13} />{member.email}</span>
@@ -100,7 +116,7 @@ export default function MemberDetailPage({
                 </span>
               )}
               {referrals.length > 0 && (
-                <span className="flex items-center gap-1.5"><IconUsers size={13} />추천한 회원: {referrals.length}명</span>
+                <span className="flex items-center gap-1.5"><IconUsers size={13} />멘티: {referrals.length}명 (결제 완료 {mentees.filter((x) => x.paid).length} · 결제 전 {mentees.filter((x) => !x.paid).length})</span>
               )}
             </div>
             <div className="mt-2">
@@ -111,18 +127,32 @@ export default function MemberDetailPage({
           </div>
           {/* 상태 변경 */}
           <div className="flex gap-2">
-            {member.status !== "active" && (
+            {member.status !== "active" && member.status !== "pending" && (
               <form action={setMemberStatusAction}>
                 <input type="hidden" name="id" value={member.id} />
                 <input type="hidden" name="status" value="active" />
-                <SubmitButton size="sm" variant="outline">계정 활성화</SubmitButton>
+                <SubmitButton size="sm" variant="outline" confirmMessage="이 회원을 활성화할까요?">계정 활성화</SubmitButton>
+              </form>
+            )}
+            {/* 가입비 제도가 꺼져 있으면 모든 크리에이터가 바이브회원이라 등급 변경 버튼이 의미 없다 */}
+            {member.role === "creator" && member.status !== "suspended" && creatorSignupFeeRequired(db) && (
+              <form action={setVibeMemberAction}>
+                <input type="hidden" name="id" value={member.id} />
+                <input type="hidden" name="grant" value={isVibeMember(db, member) ? "0" : "1"} />
+                {isVibeMember(db, member) ? (
+                  member.vibe_member_at && (
+                    <SubmitButton size="sm" variant="outline" confirmMessage="이 회원을 일반회원으로 되돌릴까요? 캠페인 참여 등 유료 기능을 쓸 수 없게 됩니다. (결제 기록·수당은 그대로 남습니다)">일반회원으로 변경</SubmitButton>
+                  )
+                ) : (
+                  <SubmitButton size="sm" variant="outline" confirmMessage="가입비를 면제하고 바이브회원으로 전환할까요? (추천 수당은 발생하지 않습니다)">바이브회원 전환(가입비 면제)</SubmitButton>
+                )}
               </form>
             )}
             {member.status !== "suspended" && (
               <form action={setMemberStatusAction}>
                 <input type="hidden" name="id" value={member.id} />
                 <input type="hidden" name="status" value="suspended" />
-                <SubmitButton size="sm" variant="danger">계정 정지</SubmitButton>
+                <SubmitButton size="sm" variant="danger" confirmMessage="이 회원의 계정을 정지할까요? 정지된 회원은 로그인할 수 없습니다.">계정 정지</SubmitButton>
               </form>
             )}
           </div>
@@ -130,6 +160,44 @@ export default function MemberDetailPage({
       </Card>
 
       {/* 크리에이터 전용 */}
+      {/* 가입비 결제 · 멘티 (크리에이터) */}
+      {member.role === "creator" && (
+        <Card>
+          <h3 className="mb-3 font-bold text-gray-900">가입비 결제</h3>
+          {signupPayments.length === 0 ? (
+            <p className="text-sm text-gray-400">가입비 결제 기록이 없습니다.</p>
+          ) : (
+            <div className="space-y-1 text-sm">
+              {signupPayments.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-gray-800">{formatKRW(p.amount)}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone[statusTone(p.status)]}`}>{statusLabel(p.status)}</span>
+                  <span className="text-xs text-gray-400">{formatDate(p.paid_at ?? p.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <h3 className="mb-3 mt-5 font-bold text-gray-900">멘티 ({mentees.length}명)</h3>
+          {mentees.length === 0 ? (
+            <p className="text-sm text-gray-400">이 회원의 추천 코드로 가입한 회원이 없습니다.</p>
+          ) : (
+            <div className="space-y-1.5 text-sm">
+              {mentees.map(({ profile, paid }) => (
+                <div key={profile.id} className="flex flex-wrap items-center gap-2">
+                  <Link href={`/admin/members/${profile.id}`} className="font-medium text-gray-800 hover:text-brand-purple hover:underline">{profile.name}</Link>
+                  <span className="text-xs text-gray-400">{profile.email}</span>
+                  {paid ? (
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">결제 완료 · {VIBE_MEMBER_LABEL}{profile.vibe_member_at ? ` (${formatDate(profile.vibe_member_at)})` : ""}</span>
+                  ) : (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">결제 전 · {GENERAL_MEMBER_LABEL}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       {member.role === "creator" && wallet && (
         <>
           <div className="grid grid-cols-3 gap-4">
@@ -137,38 +205,6 @@ export default function MemberDetailPage({
             <StatCard label="지급 가능 수익" value={formatKRW(wallet.available_balance)} accent="purple" />
             <StatCard label="지급 완료" value={formatKRW(wallet.paid_balance)} accent="gray" />
           </div>
-
-          {/* 영상 */}
-          <Card>
-            <h3 className="mb-4 flex items-center gap-2 font-bold text-gray-900">
-              <IconFilm size={15} className="text-brand-purple" />
-              등록 영상 ({videos.length}개)
-            </h3>
-            {videos.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs text-gray-400 border-b">
-                    <tr><th className="pb-2">제목</th><th className="pb-2">플랫폼</th><th className="pb-2">가격</th><th className="pb-2">상태</th><th className="pb-2">등록일</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {videos.map((v) => (
-                      <tr key={v.id}>
-                        <td className="py-2 font-medium text-gray-800 max-w-[200px] truncate">{v.title}</td>
-                        <td className="py-2 text-gray-500">{PLATFORM_LABELS[v.platform]}</td>
-                        <td className="py-2 font-semibold text-brand-purple">{formatKRW(v.price)}</td>
-                        <td className="py-2">
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone[statusTone(v.status)]}`}>
-                            {statusLabel(v.status)}
-                          </span>
-                        </td>
-                        <td className="py-2 text-xs text-gray-400">{formatDate(v.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="text-sm text-gray-400">등록된 영상이 없습니다.</p>}
-          </Card>
 
           {/* SNS */}
           {socials.length > 0 && (

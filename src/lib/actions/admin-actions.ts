@@ -15,7 +15,7 @@ const num = (fd: FormData, k: string) => {
 };
 const bool = (fd: FormData, k: string) => fd.get(k) === "on" || fd.get(k) === "1";
 
-// === 4.1/4.2 구독료·추천수당 설정 (광고주 가입비 제외) ==================
+// === 4.1/4.2 가입비·추천수당 설정 (광고주 가입비 제외) ==================
 export async function updateFeesAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   const roles: Role[] = ["creator", "advertiser"];
@@ -28,10 +28,18 @@ export async function updateFeesAction(fd: FormData): Promise<void> {
       if (role === "creator") {
         f.signup_fee_enabled = bool(fd, `${role}_signup_enabled`);
         f.signup_fee_amount = num(fd, `${role}_signup_amount`);
-        f.subscription_enabled = bool(fd, `${role}_sub_enabled`);
-        f.subscription_amount = num(fd, `${role}_sub_amount`);
       }
       f.referral_reward_amount = num(fd, `${role}_referral_amount`);
+    }
+    // 가입비를 끄거나 금액을 바꾸면, 옛 조건으로 만들어진 대기 중 가입비 결제는 취소한다 (다시 결제하면 새 금액으로 생성)
+    const creatorFee = db.settings.fees.creator;
+    const current = creatorFee?.signup_fee_enabled ? creatorFee.signup_fee_amount ?? 0 : 0;
+    for (const pay of db.payments) {
+      if (pay.payment_type !== "signup_fee" || pay.status !== "pending") continue;
+      const owner = db.profiles.find((x) => x.id === pay.user_id);
+      if (owner?.role !== "creator" || (current > 0 && pay.amount === current)) continue;
+      pay.status = "cancelled";
+      pay.metadata_json = { ...pay.metadata_json, cancel_reason: current > 0 ? "fee_amount_changed" : "fee_disabled" };
     }
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_fees", targetTable: "settings" });
@@ -50,18 +58,6 @@ export async function updateVideoPricingAction(fd: FormData): Promise<void> {
     }));
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_video_pricing", targetTable: "settings" });
-  });
-  revalidatePath("/admin/settings");
-}
-
-// === 4.4 영상 판매 수수료 ==============================================
-export async function updateVideoSaleAction(fd: FormData): Promise<void> {
-  const admin = requireAdmin();
-  tx((db) => {
-    db.settings.video_sale_platform_fee_rate = Math.min(100, num(fd, "platform_fee_rate")); // 수수료율 0~100%
-    db.settings.video_auto_approve = bool(fd, "video_auto_approve");
-    db.settings.updated_at = now();
-    audit(db, { actorId: admin.id, action: "update_video_sale", targetTable: "settings" });
   });
   revalidatePath("/admin/settings");
 }
@@ -88,9 +84,11 @@ export async function updateAdvertiserCommissionAction(fd: FormData): Promise<vo
   const admin = requireAdmin();
   tx((db) => {
     db.settings.advertiser_commission_rate = Math.min(100, num(fd, "commission_rate")); // 수수료율 0~100%
-    db.settings.advertiser_commission_basis = String(
-      fd.get("commission_basis") || "agency_spend"
-    ) as CommissionBasis;
+    // 허용된 기준값만 저장 (그 밖의 값은 기존 설정 유지)
+    const basis = String(fd.get("commission_basis") || "");
+    if (["agency_charge", "agency_spend", "campaign_completed"].includes(basis)) {
+      db.settings.advertiser_commission_basis = basis as CommissionBasis;
+    }
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_advertiser_commission", targetTable: "settings" });
   });
@@ -133,6 +131,8 @@ export async function setMemberStatusAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   const id = String(fd.get("id") || "");
   const status = String(fd.get("status") || "active") as UserStatus;
+  // 관리자가 바꿀 수 있는 상태만 허용 (pending 은 가입비 결제 흐름 전용)
+  if (!["active", "suspended", "withdrawn"].includes(status)) return;
   tx((db) => {
     const u = db.profiles.find((x) => x.id === id);
     if (!u || u.role === "admin") return;
@@ -151,24 +151,43 @@ export async function setMemberStatusAction(fd: FormData): Promise<void> {
   revalidatePath("/admin/members");
 }
 
-// === 영상 판매 승인/반려 ==============================================
-export async function approveVideoAction(fd: FormData): Promise<void> {
+// === 크리에이터 회원 등급 변경 (관리자) ===================================
+// grant=1: 가입비 면제로 바이브회원 전환 (추천 수당 없음, 대기 중인 가입비 결제는 취소)
+// grant=0: 일반회원으로 되돌리기
+export async function setVibeMemberAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   const id = String(fd.get("id") || "");
-  const approve = fd.get("approve") === "1";
+  const grant = fd.get("grant") === "1";
   tx((db) => {
-    const v = db.videos.find((x) => x.id === id);
-    if (!v || v.status !== "pending_review") return;
-    v.status = approve ? "available" : "rejected";
-    v.updated_at = now();
+    const u = db.profiles.find((x) => x.id === id);
+    if (!u || u.role !== "creator") return;
+    const before = u.vibe_member_at ?? null;
+    if (grant) {
+      if (u.vibe_member_at) return;
+      u.vibe_member_at = now();
+      if (u.status === "pending") u.status = "active";
+      for (const p of db.payments) {
+        if (p.user_id === u.id && p.payment_type === "signup_fee" && p.status === "pending") {
+          p.status = "cancelled";
+          p.metadata_json = { ...p.metadata_json, cancel_reason: "admin_fee_waived" };
+        }
+      }
+    } else {
+      if (!u.vibe_member_at) return;
+      u.vibe_member_at = null;
+    }
+    u.updated_at = now();
     audit(db, {
       actorId: admin.id,
-      action: approve ? "approve_video" : "reject_video",
-      targetTable: "videos",
+      action: grant ? "grant_vibe_member" : "revoke_vibe_member",
+      targetTable: "profiles",
       targetId: id,
+      before: { vibe_member_at: before },
+      after: { vibe_member_at: u.vibe_member_at ?? null },
     });
   });
-  revalidatePath("/admin/videos");
+  revalidatePath("/admin/members");
+  revalidatePath(`/admin/members/${id}`);
 }
 
 // === 추천 수당 지급가능 처리 (pending -> available) ===================
@@ -265,12 +284,11 @@ export async function processPayoutAction(fd: FormData): Promise<void> {
   }
 }
 
-// === 추천인 제도 ON/OFF + 유료 부업 ======================================
+// === 추천인 제도 ON/OFF ======================================
 export async function updateReferralSystemAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   tx((db) => {
     db.settings.referral_system_enabled = bool(fd, "referral_system_enabled");
-    db.settings.is_paid_model = bool(fd, "is_paid_model");
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_referral_system", targetTable: "settings" });
   });
@@ -341,22 +359,6 @@ export async function cancelReferralRewardAction(fd: FormData): Promise<void> {
     db.settings.updated_at = now();
   });
   revalidatePath("/admin/referrals");
-}
-
-
-// === 회원 영상판매 가격 구간 설정 (바이브포터) ===========================
-export async function updateMemberVideoSalePriceTiersAction(fd: FormData): Promise<void> {
-  const admin = requireAdmin();
-  tx((db) => {
-    db.settings.member_video_sale_price_tiers = db.settings.member_video_sale_price_tiers.map((t) => ({
-      ...t,
-      price: Math.max(0, Math.floor(Number(fd.get(`tier_${t.key}_price`) || t.price))),
-      creator_payout: Math.max(0, Math.floor(Number(fd.get(`tier_${t.key}_creator`) ?? t.creator_payout ?? 0))),
-    }));
-    db.settings.updated_at = now();
-    audit(db, { actorId: admin.id, action: "update_settings", targetTable: "settings", targetId: "member_video_sale_price_tiers" });
-  });
-  revalidatePath("/admin/settings");
 }
 
 // === 주민번호 삭제 (항목 4) =============================================

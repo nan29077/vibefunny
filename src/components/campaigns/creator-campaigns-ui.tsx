@@ -1,5 +1,7 @@
 "use client";
 
+import { ModalShell } from "@/components/modal-shell";
+import { blocksReapply } from "@/lib/participation-rules";
 import { useState, useTransition } from "react";
 import type { AdCampaign, CampaignParticipation, CampaignComment, CampaignDirectMessage, CampaignSubmission, SubmissionComment } from "@/lib/schema";
 import { formatKRW } from "@/lib/money";
@@ -20,6 +22,7 @@ import {
   IconSend as Send,
 } from "@/components/icons";
 import { safeHref } from "@/lib/url";
+import { formatDate } from "@/lib/date";
 
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +44,8 @@ interface Props {
   /** 내 배포 참여에 분배된 영상 (participation_id -> 영상) */
   myAssignedVideos?: Record<string, { id: string; url: string | null; file_data: string | null; file_name: string | null; status: string }>;
   favoriteCampaignIds?: string[];
+  /** 바이브회원 여부 — 일반회원은 참여 신청 버튼 대신 안내만 보인다 */
+  canJoin?: boolean;
 }
 
 type Tab = "available" | "favorites" | "my";
@@ -126,21 +131,6 @@ function participationTypeBadge(type: ParticipationType) {
   );
 }
 
-/** 동화제작(story_creation) 캠페인이면 동화 라벨, 아니면 기본 참여유형 라벨 */
-function slotLabel(isStory: boolean, type: ParticipationType): string {
-  return isStory ? "동화 제작 참여" : participationTypeLabel(type);
-}
-function slotBadge(isStory: boolean, type: ParticipationType) {
-  if (isStory) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-pink-100 px-2.5 py-0.5 text-xs font-semibold text-pink-700">
-        동화 제작
-      </span>
-    );
-  }
-  return participationTypeBadge(type);
-}
-
 // ─── 제출 상태 뱃지 ────────────────────────────────────────────────────────
 
 function SubmissionStatusBadge({ status }: { status: CampaignSubmission["status"] }) {
@@ -216,30 +206,6 @@ function SubmissionCommentForm({
         <Send size={11} /> 전송
       </button>
     </form>
-  );
-}
-
-// ─── 소스 타입 뱃지 ────────────────────────────────────────────────────────
-
-function SourceBadge({ sourceType }: { sourceType?: string }) {
-  if (sourceType === "ai_story") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-pink-100 px-2.5 py-0.5 text-xs font-semibold text-pink-700">
-        AI스토리 의뢰
-      </span>
-    );
-  }
-  if (sourceType === "vibeporter") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-        바이브포터 의뢰
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-      광고주 캠페인
-    </span>
   );
 }
 
@@ -326,6 +292,7 @@ export function CreatorCampaignsUI({
   distributionInfo = {},
   myAssignedVideos = {},
   favoriteCampaignIds = [],
+  canJoin = true,
 }: Props) {
   // 건당 예상 수익 (정책설정 크리에이터 지급액). 미설정 캠페인은 0 표시.
   const rewardFor = (campaignId: string, ptype: ParticipationType): number => {
@@ -401,7 +368,7 @@ export function CreatorCampaignsUI({
       const alreadyDeploy = participations.some(
         (p) =>
           p.campaign_id === c.id &&
-          p.status !== "cancelled" &&
+          blocksReapply(p) &&
           (p.participation_type === "deploy" || p.participation_type == null)
       );
       // 영상 풀 모델: 순차 게이트 미해제 또는 영상 소진 시 배포 카드 숨김
@@ -413,7 +380,7 @@ export function CreatorCampaignsUI({
     // 영상제작 참여 슬롯
     if ((c.video_production_count ?? 0) > 0) {
       const alreadyVideo = participations.some(
-        (p) => p.campaign_id === c.id && p.status !== "cancelled" && p.participation_type === "video_production"
+        (p) => p.campaign_id === c.id && blocksReapply(p) && p.participation_type === "video_production"
       );
       if (!alreadyVideo && !distributionInfo[c.id]?.videoFull) availableEntries.push({ campaign: c, participationType: "video_production" });
     }
@@ -543,8 +510,7 @@ export function CreatorCampaignsUI({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <SourceBadge sourceType={c.source_type} />
-              {slotBadge(c.campaign_type === "story_creation", participationType)}
+              {participationTypeBadge(participationType)}
               {isFull && (
                 <span className="inline-flex items-center rounded-full bg-gray-700 px-2.5 py-0.5 text-xs font-bold text-white">
                   참여마감
@@ -605,13 +571,15 @@ export function CreatorCampaignsUI({
             <span className="rounded-xl bg-gray-200 px-4 py-1.5 text-sm font-semibold text-gray-500 cursor-not-allowed">
               참여마감
             </span>
+          ) : !canJoin ? (
+            <span className="rounded-xl bg-gray-100 px-4 py-1.5 text-xs font-semibold text-gray-500">바이브회원 전용</span>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); handleJoin(c.id, participationType); }}
               disabled={isPending}
               className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
             >
-              {slotLabel(c.campaign_type === "story_creation", participationType)} 신청
+              {participationTypeLabel(participationType)} 신청
             </button>
           )}
         </div>
@@ -638,8 +606,7 @@ export function CreatorCampaignsUI({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <SourceBadge sourceType={c.source_type} />
-              {slotBadge(c.campaign_type === "story_creation", ptype)}
+              {participationTypeBadge(ptype)}
               {isRejected && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
                   <XCircle size={11} strokeWidth={2} /> 반려됨
@@ -656,7 +623,7 @@ export function CreatorCampaignsUI({
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
               <span>{CAMPAIGN_TYPE_LABELS[c.campaign_type]}</span>
               <span>·</span>
-              <span>{c.platforms.map((p) => PLATFORM_LABELS[p]).join(", ")}</span>
+              <span>{ptype === "deploy" && participation.platform ? `내 배포: ${PLATFORM_LABELS[participation.platform] ?? participation.platform}` : c.platforms.map((p) => PLATFORM_LABELS[p]).join(", ")}</span>
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -705,20 +672,21 @@ export function CreatorCampaignsUI({
     ].filter(Boolean).join(", ");
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedEntry(null)}>
-        <div
-          className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+      <ModalShell
+        onClose={() => setSelectedEntry(null)}
+        label={c.title}
+        panelClassName="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+      >
           <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-100 bg-white px-6 py-4">
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <SourceBadge sourceType={c.source_type} />
-                {slotBadge(c.campaign_type === "story_creation", ptype)}
+                {participationTypeBadge(ptype)}
               </div>
               <h2 className="text-lg font-bold text-gray-900 leading-tight">{c.title}</h2>
             </div>
             <button
+              type="button"
+              aria-label="닫기"
               onClick={() => setSelectedEntry(null)}
               className="shrink-0 rounded-xl p-1.5 text-gray-400 hover:bg-gray-100"
             >
@@ -742,6 +710,12 @@ export function CreatorCampaignsUI({
                 <span className="text-gray-500">플랫폼</span>
                 <span className="font-medium text-gray-800">{c.platforms.map((p) => PLATFORM_LABELS[p]).join(", ")}</span>
               </div>
+              {ptype === "deploy" && participation?.platform && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">내 배포 플랫폼</span>
+                  <span className="font-semibold text-amber-700">{PLATFORM_LABELS[participation.platform] ?? participation.platform}</span>
+                </div>
+              )}
               {ptype === "deploy" && c.distribution_count > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">배포 건수</span>
@@ -762,55 +736,6 @@ export function CreatorCampaignsUI({
               )}
             </div>
 
-            {/* 동화 제작 프롬프트 (AI스토리) — 참여 전/후 모두 표시 */}
-            {c.story_brief && (
-              <div className="rounded-xl border-2 border-pink-200 bg-pink-50/50">
-                <div className="flex items-center gap-2 border-b border-pink-100 px-4 py-2.5">
-                  <span className="text-sm font-bold text-pink-700">동화 제작 프롬프트</span>
-                  <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">AI스토리</span>
-                </div>
-                <div className="space-y-1.5 px-4 py-3 text-sm">
-                  <DetailRow label="주인공(아이)" value={`${c.story_brief.child_name} · 만 ${c.story_brief.child_age}세`} />
-                  <DetailRow label="대상 연령" value={c.story_brief.target_age_range} />
-                  <DetailRow label="동화 테마" value={c.story_brief.story_theme} />
-                  <DetailRow label="줄거리/요청" value={c.story_brief.story_note} />
-                  <DetailRow label="그림 스타일" value={c.story_brief.art_style} />
-                  <DetailRow label="톤/분위기" value={c.story_brief.tone} />
-                  <DetailRow label="페이지 수" value={c.story_brief.page_count ? `${c.story_brief.page_count}장` : undefined} />
-                  <DetailRow label="등장 캐릭터" value={c.story_brief.key_characters} />
-                  <DetailRow label="교훈/메시지" value={c.story_brief.moral_lesson} />
-                  <DetailRow label="언어" value={c.story_brief.language} />
-                  <DetailRow label="스타일 요구사항" value={c.story_brief.style_requirements} />
-                  <DetailRow label="의뢰자" value={c.story_brief.requester_name} />
-                  <DetailRow label="목소리(내레이션)" value={c.story_brief.voice_label} />
-                  <DetailRow
-                    label="목소리 파일"
-                    value={c.story_brief.voice_file_url
-                      ? <a href={safeHref(c.story_brief.voice_file_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline break-all">{c.story_brief.voice_file_name ?? "목소리 파일 듣기/다운로드"}</a>
-                      : undefined}
-                  />
-                  <DetailRow
-                    label="아이 사진"
-                    value={c.story_brief.child_photo_url ? <a href={safeHref(c.story_brief.child_photo_url)} target="_blank" rel="noreferrer" className="text-brand-purple underline break-all">사진 보기</a> : undefined}
-                  />
-                  {(c.story_brief.reference_image_urls?.length ?? 0) > 0 && (
-                    <DetailRow
-                      label="참고 이미지"
-                      value={c.story_brief.reference_image_urls!.map((u, i) => (
-                        <a key={i} href={safeHref(u)} target="_blank" rel="noreferrer" className="mr-2 text-brand-purple underline break-all">이미지{i + 1}</a>
-                      ))}
-                    />
-                  )}
-                  {c.story_brief.voice_file_url && (
-                    <audio controls src={safeHref(c.story_brief.voice_file_url)} className="mt-2 w-full">
-                      브라우저가 오디오를 지원하지 않습니다.
-                    </audio>
-                  )}
-                  <div className="mt-1 text-[11px] text-pink-600/80">※ 위 동화 제작 프롬프트(스타일·내용·목소리 파일 등)를 참고하여 참여 및 제작을 진행하세요. (AI스토리 연동 예정)</div>
-                </div>
-              </div>
-            )}
-
             {/* 광고주 등록 캠페인 상세 — 영상 제작·배포에 필요한 모든 정보 */}
             <div className="rounded-xl border border-gray-200">
               <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-bold text-gray-800">
@@ -830,8 +755,8 @@ export function CreatorCampaignsUI({
                   <DetailRow label="영상 길이" value={c.video_duration_tier ? (DURATION_LABELS[c.video_duration_tier] ?? c.video_duration_tier) : undefined} />
                   <DetailRow label="배포 건수" value={c.distribution_count > 0 ? `${c.distribution_count}건` : undefined} />
                   <DetailRow label="영상제작 건수" value={(c.video_production_count ?? 0) > 0 ? `${c.video_production_count}건` : undefined} />
-                  <DetailRow label="시작 희망일" value={c.start_date} />
-                  <DetailRow label="종료 희망일" value={c.end_date} />
+                  <DetailRow label="시작 희망일" value={c.start_date ? formatDate(c.start_date) : undefined} />
+                  <DetailRow label="종료 희망일" value={c.end_date ? formatDate(c.end_date) : undefined} />
                   <DetailRow label="타겟 키워드" value={c.target_keywords} />
                   <DetailRow
                     label="참고 링크"
@@ -853,6 +778,12 @@ export function CreatorCampaignsUI({
                   />
                 )}
 
+                {!c.attachment_file_data && c.attachment_file_name && (
+                  <div>
+                    <div className="mb-1 text-gray-500">첨부파일</div>
+                    <p className="text-xs text-gray-500">참여가 확정되면 다운로드할 수 있습니다.</p>
+                  </div>
+                )}
                 {c.attachment_file_data && (
                   <div>
                     <div className="mb-1 text-gray-500">첨부파일</div>
@@ -1125,13 +1056,13 @@ export function CreatorCampaignsUI({
               </div>
             )}
 
-            {!participation && ["recruiting", "published", "in_progress", "active"].includes(c.status) && (
+            {canJoin && !participation && ["recruiting", "published", "in_progress", "active"].includes(c.status) && (
               <button
                 onClick={() => handleJoin(c.id, ptype)}
                 disabled={isPending}
                 className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 py-3 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
               >
-                {slotLabel(c.campaign_type === "story_creation", ptype)} 신청하기
+                {participationTypeLabel(ptype)} 신청하기
               </button>
             )}
 
@@ -1173,8 +1104,7 @@ export function CreatorCampaignsUI({
               </div>
             )}
           </div>
-        </div>
-      </div>
+      </ModalShell>
     );
   }
 
@@ -1206,14 +1136,20 @@ export function CreatorCampaignsUI({
       </div>
 
       {/* 모달 */}
-      <Modal />
+      {Modal()}
 
       {/* 탭 콘텐츠 */}
       {tab !== "my" ? (
         (tab === "favorites" ? availableEntries.filter((entry) => favorites.has(entry.campaign.id)) : availableEntries).length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 py-14 text-center">
             <p className="font-semibold text-gray-400">참여 가능한 캠페인이 없습니다</p>
-            <p className="mt-1 text-sm text-gray-400">현재 모집 중인 캠페인이 없습니다.</p>
+            <p className="mt-1 text-sm text-gray-400">{tab === "favorites" ? "관심 캠페인으로 저장한 모집 중 캠페인이 없습니다." : "현재 모집 중인 캠페인이 없습니다. 새 캠페인이 열리면 알림으로 알려드려요."}</p>
+            {tab !== "favorites" && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <a href="/creator/social" className="inline-flex min-h-[40px] items-center rounded-full bg-amber-400 px-4 text-sm font-bold text-black">내 SNS 채널 인증하기</a>
+                <a href="/creator/settings" className="inline-flex min-h-[40px] items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700">알림 설정</a>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

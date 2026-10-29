@@ -6,6 +6,8 @@ import { requireRole, getCurrentUser } from "../auth";
 import { genId } from "../crypto";
 import type { CampaignSubmission, SubmissionComment } from "../schema";
 import type { ActionState } from "@/components/form";
+import { ownedPrivateFileUrl } from "../uploads";
+import { vibeOnlyError } from "../membership";
 
 const now = () => new Date().toISOString();
 
@@ -26,6 +28,11 @@ export async function createSubmissionAction(
 
   let result: ActionState = { ok: false };
   tx((db) => {
+    const vibeBlock = vibeOnlyError(db, user);
+    if (vibeBlock) {
+      result = { ok: false, message: vibeBlock };
+      return;
+    }
     const campaign = db.ad_campaigns.find((c) => c.id === campaignId);
     if (!campaign) {
       result = { ok: false, message: "캠페인을 찾을 수 없습니다." };
@@ -38,14 +45,20 @@ export async function createSubmissionAction(
       result = { ok: false, message: "승인된 참여자만 제출할 수 있습니다." };
       return;
     }
+    // 첨부는 본인이 업로드한 비공개 파일 주소만 허용 (Base64·남의 파일 차단)
+    const file = ownedPrivateFileUrl(db, user.id, fileData);
+    if (file === false) {
+      result = { ok: false, message: "첨부 파일을 다시 업로드해 주세요." };
+      return;
+    }
     const submission: CampaignSubmission = {
       id: genId(),
       campaign_id: campaignId,
       creator_id: user.id,
       description,
-      file_data: fileData,
-      file_name: fileName,
-      file_type: fileType,
+      file_data: file,
+      file_name: file ? fileName : null,
+      file_type: file ? fileType : null,
       status: "pending",
       reject_reason: null,
       created_at: now(),
@@ -64,7 +77,8 @@ export async function createSubmissionAction(
 // === ADVERTISER: 제출 승인 =============================================
 export async function approveSubmissionAction(fd: FormData): Promise<void> {
   const user = getCurrentUser();
-  if (!user || (user.role !== "admin" && user.role !== "advertiser")) return;
+  // 가입비 미결제(pending) 등 비활성 계정은 사용할 수 없음
+  if (!user || user.status !== "active" || (user.role !== "admin" && user.role !== "advertiser")) return;
   const submissionId = String(fd.get("submission_id") || "");
   tx((db) => {
     const sub = db.campaign_submissions.find((s) => s.id === submissionId);
@@ -85,7 +99,8 @@ export async function rejectSubmissionAction(
   fd: FormData
 ): Promise<ActionState> {
   const user = getCurrentUser();
-  if (!user || (user.role !== "admin" && user.role !== "advertiser")) {
+  // 가입비 미결제(pending) 등 비활성 계정은 사용할 수 없음
+  if (!user || user.status !== "active" || (user.role !== "admin" && user.role !== "advertiser")) {
     return { ok: false, message: "권한이 없습니다." };
   }
   const submissionId = String(fd.get("submission_id") || "");
@@ -130,6 +145,7 @@ export async function addCommentAction(
 ): Promise<ActionState> {
   const user = getCurrentUser();
   if (!user) return { ok: false, message: "로그인이 필요합니다." };
+  if (user.status !== "active") return { ok: false, message: "활성화된 계정만 이용할 수 있습니다." };
   const submissionId = String(fd.get("submission_id") || "").trim();
   const content = String(fd.get("content") || "").trim();
 

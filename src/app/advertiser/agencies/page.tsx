@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/auth";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { getDb } from "@/lib/db";
 import { Card, PageHeader, Table, Th, Td, StatusBadge, EmptyState, Badge } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
@@ -165,7 +165,7 @@ export default function AgenciesPage() {
                             <Td className="text-gray-500">{formatKRW(t.balance_after)}</Td>
                             <Td className="text-gray-500">{t.memo ?? "-"}</Td>
                             <Td className="text-xs text-gray-400">
-                              {t.created_at.slice(0, 16).replace("T", " ")}
+                              {formatDateTime(t.created_at)}
                             </Td>
                           </tr>
                         ))}
@@ -192,7 +192,7 @@ export default function AgenciesPage() {
                             <Td className={t.amount >= 0 ? "text-green-600" : "text-red-600"}>{t.amount >= 0 ? "+" : ""}{formatKRW(t.amount)}</Td>
                             <Td className="text-gray-500">{t.memo ?? "-"}</Td>
                             <Td className="text-xs text-gray-400">
-                              {t.created_at.slice(0, 16).replace("T", " ")}
+                              {formatDateTime(t.created_at)}
                             </Td>
                           </tr>
                         ))}

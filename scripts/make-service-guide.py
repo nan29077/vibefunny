@@ -228,7 +228,7 @@ def content_bg(c,doc):
     c.saveState(); w,h=A4
     c.setFillColor(PURPLE); c.rect(0,h-5*mm,w,5*mm,fill=1,stroke=0)
     c.setFillColor(AMBER); c.rect(0,h-5*mm,38*mm,5*mm,fill=1,stroke=0)
-    c.setFont(R,8); c.setFillColor(GRAY2); c.drawString(20*mm,A4h-13*mm,'VIBEACTION · 서비스 소개서')
+    c.setFont(R,8); c.setFillColor(GRAY2); c.drawString(20*mm,A4h-13*mm,'VIBEFUNNY · 서비스 소개서')
     # footer
     c.setStrokeColor(LINE); c.setLineWidth(0.6); c.line(20*mm,14*mm,w-20*mm,14*mm)
     c.setFillColor(GRAY); c.setFont(R,7.5); c.drawString(20*mm,9.5*mm,'CONFIDENTIAL · 본 자료의 수치는 예시이며 정책에 따라 변동될 수 있습니다.')
@@ -240,7 +240,7 @@ def content_bg(c,doc):
 cover_frame=Frame(20*mm,26*mm,A4w-40*mm,A4h-80*mm,id='cv')
 content_frame=Frame(20*mm,17*mm,A4w-40*mm,A4h-30*mm,id='ct')
 doc=SimpleDocTemplate(OUT,pagesize=A4,leftMargin=20*mm,rightMargin=20*mm,topMargin=22*mm,bottomMargin=20*mm,
-                      title="VIBEACTION 서비스 소개서",author="VIBEACTION")
+                      title="VIBEFUNNY 서비스 소개서",author="VIBEFUNNY")
 doc.addPageTemplates([PageTemplate(id='Cover',frames=[cover_frame],onPage=cover_bg),
                       PageTemplate(id='Content',frames=[content_frame],onPage=content_bg)])
 
@@ -249,17 +249,18 @@ st.append(NextPageTemplate('Content'))
 st.append(Spacer(1,44*mm))
 st.append(Paragraph('AI SHORTFORM CREATOR · COMMERCE PLATFORM',ParagraphStyle('x',fontName=R,fontSize=10,textColor=colors.HexColor('#C4B5FD'))))
 st.append(Spacer(1,7*mm))
-st.append(Paragraph('VIBEACTION',ParagraphStyle('x',fontName=B,fontSize=48,leading=52,textColor=colors.white)))
+st.append(Paragraph('VIBEFUNNY',ParagraphStyle('x',fontName=B,fontSize=48,leading=52,textColor=colors.white)))
 st.append(Paragraph('서비스 소개서',ParagraphStyle('x',fontName=B,fontSize=27,leading=36,textColor=colors.white)))
 st.append(Spacer(1,11*mm))
 st.append(Paragraph('"숏폼으로 수익을 만들다"',ParagraphStyle('x',fontName=B,fontSize=17,textColor=AMBER)))
 st.append(Spacer(1,7*mm))
-st.append(Paragraph('영상 제작 · 숏폼 배포 · 영상 판매 · 유튜브 쇼츠 커머스 · 추천/맞구독.<br/>한 사람이 다섯 갈래의 수익 파이프라인을 동시에 운영하는<br/>크리에이터–광고주 올인원 플랫폼.',
+st.append(Paragraph('영상 제작 · 숏폼 배포 · 유튜브 쇼츠 커머스 · 추천/맞구독.<br/>한 사람이 네 갈래의 수익 파이프라인을 동시에 운영하는<br/>크리에이터–광고주 올인원 플랫폼.',
     ParagraphStyle('x',fontName=R,fontSize=12,leading=20,textColor=colors.HexColor('#D9D5E8'))))
 st.append(Spacer(1,12*mm))
-chips=Table([[Paragraph(f'<font color="#FCD34D">▪</font> {t}',ParagraphStyle('cp',fontName=R,fontSize=9,textColor=colors.white)) for t in ['캠페인','배포','영상판매','쇼츠 커머스','추천·맞구독']]],
-            colWidths=[33*mm]*5)
+chips=Table([[Paragraph(f'<font color="#FCD34D">▪</font> {t}',ParagraphStyle('cp',fontName=R,fontSize=9,textColor=colors.white)) for t in ['캠페인','배포','쇼츠 커머스','추천·맞구독']]],
+            colWidths=[33*mm]*4)
 chips.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),0)]))
+chips.hAlign='LEFT'
 st.append(chips)
 st.append(Spacer(1,10*mm))
 st.append(Paragraph('투자 · 제휴 · 크리에이터 모집용  |  2025',ParagraphStyle('x',fontName=R,fontSize=9.5,textColor=GRAY2)))
@@ -267,12 +268,12 @@ st.append(PageBreak())
 
 # TOC
 st.append(P('목차','h1')); st.append(Rule(PURPLE)); st.append(Spacer(1,6))
-toc=[('01','서비스 개요 · 슬로건'),('02','문제 정의와 솔루션'),('03','크리에이터 수익구조 — 5대 파이프라인'),
- ('04','① 캠페인 참여 (배포 / 영상제작 분리)'),('05','② 영상 판매 (바이브포터)'),
- ('06','③ 유튜브 쇼츠 커머스 (카페24 연동)'),('07','④ 쇼츠 자체 수익 · ⑤ 추천/맞구독'),
- ('08','통합 월 수익 시뮬레이션'),('09','광고주 혜택 · 청구단가 · 회사 마진 구조'),
- ('10','플랫폼 강점 · AI 자동화'),('11','생태계 연동'),('12','이용 흐름 · 정산/포인트 정책'),
- ('13','시장 규모 · 성장성'),('14','FAQ'),('15','회사 정보 · 연락처 · CTA')]
+toc=[('01','서비스 개요 · 슬로건'),('02','문제 정의와 솔루션'),('03','크리에이터 수익구조 — 4대 파이프라인'),
+ ('04','① 캠페인 참여 (배포 / 영상제작 분리)'),
+ ('05','② 유튜브 쇼츠 커머스 (카페24 연동)'),('06','③ 쇼츠 자체 수익 · ④ 추천/맞구독'),
+ ('07','통합 월 수익 시뮬레이션'),('08','광고주 혜택 · 청구단가 · 회사 마진 구조'),
+ ('09','플랫폼 강점 · AI 자동화'),('10','생태계 연동'),('11','이용 흐름 · 정산/포인트 정책'),
+ ('12','시장 규모 · 성장성'),('13','FAQ'),('14','회사 정보 · 연락처 · CTA')]
 rows=[[Paragraph(n,S['tocb']),Paragraph(t,S['toc'])] for n,t in toc]
 tt=Table(rows,colWidths=[16*mm,148*mm])
 tt.setStyle(TableStyle([('LINEBELOW',(0,0),(-1,-1),0.4,LINE),('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6),('VALIGN',(0,0),(-1,-1),'MIDDLE')]))
@@ -280,12 +281,12 @@ st.append(tt); st.append(PageBreak())
 
 # 01
 st+=section('01','서비스 개요','doc',PURPLE)
-st.append(P('<b>VIBEACTION</b>는 AI 시대의 숏폼 콘텐츠를 중심으로 <b>크리에이터의 다양한 수익 활동</b>과 <b>광고주의 효율적 마케팅</b>, 그리고 <b>커머스 판매</b>까지 하나로 연결하는 올인원 플랫폼입니다. 경험이 없어도 AI 도구와 표준화된 워크플로우를 따라 영상 제작·배포·판매에 참여하고, 본인 채널을 운영하며 상품을 판매하는 커머스로 확장할 수 있습니다.'))
-st.append(P('핵심은 <b>다중 수익 파이프라인</b>입니다. 캠페인 참여, 숏폼 배포, 영상 제작·판매, 유튜브 쇼츠 커머스, 추천·맞구독을 동시에 운영해 안정적인 부수입 구조를 만듭니다.'))
+st.append(P('<b>VIBEFUNNY</b>는 AI 시대의 숏폼 콘텐츠를 중심으로 <b>크리에이터의 다양한 수익 활동</b>과 <b>광고주의 효율적 마케팅</b>, 그리고 <b>커머스 판매</b>까지 하나로 연결하는 올인원 플랫폼입니다. 경험이 없어도 AI 도구와 표준화된 워크플로우를 따라 영상 제작·배포에 참여하고, 본인 채널을 운영하며 상품을 판매하는 커머스로 확장할 수 있습니다.'))
+st.append(P('핵심은 <b>다중 수익 파이프라인</b>입니다. 캠페인 참여, 숏폼 배포, 영상 제작, 유튜브 쇼츠 커머스, 추천·맞구독을 동시에 운영해 안정적인 부수입 구조를 만듭니다.'))
 st.append(Spacer(1,4))
 st.append(tbl([[Paragraph('구분',S['cellhl']),Paragraph('한 줄 정의',S['cellhl'])],
- [Paragraph('슬로건',S['cellbl']),Paragraph('"숏폼으로 수익을 만들다" — 누구나, 무경험에서, 다섯 갈래로',S['cell'])],
- [Paragraph('크리에이터',S['cellbl']),Paragraph('AI 숏폼으로 제작·배포·판매·커머스·추천까지 다중 수익을 올리는 부업 플랫폼',S['cell'])],
+ [Paragraph('슬로건',S['cellbl']),Paragraph('"숏폼으로 수익을 만들다" — 누구나, 무경험에서, 네 갈래로',S['cell'])],
+ [Paragraph('크리에이터',S['cellbl']),Paragraph('AI 숏폼으로 제작·배포·커머스·추천까지 다중 수익을 올리는 부업 플랫폼',S['cell'])],
  [Paragraph('광고주',S['cellbl']),Paragraph('검증된 크리에이터 풀로 숏폼 제작·배포를 빠르고 합리적으로 집행',S['cell'])],
  [Paragraph('커머스',S['cellbl']),Paragraph('카페24 연동 상품을 크리에이터 쇼츠에 연결해 판매·정산까지 자동화',S['cell'])]],
  [30*mm,135*mm]))
@@ -299,24 +300,23 @@ st+=blist(['<b>크리에이터</b> — 숏폼 수익화는 진입장벽(구독�
  '<b>광고주</b> — 숏폼 제작·배포를 빠르게, 합리적 단가로, 다수 채널에 집행하기 어렵다.',
  '<b>커머스 셀러</b> — 콘텐츠와 판매(결제·배송)가 분리돼 전환·운영 비용이 크다.'],dot=PINK)
 st.append(P('솔루션','h2'))
-st+=blist(['<b>다중 수익 구조</b> — 조건 없는 배포부터 제작·판매·커머스·추천까지 한 계정에서 조합.',
+st+=blist(['<b>다중 수익 구조</b> — 조건 없는 배포부터 제작·커머스·추천까지 한 계정에서 조합.',
  '<b>무경험 친화</b> — AI 영상 제작 가이드 + 표준 캠페인/정산으로 누구나 시작.',
  '<b>표준 캠페인·포인트 정산</b> — 광고주는 명확한 단가와 포인트로 투명하게 집행.',
  '<b>콘텐츠=커머스</b> — 카페24 연동으로 쇼츠가 곧 판매 채널이 되고 결제·배송은 자동.'])
 st.append(Spacer(1,5))
-st.append(FlowDiagram(['문제 : 단발·고진입·분절','VIBEACTION : 다중 파이프라인','결과 : 지속 가능한 수익'],PINK,h=20*mm))
+st.append(FlowDiagram(['문제 : 단발·고진입·분절','VIBEFUNNY : 다중 파이프라인','결과 : 지속 가능한 수익'],PINK,h=20*mm))
 st.append(PageBreak())
 
 # 03
-st+=section('03','크리에이터 수익구조 — 5대 파이프라인','layers',PURPLE)
-st.append(P('크리에이터는 아래 다섯 가지를 자유롭게 조합합니다. 각 파이프라인의 상세 흐름·단가는 이어지는 페이지에서 다룹니다.','muted'))
+st+=section('03','크리에이터 수익구조 — 4대 파이프라인','layers',PURPLE)
+st.append(P('크리에이터는 아래 네 가지를 자유롭게 조합합니다. 각 파이프라인의 상세 흐름·단가는 이어지는 페이지에서 다룹니다.','muted'))
 st.append(Spacer(1,4))
 st.append(tbl([[Paragraph('파이프라인',S['cellhl']),Paragraph('수익 방식',S['cellh']),Paragraph('핵심',S['cellhl'])],
  [Paragraph('① 캠페인 참여',S['cellbl']),Paragraph('배포 건당 단가 / 영상제작 단가',S['cellc']),Paragraph('배포·영상제작 분리 참여',S['cell'])],
- [Paragraph('② 영상 판매',S['cellbl']),Paragraph('영상 1건 판매가의 일부 적립',S['cellc']),Paragraph('바이브포터 마켓 판매',S['cell'])],
- [Paragraph('③ 쇼츠 커머스',S['cellbl']),Paragraph('판매가 × 수수료율',S['cellc']),Paragraph('카페24 연동 상품 판매',S['cell'])],
- [Paragraph('④ 쇼츠 자체 수익',S['cellbl']),Paragraph('조회수 기반 쇼츠 수익화',S['cellc']),Paragraph('영상 자체가 추가 수익원',S['cell'])],
- [Paragraph('⑤ 추천·맞구독',S['cellbl']),Paragraph('추천 수당 + 채널 성장',S['cellc']),Paragraph('네트워크로 수익 가속',S['cell'])]],
+ [Paragraph('② 쇼츠 커머스',S['cellbl']),Paragraph('판매가 × 수수료율',S['cellc']),Paragraph('카페24 연동 상품 판매',S['cell'])],
+ [Paragraph('③ 쇼츠 자체 수익',S['cellbl']),Paragraph('조회수 기반 쇼츠 수익화',S['cellc']),Paragraph('영상 자체가 추가 수익원',S['cell'])],
+ [Paragraph('④ 추천·맞구독',S['cellbl']),Paragraph('추천 수당 + 채널 성장',S['cellc']),Paragraph('네트워크로 수익 가속',S['cell'])]],
  [34*mm,72*mm,59*mm]))
 st.append(PageBreak())
 
@@ -341,23 +341,7 @@ st.append(P('예시) 30초 배포 20건 + 60초 제작 10건 = (10,000×20)+(8,0
 st.append(PageBreak())
 
 # 05
-st+=section('05','② 영상 판매 — 바이브포터','film',AMBER)
-st.append(P('AI로 제작한 숏폼 영상을 <b>바이브포터</b> 마켓에 등록해 판매합니다. 한 번 만든 영상이 반복 수익으로 이어지며, 크리에이터는 길이 구간별 적립 단가를 받습니다. (구매·할인 등 거래는 바이브포터 앱에서 진행)'))
-st.append(FlowDiagram(['영상 제작 · 등록','관리자 노출 승인','마켓에서 판매','판매분 적립'],AMBER))
-st.append(Spacer(1,6)); st.append(P('영상 판매 적립 단가 (예시)','h2'))
-st.append(tbl([[Paragraph('영상 길이',S['cellh']),Paragraph('판매가',S['cellh']),Paragraph('크리에이터 적립',S['cellh']),Paragraph('비고',S['cellhl'])],
- [Paragraph('30초 이하',S['cellc']),Paragraph('3,000원',S['cellc']),Paragraph('1,500원',S['cellb']),Paragraph('플랫폼 수수료 별도(20% 기준)',S['cell'])],
- [Paragraph('60초 이하',S['cellc']),Paragraph('5,000원',S['cellc']),Paragraph('2,500원',S['cellb']),Paragraph('대량 등록 시 누적 수익',S['cell'])],
- [Paragraph('90초 이하',S['cellc']),Paragraph('7,000원',S['cellc']),Paragraph('3,500원',S['cellb']),Paragraph('재판매 가능',S['cell'])],
- [Paragraph('90초 초과',S['cellc']),Paragraph('10,000원',S['cellc']),Paragraph('5,000원',S['cellb']),Paragraph('-',S['cell'])]],
- [34*mm,30*mm,38*mm,63*mm]))
-st.append(P('예시) 60초 영상 50건 판매 = 2,500 × 50 = 125,000원 (누적 카탈로그가 커질수록 수익 증가)','muted'))
-st.append(Spacer(1,3))
-st.append(P('또한 바이브포터에서 구매한 영상을 가져와 <b>쇼츠 커머스 운영</b>에 활용할 수 있어, 제작이 어려운 크리에이터도 커머스에 바로 참여할 수 있습니다.'))
-st.append(PageBreak())
-
-# 06
-st+=section('06','③ 유튜브 쇼츠 커머스 — 카페24 연동','cart',PINK)
+st+=section('05','② 유튜브 쇼츠 커머스 — 카페24 연동','cart',PINK)
 st.append(P('본인이 운영하는 유튜브 채널의 쇼츠에 상품을 연동해 <b>판매 수수료</b>를 얻습니다. 최고관리자가 등록한 상품(카페24 연동)을 영상 내용에 맞게 <b>자동 추천</b>받아 연결하고, 결제·배송은 카페24로 처리됩니다.'))
 st.append(FlowDiagram(['운영 채널 등록','쇼츠 링크 입력 → 상품 추천','상품 연동 (여러 개)','구매 발생 → 수수료 적립'],PINK))
 st.append(Spacer(1,6)); st.append(P('상품 1건 판매 시 적립 = 판매가 × 수수료율 (상품별 8~15%, 예시)','h2'))
@@ -376,20 +360,20 @@ st.append(tbl([[Paragraph('활동 강도',S['cellh']),Paragraph('가정',S['cell
  [44*mm,76*mm,45*mm],head=PINK))
 st.append(PageBreak())
 
-# 07
-st+=section('07','④ 쇼츠 자체 수익 · ⑤ 추천/맞구독','play',GREEN)
-st.append(P('④ 쇼츠 자체 수익','h2'))
+# 06
+st+=section('06','③ 쇼츠 자체 수익 · ④ 추천/맞구독','play',GREEN)
+st.append(P('③ 쇼츠 자체 수익','h2'))
 st.append(P('상품 판매 수수료와 별개로, 내 채널에 올린 쇼츠는 <b>조회수 기반 유튜브 쇼츠 수익화</b>로도 수익이 발생합니다. 영상 한 편이 "상품 판매 + 영상 자체 수익" 두 갈래로 작동합니다.'))
 st+=blist(['상품 판매 수수료 (판매가 × 수수료율)','쇼츠 조회수 기반 영상 수익','콘텐츠 누적 = 수익 누적'],dot=GREEN)
-st.append(Spacer(1,4)); st.append(P('⑤ 추천 · 맞구독','h2'))
-st.append(P('지인 초대(추천 수당)와 회원 간 <b>맞구독</b>으로 네트워크를 키워 수익과 채널 성장을 동시에 얻습니다. 맞구독으로 초기 구독자를 확보하면 내 채널을 빠르게 "수익 채널"로 전환할 수 있습니다.'))
-st.append(FlowDiagram(['추천 링크 공유 / 맞구독','신규 가입 · 구독 확보','수익화 조건 도달 가속','커머스 · 영상 수익 가동'],GREEN))
+st.append(Spacer(1,4)); st.append(P('④ 추천 · 맞구독','h2'))
+st.append(P('지인 초대(멘티가 가입비 결제 시 1회 고정 추천 수당)와 회원 간 <b>맞구독</b>으로 네트워크를 키워 수익과 채널 성장을 동시에 얻습니다. 맞구독으로 초기 구독자를 확보하면 내 채널을 빠르게 "수익 채널"로 전환할 수 있습니다.'))
+st.append(FlowDiagram(['추천 링크 공유 / 맞구독','멘티 가입비 결제 · 구독 확보','수익화 조건 도달 가속','커머스 · 영상 수익 가동'],GREEN))
 st.append(Spacer(1,3))
-st+=blist(['추천 링크로 가입 시 고정 추천 수당 지급 (정책에 따라)','회원 맞구독으로 초기 구독자 확보 → 수익 채널 전환','추천 인원 제한 없음 — 네트워크가 클수록 자동 수익'],dot=GREEN)
+st+=blist(['멘티가 가입비를 결제하면 1회 고정 추천 수당 지급 (금액은 관리자 정책, 1단계만)','회원 맞구독으로 초기 구독자 확보 → 수익 채널 전환','추천 인원 제한 없음 — 멘티 1명 결제마다 1회 수당'],dot=GREEN)
 st.append(PageBreak())
 
-# 08
-st+=section('08','통합 월 수익 시뮬레이션','chart',PURPLE)
+# 07
+st+=section('07','통합 월 수익 시뮬레이션','chart',PURPLE)
 st.append(P('여러 파이프라인을 동시에 운영했을 때의 합산 예시입니다. (가정치이며 실제 수익은 활동량·전환율에 따라 달라집니다)','muted'))
 st.append(Spacer(1,4))
 st.append(tbl([[Paragraph('시나리오',S['cellhl']),Paragraph('배포',S['cellh']),Paragraph('영상제작',S['cellh']),Paragraph('쇼츠 커머스',S['cellh']),Paragraph('추천/기타',S['cellh']),Paragraph('월 합계',S['cellh'])],
@@ -398,12 +382,12 @@ st.append(tbl([[Paragraph('시나리오',S['cellhl']),Paragraph('배포',S['cell
  [Paragraph('전업',S['cellbl']),Paragraph('80건 80만',S['cellc']),Paragraph('30건 24만',S['cellc']),Paragraph('~120만',S['cellc']),Paragraph('~30만',S['cellc']),Paragraph('약 200만원+',S['cellb'])]],
  [24*mm,28*mm,26*mm,30*mm,26*mm,31*mm]))
 st.append(Spacer(1,6))
-st.append(P('핵심: 단일 활동이 아니라 <b>조합</b>이 수익을 키웁니다. 배포로 기본 수익을 깔고, 제작·판매로 단가를 높이며, 쇼츠 커머스로 상한을 끌어올리고, 추천/맞구독으로 자동화·가속하는 구조입니다.'))
+st.append(P('핵심: 단일 활동이 아니라 <b>조합</b>이 수익을 키웁니다. 배포로 기본 수익을 깔고, 영상 제작으로 단가를 높이며, 쇼츠 커머스로 상한을 끌어올리고, 추천/맞구독으로 자동화·가속하는 구조입니다.'))
 st.append(PageBreak())
 
-# 09
-st+=section('09','광고주 혜택 · 청구단가 · 회사 마진 구조','building',BLUE)
-st.append(P('광고주(실행사·대행사·제작의뢰인)는 포인트를 충전해 캠페인을 집행하고, 회사는 청구단가와 크리에이터 지급단가의 차액을 마진으로 확보합니다.'))
+# 08
+st+=section('08','광고주 혜택 · 청구단가 · 회사 마진 구조','building',BLUE)
+st.append(P('광고주(실행사·대행사)는 포인트를 충전해 캠페인을 집행하고, 회사는 청구단가와 크리에이터 지급단가의 차액을 마진으로 확보합니다.'))
 st.append(P('혜택','h3'))
 st+=blist(['검증된 크리에이터 풀로 제작·배포를 빠르게 집행','4대 플랫폼 동시 배포로 도달 극대화',
  '브랜드 세이프티(금칙어·경쟁사·성인/폭력/정치 제외) 옵션','UTM·프로모션 코드·KPI 성과 추적','포인트 기반 투명 정산'],dot=BLUE)
@@ -415,37 +399,35 @@ st.append(tbl([[Paragraph('항목',S['cellhl']),Paragraph('광고주 청구',S['
  [Paragraph('쇼츠 커머스',S['cell']),Paragraph('상품 판매가',S['cellc']),Paragraph('수수료(8~15%)',S['cellc']),Paragraph('상품 마진 + 운영 수수료',S['cellb'])],
  [Paragraph('대행사 거래',S['cell']),Paragraph('대행사 집행액',S['cellc']),Paragraph('-',S['cellc']),Paragraph('실행사 수직 수수료 5%',S['cellb'])]],
  [34*mm,34*mm,38*mm,59*mm],head=BLUE))
-st.append(P('* 단가는 관리자 정책으로 조정 가능. 제작·배포 마진은 카탈로그가 커질수록 규모의 경제가 작동합니다.','muted'))
+st.append(P('* 단가는 관리자 정책으로 조정 가능. 제작·배포 마진은 캠페인 규모가 커질수록 규모의 경제가 작동합니다.','muted'))
 st.append(PageBreak())
 
-# 10
-st+=section('10','플랫폼 강점 · AI 자동화','star',AMBER)
-st+=blist(['<b>다중 수익 구조</b> — 한 계정에서 5개 파이프라인 동시 운영',
+# 09
+st+=section('09','플랫폼 강점 · AI 자동화','star',AMBER)
+st+=blist(['<b>다중 수익 구조</b> — 한 계정에서 4개 파이프라인 동시 운영',
  '<b>무경험 친화</b> — AI 영상 제작 가이드·툴 매트릭스로 진입장벽 제거',
  '<b>AI 영상 제작 자동화</b> — 스크립트(ChatGPT/Claude)·생성(Runway·Pika·Kling)·편집(CapCut AI)·음성(ElevenLabs·HeyGen)·썸네일(Midjourney)',
  '<b>콘텐츠=커머스</b> — 카페24 연동으로 쇼츠가 즉시 판매 채널',
  '<b>커뮤니티 성장</b> — 회원 맞구독으로 초기 채널 성장 가속',
  '<b>투명 정산</b> — 지갑/포인트 원장 기반 수익·비용 관리'],dot=AMBER)
 st.append(Spacer(1,4))
-st.append(FlowDiagram(['AI 스크립트','AI 영상 생성','AI 편집 · 음성','업로드 · 배포 · 판매'],AMBER,h=20*mm))
+st.append(FlowDiagram(['AI 스크립트','AI 영상 생성','AI 편집 · 음성','업로드 · 배포 · 커머스'],AMBER,h=20*mm))
 st.append(PageBreak())
 
-# 11
-st+=section('11','생태계 연동','link',PURPLE)
-st.append(P('VIBEACTION는 단독 서비스가 아니라 확장 가능한 생태계로 설계되었습니다.'))
-st.append(tbl([[Paragraph('연동',S['cellhl']),Paragraph('역할',S['cellh']),Paragraph('VIBEACTION 연결점',S['cellhl'])],
- [Paragraph('바이브포터',S['cellbl']),Paragraph('영상 거래(제작·구매) 마켓',S['cellc']),Paragraph('영상 판매 수익 / 구매 영상으로 쇼츠 커머스 운영',S['cell'])],
- [Paragraph('AI스토리',S['cellbl']),Paragraph('맞춤 동화 제작 의뢰',S['cellc']),Paragraph('동화 제작 의뢰 수신·연동 (관리자 AI스토리 연동)',S['cell'])],
+# 10
+st+=section('10','생태계 연동','link',PURPLE)
+st.append(P('VIBEFUNNY는 단독 서비스가 아니라 확장 가능한 생태계로 설계되었습니다.'))
+st.append(tbl([[Paragraph('연동',S['cellhl']),Paragraph('역할',S['cellh']),Paragraph('VIBEFUNNY 연결점',S['cellhl'])],
  [Paragraph('카페24',S['cellbl']),Paragraph('커머스(상품·결제·배송)',S['cellc']),Paragraph('상품 등록·연동, 쇼츠 판매·발주·배송 처리',S['cell'])],
  [Paragraph('바이브API',S['cellbl']),Paragraph('공통 API / 연동 레이어',S['cellc']),Paragraph('외부 서비스·자동화 확장 기반',S['cell'])]],
  [26*mm,52*mm,87*mm]))
 st.append(P('* 어댑터 구조로 설계되어 API 키 입력 시 실연동, 미입력 시 미리보기(mock)로 안전하게 동작합니다.','muted'))
 st.append(PageBreak())
 
-# 12
-st+=section('12','이용 흐름 · 정산/포인트 정책','flow',PURPLE)
+# 11
+st+=section('11','이용 흐름 · 정산/포인트 정책','flow',PURPLE)
 st.append(P('크리에이터','h3'))
-st.append(FlowDiagram(['가입 · SNS/운영채널 등록','활동 선택 (배포·제작·커머스)','제작 / 배포 / 판매','지갑 적립 → 출금 신청'],PURPLE))
+st.append(FlowDiagram(['가입 · SNS/운영채널 등록','활동 선택 (배포·제작·커머스)','제작 / 배포 / 커머스','지갑 적립 → 출금 신청'],PURPLE))
 st.append(Spacer(1,5)); st.append(P('광고주','h3'))
 st.append(FlowDiagram(['가입 · 포인트 충전','캠페인 등록 (유형·단가·KPI)','집행 · 결과 검수/승인','성과 확인 · 정산'],BLUE))
 st.append(Spacer(1,5)); st.append(P('정산 · 포인트 정책','h2'))
@@ -455,8 +437,8 @@ st+=blist(['<b>크리에이터 지갑</b> — 적립(pending) → 작업 승인 
  '<b>대행사 정산</b> — 실행사–대행사 수직 수수료(예: 5%) 자동 반영'])
 st.append(PageBreak())
 
-# 13
-st+=section('13','시장 규모 · 성장성','globe',GREEN)
+# 12
+st+=section('12','시장 규모 · 성장성','globe',GREEN)
 st.append(P('숏폼은 전 세계 사용자가 가장 많은 시간을 쓰는 포맷이며, 커머스·크리에이터 이코노미와 결합해 빠르게 성장하고 있습니다. (아래 플랫폼 사용자 수는 업계 공개 발표 기준의 개략치이며 시점에 따라 변동될 수 있습니다.)'))
 st.append(tbl([[Paragraph('플랫폼',S['cellhl']),Paragraph('월 사용자(개략)',S['cellh']),Paragraph('특징',S['cellhl'])],
  [Paragraph('YouTube Shorts',S['cell']),Paragraph('약 20억+',S['cellc']),Paragraph('세계 최대 동영상, 숏폼 급성장',S['cell'])],
@@ -469,28 +451,27 @@ st+=blist(['AI 영상 생성 비용 급감 → 누구나 대량 제작 가능','
 st.append(P('* 구체적 시장 규모(TAM/SAM)는 추정 기관·기준에 따라 차이가 큽니다. 투자 검토 시 별도 시장 자료와 함께 확인을 권장합니다.','muted'))
 st.append(PageBreak())
 
-# 14
-st+=section('14','자주 묻는 질문 (FAQ)','question',PINK)
+# 13
+st+=section('13','자주 묻는 질문 (FAQ)','question',PINK)
 for q,a in [
- ('Q. 영상 제작 경험이 없어도 되나요?','네. AI 도구 가이드와 표준 워크플로우가 제공되며, 조건 없는 숏폼 배포부터 시작할 수 있습니다.'),
- ('Q. 가입비가 있나요?','기본 가입비는 0원입니다. 일부 정책(구독/유료 모델)은 관리자 설정에 따라 달라질 수 있습니다.'),
+ ('Q. 영상 제작 경험이 없어도 되나요?','네. AI 도구 가이드와 표준 워크플로우가 제공되며, 바이브회원 전환 후 숏폼 배포부터 시작할 수 있습니다.'),
+ ('Q. 가입비가 있나요?','크리에이터는 바이브회원에게 받은 추천인 코드로 가입하며, 가입 직후에는 일반회원입니다. 가입비 990,000원을 결제하면 바이브회원으로 전환되어 캠페인 참여·영상 제작 의뢰·쇼츠 커머스·AI 숏츠·출금·SNS 맞구독과 내 추천 코드 공유를 이용할 수 있습니다.'),
  ('Q. 쇼츠 커머스 상품은 어디서 오나요?','최고관리자가 등록한 카페24 연동 상품 중 영상 내용에 맞는 상품을 추천받아 연결합니다.'),
- ('Q. 직접 영상을 못 만들면 커머스를 못 하나요?','바이브포터에서 구매한 영상으로도 쇼츠 커머스를 운영할 수 있습니다.'),
  ('Q. 정산/출금은 어떻게 되나요?','적립금은 작업 승인 후 출금 가능 상태로 전환되며, 언제든 출금 신청할 수 있습니다.'),
  ('Q. 광고주는 어떻게 비용을 집행하나요?','포인트를 충전해 캠페인 단가에 따라 자동 차감되며, 내역은 원장으로 투명하게 관리됩니다.')]:
     st.append(P(q,'h3')); st.append(P(a,'body'))
 st.append(PageBreak())
 
-# 15
-st+=section('15','회사 정보 · 연락처','mail',PURPLE)
+# 14
+st+=section('14','회사 정보 · 연락처','mail',PURPLE)
 st.append(tbl([[Paragraph('항목',S['cellhl']),Paragraph('내용',S['cellhl'])],
- [Paragraph('서비스명',S['cellbl']),Paragraph('VIBEACTION (바이브액션)',S['cell'])],
+ [Paragraph('서비스명',S['cellbl']),Paragraph('VIBEFUNNY (바이브퍼니)',S['cell'])],
  [Paragraph('분야',S['cellbl']),Paragraph('AI 숏폼 크리에이터 부업 · 커머스 플랫폼',S['cell'])],
- [Paragraph('웹사이트',S['cellbl']),Paragraph('vibeaction.com',S['cell'])],
+ [Paragraph('웹사이트',S['cellbl']),Paragraph('vibefunny.com',S['cell'])],
  [Paragraph('문의',S['cellbl']),Paragraph('제휴·투자·입점 문의: 앱 내 문의 또는 운영팀 이메일',S['cell'])]],
  [30*mm,135*mm]))
 st.append(Spacer(1,12))
-close=Table([[Paragraph('지금 VIBEACTION에서 나만의 숏폼 수익 파이프라인을 시작하세요.',
+close=Table([[Paragraph('지금 VIBEFUNNY에서 나만의 숏폼 수익 파이프라인을 시작하세요.',
     ParagraphStyle('cl',fontName=B,fontSize=13.5,leading=20,textColor=colors.white,alignment=TA_CENTER))]],colWidths=[165*mm])
 close.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),PURPLE),('TOPPADDING',(0,0),(-1,-1),17),('BOTTOMPADDING',(0,0),(-1,-1),17)]))
 st.append(close); st.append(Spacer(1,4))
@@ -498,7 +479,7 @@ ac=Table([[Paragraph('크리에이터 가입 · 광고주 캠페인 · 제휴 �
     ParagraphStyle('cl',fontName=R,fontSize=10.5,leading=16,textColor=DARK,alignment=TA_CENTER))]],colWidths=[165*mm])
 ac.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),AMBER),('TOPPADDING',(0,0),(-1,-1),10),('BOTTOMPADDING',(0,0),(-1,-1),10)]))
 st.append(ac); st.append(Spacer(1,8))
-st.append(Paragraph('© 2025 VIBEACTION. 본 소개서의 수치/단가는 예시이며 플랫폼 정책에 따라 변동될 수 있습니다.',S['foot']))
+st.append(Paragraph('© 2025 VIBEFUNNY. 본 소개서의 수치/단가는 예시이며 플랫폼 정책에 따라 변동될 수 있습니다.',S['foot']))
 
 doc.build(st)
 print("PDF built", OUT, os.path.getsize(OUT), "bytes")

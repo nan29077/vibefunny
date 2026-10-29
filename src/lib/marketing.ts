@@ -19,7 +19,7 @@ export function signupFeeLabel(settings: AppSettings): string {
 /** 크리에이터 추천 1건당 수당 (실제 지급 로직 services.createSignupReferralReward 와 동일 기준) */
 export function creatorReferralReward(settings: AppSettings): number {
   const roleAmount = settings.fees?.creator?.referral_reward_amount ?? 0;
-  return roleAmount > 0 ? roleAmount : settings.is_paid_model ? settings.referral_bonus : 0;
+  return Math.max(0, roleAmount); // 정책 설정의 역할별 금액 그대로 (0원 = 지급 안 함)
 }
 
 export const won = (n: number) => `${Math.round(n).toLocaleString("ko-KR")}`;

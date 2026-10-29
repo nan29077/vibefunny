@@ -18,7 +18,10 @@ export function isHttpUrl(value: string | null | undefined): boolean {
 /** 사이트 내부 상대경로("/..." 이면서 "//" 프로토콜 상대 URL 아님) */
 export function isInternalPath(value: string | null | undefined): boolean {
   if (!value) return false;
-  return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
+  // 브라우저는 주소의 탭·줄바꿈을 지우고 역슬래시를 슬래시로 바꾸므로("/\t/evil.com" → "//evil.com")
+  // 제어문자·공백·역슬래시가 들어 있으면 내부 경로로 인정하지 않는다
+  if (/[\x00-\x20\x7f\\]/.test(value)) return false;
+  return value.startsWith("/") && !value.startsWith("//");
 }
 
 const SAFE_DATA_URL = /^data:(image\/(png|jpe?g|gif|webp|bmp|avif|heic|heif)|video\/[a-z0-9.+-]+|audio\/[a-z0-9.+-]+|application\/pdf)[;,]/i;

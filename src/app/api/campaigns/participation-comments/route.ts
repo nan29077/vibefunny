@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { displayName } from "@/lib/schema";
 import { authorizeApi } from "@/lib/auth";
 import { getDb, tx } from "@/lib/db";
 import type { Database, ParticipationComment, Profile } from "@/lib/schema";
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     const comment: ParticipationComment = {
       id: `pc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       participation_id: participation.id, campaign_id: participation.campaign_id,
-      author_id: user.id, author_name: user.name, author_role: user.role,
+      author_id: user.id, author_name: displayName(user), author_role: user.role,
       content, created_at: new Date().toISOString(),
     };
     if (!db.participation_comments) db.participation_comments = [];

@@ -5,12 +5,17 @@ import "./globals.css";
 const SITE_NAME = "VIBEFUNNY";
 const SITE_TITLE = "VIBEFUNNY | 숏폼 영상 부업 플랫폼";
 const SITE_DESCRIPTION =
-  "AI 영상 제작부터 숏폼 배포·판매·추천 수익까지, 나만의 영상 부업을 시작하는 VIBEFUNNY입니다.";
+  "AI 영상 제작부터 숏폼 배포·쇼츠 커머스·추천 수익까지, 나만의 영상 부업을 시작하는 VIBEFUNNY입니다.";
 
 function getSiteUrl(): URL {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
   if (configured) {
     try { return new URL(configured); } catch { /* use the request host */ }
+  }
+  // 운영에서는 위조 가능한 Host 헤더로 대표 주소(canonical·공유 미리보기)를 만들지 않는다
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[layout] NEXT_PUBLIC_SITE_URL 이 설정되지 않아 기본 주소(https://vibefunny.com)를 사용합니다.");
+    return new URL("https://vibefunny.com");
   }
   const requestHeaders = headers();
   const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "localhost:3001";
@@ -29,15 +34,14 @@ export function generateMetadata(): Metadata {
     },
     description: SITE_DESCRIPTION,
     applicationName: SITE_NAME,
-    keywords: ["영상 부업", "AI 영상", "숏폼 배포", "영상 판매", "부업", "VIBEFUNNY"],
+    keywords: ["영상 부업", "AI 영상", "숏폼 배포", "쇼츠 커머스", "부업", "VIBEFUNNY"],
     formatDetection: { telephone: false },
     icons: {
       icon: [
-        { url: "/images/vibefunny-video-bee-logo.png", type: "image/png", sizes: "512x512" },
-        { url: "/favicon.ico", sizes: "any" },
+        { url: "/favicon.svg", type: "image/svg+xml", sizes: "any" },
       ],
-      apple: [{ url: "/images/vibefunny-video-bee-logo.png", type: "image/png", sizes: "512x512" }],
-      shortcut: "/favicon.ico",
+      apple: [{ url: "/images/brand/vibefunny-mark.svg", type: "image/svg+xml", sizes: "any" }],
+      shortcut: "/favicon.svg",
     },
     alternates: { canonical: "/" },
     openGraph: {

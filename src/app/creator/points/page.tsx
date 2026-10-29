@@ -3,7 +3,6 @@ import { formatDate } from "@/lib/date";
 import { getDb } from "@/lib/db";
 import { Card, PageHeader, StatCard, Table, Th, Td, EmptyState, Badge } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
-import { PayoutForm } from "@/components/forms/payout-form";
 import { walletTxStatusLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +31,7 @@ export default function CreatorPointsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="포인트 / 캠페인 수익" description="캠페인 참여로 적립된 포인트와 출금 신청" />
+      <PageHeader title="캠페인 수익" description="캠페인 참여로 적립된 수익 내역" />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="누적 캠페인 수익" value={formatKRW(totalEarned)} accent="yellow" />
@@ -41,12 +40,12 @@ export default function CreatorPointsPage() {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-bold">출금 신청</h2>
-        {availableBalance === 0 ? (
-          <p className="text-sm text-gray-500">출금 가능한 포인트가 없습니다. 캠페인에 참여하고 수익을 적립해보세요.</p>
-        ) : (
-          <PayoutForm available={availableBalance} />
-        )}
+        <h2 className="mb-1 text-base font-bold">출금 신청</h2>
+        <p className="text-sm text-gray-500">
+          출금은{" "}
+          <a href="/creator/wallet" className="font-semibold text-amber-600 underline">수익 / 출금</a>{" "}
+          메뉴에서 신청할 수 있습니다.
+        </p>
       </Card>
 
       <Card>
@@ -91,7 +90,7 @@ export default function CreatorPointsPage() {
       <div className="text-center text-sm text-gray-400">
         전체 수익/출금 내역은{" "}
         <a href="/creator/wallet" className="text-amber-600 underline font-semibold">
-          수익 현황 페이지
+          수익 / 출금 페이지
         </a>
         에서 확인할 수 있습니다.
       </div>

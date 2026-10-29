@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "숏폼 배포 수익 | VIBEFUNNY",
   description: "YouTube Shorts·Instagram Reels·TikTok·Facebook Reels에 광고 숏폼을 배포하고 건당 고정 수익을 받으세요.",
+  alternates: { canonical: "/revenue/distribution" },
 };
 
 const BG = {
@@ -113,7 +114,7 @@ export default function DistributionRevenuePage() {
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/#income" className="hidden text-sm text-gray-400 transition hover:text-white md:block">← 수익 구조</Link>
-          <Link href="/signup" className="rounded-full px-5 py-2 text-sm font-bold text-black" style={{ background: "#f59e0b" }}>무료 시작하기</Link>
+          <Link href="/signup" className="rounded-full px-5 py-2 text-sm font-bold text-black" style={{ background: "#f59e0b" }}>추천 코드로 가입하기</Link>
         </div>
       </header>
 

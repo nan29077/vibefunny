@@ -1,11 +1,13 @@
 import { requireRole } from "@/lib/auth";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { getDb } from "@/lib/db";
 import { Card, PageHeader, StatCard, Table, Th, Td, EmptyState, Badge } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
-import { WALLET_TX_TYPE_LABELS, payoutStatusLabel, walletTxStatusLabel } from "@/lib/labels";
+import { CREATOR_WALLET_TX_TYPE_LABELS, payoutStatusLabel, walletTxStatusLabel } from "@/lib/labels";
 import { PayoutForm } from "@/components/forms/payout-form";
 import { maskBankAccount } from "@/lib/crypto";
+import { VibeOnlyNotice } from "@/components/membership/vibe-only-notice";
+import { isVibeMember } from "@/lib/membership";
 
 export default function CreatorWalletPage() {
   const user = requireRole("creator");
@@ -34,7 +36,11 @@ export default function CreatorWalletPage() {
 
       <Card>
         <h2 className="mb-3 text-base font-bold">출금 신청</h2>
-        <PayoutForm available={w.available_balance} />
+        {isVibeMember(db, user) ? (
+          <PayoutForm available={w.available_balance} />
+        ) : (
+          <VibeOnlyNotice feature="출금 신청" signupFee={db.settings.fees.creator.signup_fee_amount} compact />
+        )}
       </Card>
 
       <Card>
@@ -49,13 +55,13 @@ export default function CreatorWalletPage() {
             <tbody>
               {txs.map((t) => (
                 <tr key={t.id}>
-                  <Td><Badge tone="purple">{WALLET_TX_TYPE_LABELS[t.type]}</Badge></Td>
+                  <Td><Badge tone="purple">{CREATOR_WALLET_TX_TYPE_LABELS[t.type]}</Badge></Td>
                   <Td className={t.amount >= 0 ? "text-green-600" : "text-red-500"}>
                     {t.amount >= 0 ? "+" : ""}{formatKRW(t.amount)}
                   </Td>
                   <Td><Badge tone={walletTxStatusLabel(t.status).tone}>{walletTxStatusLabel(t.status).label}</Badge></Td>
                   <Td className="text-gray-500">{t.memo ?? "-"}</Td>
-                  <Td className="text-xs text-gray-400">{t.created_at.slice(0, 16).replace("T", " ")}</Td>
+                  <Td className="text-xs text-gray-400">{formatDateTime(t.created_at)}</Td>
                 </tr>
               ))}
             </tbody>

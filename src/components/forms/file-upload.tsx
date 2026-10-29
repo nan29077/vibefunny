@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { IconUpload, IconX, IconFile, IconFilm } from "@/components/icons";
+import { uploadPrivateFile } from "@/lib/upload-client";
 
 interface FileUploadProps {
   name: string;
@@ -12,8 +13,8 @@ interface FileUploadProps {
 }
 
 /**
- * 파일을 Base64로 인코딩하여 hidden input에 저장하는 파일 업로드 컴포넌트.
- * 3개의 hidden input: name (Base64 데이터), name_file_name (파일명), name_file_type (MIME)
+ * 파일을 선택하면 즉시 비공개 저장소(/api/uploads)에 올리고, 받은 주소(/api/files/<id>)를 hidden input에 담는다.
+ * 3개의 hidden input: name_file_data (파일 주소), name_file_name (파일명), name_file_type (MIME)
  */
 export function FileUpload({
   name,
@@ -26,27 +27,31 @@ export function FileUpload({
   const [fileType, setFileType] = useState<string | null>(null);
   const [fileData, setFileData] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setError(null);
     setLoading(true);
     setFileName(file.name);
     setFileType(file.type);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") {
-        setFileData(result);
-      }
-      setLoading(false);
-    };
-    reader.onerror = () => setLoading(false);
-    reader.readAsDataURL(file);
+    setFileData(null);
+    const result = await uploadPrivateFile(file);
+    if ("url" in result) {
+      setFileData(result.url);
+    } else {
+      setError(result.error);
+      setFileName(null);
+      setFileType(null);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+    setLoading(false);
   };
 
   const handleClear = () => {
+    setError(null);
     setFileName(null);
     setFileType(null);
     setFileData(null);
@@ -70,7 +75,7 @@ export function FileUpload({
             <IconFile size={16} className="shrink-0 text-brand-purple" />
           )}
           <span className="flex-1 truncate text-sm text-gray-700">{fileName}</span>
-          {loading && <span className="text-xs text-gray-400">처리 중...</span>}
+          {loading && <span className="text-xs text-gray-400">업로드 중...</span>}
           {!loading && (
             <button
               type="button"
@@ -96,6 +101,7 @@ export function FileUpload({
           />
         </label>
       )}
+      {error && <p className="mt-1 text-xs font-medium text-red-600" role="alert">{error}</p>}
     </div>
   );
 }

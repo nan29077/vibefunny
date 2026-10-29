@@ -99,7 +99,7 @@ export function ReferralCard({ referralCode, referredCount, referralEarnings }: 
       </div>
 
       <p className="mt-3 text-xs text-gray-400">
-        이 링크로 가입한 크리에이터는 당신의 추천 후배로 등록됩니다.
+        이 링크로 가입한 크리에이터는 당신의 멘티로 등록됩니다.
       </p>
     </div>
   );

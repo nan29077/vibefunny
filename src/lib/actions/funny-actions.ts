@@ -5,9 +5,9 @@ import { tx } from "../db";
 import { requireRole } from "../auth";
 import { createPayment, audit } from "../services";
 import { FUNNY_WON } from "../funny";
-import { aiShortsAccess, getAiShortsSettings } from "../ai/settings";
+import { funnyChargeAllowed, getAiShortsSettings } from "../ai/settings";
 
-// === CREATOR: 퍼니 충전 → 결제 (스위치 OFF 면 충전 불가) ======================
+// === CREATOR: 퍼니 충전 → 결제 (스위치 OFF·AI 미준비면 충전 불가) ======================
 export async function chargeFunnyAction(fd: FormData): Promise<void> {
   const user = requireRole("creator");
   const productId = String(fd.get("product_id") || "");
@@ -16,8 +16,8 @@ export async function chargeFunnyAction(fd: FormData): Promise<void> {
   let pid = "";
   let error = "";
   tx((db) => {
-    const access = aiShortsAccess(db, user);
-    if (!access.open) {
+    // 스위치 ON·대상 + 대본 AI 준비까지 확인 (쓸 수 없는 기능에 돈을 받지 않는다)
+    if (!funnyChargeAllowed(db, user).ok) {
       error = "closed";
       return;
     }

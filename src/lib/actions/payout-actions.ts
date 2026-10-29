@@ -7,6 +7,7 @@ import { requireRole } from "../auth";
 import { encryptSensitive, genId } from "../crypto";
 import { addWalletTx, audit, ensureWallet } from "../services";
 import type { ActionState } from "@/components/form";
+import { vibeOnlyError } from "../membership";
 
 const now = () => new Date().toISOString();
 
@@ -39,6 +40,8 @@ export async function requestPayoutAction(
   const d = parsed.data;
 
   const result = tx<ActionState>((db) => {
+    const vibeBlock = vibeOnlyError(db, user);
+    if (vibeBlock) return { ok: false, message: vibeBlock };
     const w = ensureWallet(db, user.id);
     if (d.amount > w.available_balance) {
       return { ok: false, message: "지급 가능 잔액을 초과했습니다." };

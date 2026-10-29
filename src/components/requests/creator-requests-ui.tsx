@@ -1,5 +1,6 @@
 "use client";
 
+import { useNow } from "@/lib/use-now";
 import { useState } from "react";
 import type { CustomVideoRequest, CustomVideoApplication } from "@/lib/schema";
 import { formatKRW } from "@/lib/money";
@@ -22,6 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
   approved: "승인됨",
   paid: "지급됨",
   assigned: "배정됨",
+  refunded: "환불됨",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -37,8 +39,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DeadlineCountdown({ deadline }: { deadline: string }) {
-  const now = new Date();
+  const now = useNow();
   const end = new Date(deadline);
+  if (!now) return <span className="text-[10px] text-gray-400">{end.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })} 마감</span>;
   const diffMs = end.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
@@ -64,9 +67,11 @@ interface Props {
   myWork: CustomVideoRequest[];
   myApplied: CustomVideoApplication[];
   userId: string;
+  /** 바이브회원 여부 — 일반회원은 신청·제출 버튼 대신 안내 */
+  canAct?: boolean;
 }
 
-export function CreatorRequestsUI({ openRequests, myWork, myApplied, userId }: Props) {
+export function CreatorRequestsUI({ openRequests, myWork, myApplied, userId, canAct = true }: Props) {
   const [selectedRequest, setSelectedRequest] = useState<CustomVideoRequest | null>(null);
   const [tab, setTab] = useState<"available" | "my">("available");
 
@@ -110,6 +115,7 @@ export function CreatorRequestsUI({ openRequests, myWork, myApplied, userId }: P
                   request={r}
                   userId={userId}
                   myApplied={myApplied}
+                  canAct={canAct}
                   onDetail={() => setSelectedRequest(r)}
                 />
               ))}
@@ -133,6 +139,7 @@ export function CreatorRequestsUI({ openRequests, myWork, myApplied, userId }: P
                   request={r}
                   userId={userId}
                   myApplied={myApplied}
+                  canAct={canAct}
                   onDetail={() => setSelectedRequest(r)}
                   isMyWork
                 />
@@ -147,6 +154,8 @@ export function CreatorRequestsUI({ openRequests, myWork, myApplied, userId }: P
           request={selectedRequest}
           userId={userId}
           isAssignedCreator={selectedRequest.assigned_creator_id === userId}
+          hasApplied={myApplied.some((a) => a.request_id === selectedRequest.id)}
+          canAct={canAct}
           onClose={() => setSelectedRequest(null)}
           onSubmitSuccess={() => {
             // Refresh: optimistically update status label shown
@@ -164,12 +173,14 @@ function RequestCard({
   myApplied,
   onDetail,
   isMyWork,
+  canAct = true,
 }: {
   request: CustomVideoRequest;
   userId: string;
   myApplied: CustomVideoApplication[];
   onDetail: () => void;
   isMyWork?: boolean;
+  canAct?: boolean;
 }) {
   const deadline = r.deadline ?? r.due_date;
   const maxC = r.max_creators;
@@ -232,7 +243,7 @@ function RequestCard({
         >
           상세보기
         </button>
-        {isMyWork && ["in_progress", "revision_requested"].includes(r.status) && (
+        {canAct && isMyWork && ["in_progress", "revision_requested"].includes(r.status) && (
           <button
             onClick={onDetail}
             className="flex-1 rounded-xl bg-amber-500 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
@@ -240,14 +251,24 @@ function RequestCard({
             결과물 제출
           </button>
         )}
-        {!isMyWork && (
-          <span className={[
-            "flex-1 rounded-xl py-2 text-center text-sm font-semibold",
-            hasApplied ? "bg-gray-100 text-gray-500 cursor-default" : "bg-gradient-to-r from-amber-400 to-amber-500 text-white",
-          ].join(" ")}>
-            {hasApplied ? "신청됨" : "신청 중"}
+        {!isMyWork && !canAct && !hasApplied && (
+          <span className="flex-1 cursor-default rounded-xl bg-gray-100 py-2 text-center text-xs font-semibold text-gray-500">
+            바이브회원 전용
           </span>
         )}
+        {!isMyWork && (canAct || hasApplied) && (hasApplied ? (
+          <span className="flex-1 cursor-default rounded-xl bg-gray-100 py-2 text-center text-sm font-semibold text-gray-500">
+            신청 완료 · 선정 대기
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onDetail}
+            className="flex-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 py-2 text-sm font-semibold text-white"
+          >
+            참여 신청
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -34,7 +34,7 @@ function formatDate(iso: string) {
 }
 
 export default function AdminReferralsPage() {
-  requireAdmin();
+  const admin = requireAdmin();
   const db = getDb();
 
   const rewards = [...db.referral_rewards].sort(
@@ -100,6 +100,17 @@ export default function AdminReferralsPage() {
         title="추천인 수당 관리"
         description="추천인 관계, 수당 지급 현황을 관리합니다."
       />
+
+      {/* 회사 추천 코드: 크리에이터는 추천인 코드가 있어야 가입할 수 있으므로, 추천인이 없는 지원자에게 이 코드를 안내 */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-bold text-gray-900">회사 추천 코드</div>
+            <div className="text-sm text-gray-500">크리에이터는 바이브회원의 추천 코드가 있어야 가입할 수 있습니다. 추천인이 없는 지원자(또는 첫 회원)에게는 이 코드를 안내하세요. 이 코드로 가입한 회원의 추천 수당은 발생하지 않습니다.</div>
+          </div>
+          <div className="rounded-xl bg-purple-100 px-4 py-2.5 font-mono text-lg font-bold text-purple-700">{admin.referral_code}</div>
+        </div>
+      </Card>
 
       {/* 상단 통계 */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

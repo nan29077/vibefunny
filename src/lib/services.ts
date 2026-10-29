@@ -1,4 +1,5 @@
 import { genId } from "./crypto";
+import { isVibeMember } from "./membership";
 import type {
   AuditLog,
   Database,
@@ -167,6 +168,10 @@ export function addPointTx(
   }
 ): PointTransaction {
   const pw = ensurePointWallet(db, params.advertiserId);
+  // 잔액이 음수가 되는 차감은 허용하지 않는다 (예외 → tx 전체가 저장되지 않음)
+  if (params.amount < 0 && pw.point_balance + params.amount < 0) {
+    throw new Error(`포인트 잔액 부족: 잔액 ${pw.point_balance}, 차감 ${-params.amount}`);
+  }
   pw.point_balance += params.amount;
   pw.updated_at = now();
   const txn: PointTransaction = {
@@ -280,12 +285,16 @@ export function createSignupReferralReward(
   const referrer = db.profiles.find((p) => p.id === referee.referred_by_user_id);
   if (!referrer) return;
   if (referrer.id === referee.id || referrer.status !== "active") return; // 자기추천·비활성 추천인 제외
+  if (referrer.role === "admin") return; // 회사 추천 코드(최고관리자)로 가입한 경우 수당 없음
+  // 멘토가 그 사이 일반회원으로 바뀌었다면 수당 없음 (바이브회원만 멘토)
+  if (referrer.role === "creator" && !isVibeMember(db, referrer)) return;
   if (!db.settings.referral_system_enabled) return; // 결제 시점에 추천인 제도가 꺼져 있으면 미지급
   if (db.referral_rewards.some((item) => item.referee_id === referee.id && item.referrer_id === referrer.id)) return;
   // 관리자 정책 설정 화면의 "역할별 추천 수당" 금액을 사용한다.
   // (이전: 유료 부업 ON 이면 화면에 없는 숨은 값 referral_bonus 가 적용되어 설정 금액과 다르게 지급됨)
   const roleAmount = db.settings.fees[referee.role]?.referral_reward_amount ?? 0;
-  const reward = roleAmount > 0 ? roleAmount : db.settings.is_paid_model ? db.settings.referral_bonus : 0;
+  // 관리자가 0원으로 저장했다면 "지급 안 함"으로 본다 (숨은 기본값 referral_bonus 로 대체 지급하지 않음)
+  const reward = Math.max(0, roleAmount);
   if (reward <= 0) return;
   createReferralRewardRecord(db, referrer.id, referee.id, reward);
 }
@@ -293,10 +302,7 @@ export function createSignupReferralReward(
 
 // --- 추천 수당 레코드 생성 (ReferralReward) + WalletTx -----------------
 /**
- * 추천인 제도가 활성화된 상태에서 피추천인이 가입하면 호출.
- * - is_paid_model=true: 고정 referral_bonus 금액
- * - is_paid_model=false + signup_fee 있음: 가입비 기준 비율 계산 (기존 로직)
- * 두 경우 모두 ReferralReward 레코드를 생성한다.
+ * 추천인 제도가 켜져 있고 멘티가 가입비를 결제하면 호출 — 역할별 고정 수당을 1회 적립한다.
  */
 export function createReferralRewardRecord(
   db: Database,

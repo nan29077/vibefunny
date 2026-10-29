@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { IconUpload, IconX, IconFilm, IconPlus } from "@/components/icons";
+import { uploadPrivateFile } from "@/lib/upload-client";
 
 interface PoolItem {
   key: string;
@@ -23,7 +24,7 @@ const newKey = () => `pv_${Date.now()}_${__seq++}`;
 
 /**
  * 광고주가 배포할 영상을 1~N개 직접 등록하는 입력.
- * 각 항목은 URL 또는 파일(Base64) 중 하나로 입력한다.
+ * 각 항목은 URL 또는 파일(비공개 저장소 업로드 → /api/files/<id>) 중 하나로 입력한다.
  * 폼 전송용 hidden input:
  *   pool_video_count
  *   pool_video_{i}_url / _file_data / _file_name / _file_type
@@ -109,24 +110,27 @@ function PoolRow({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setError(null);
     setLoading(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") {
-        onChange({ fileData: result, fileName: file.name, fileType: file.type });
-      }
-      setLoading(false);
-    };
-    reader.onerror = () => setLoading(false);
-    reader.readAsDataURL(file);
+    onChange({ fileData: "", fileName: file.name, fileType: file.type });
+    const result = await uploadPrivateFile(file);
+    if ("url" in result) {
+      onChange({ fileData: result.url, fileName: file.name, fileType: file.type });
+    } else {
+      setError(result.error);
+      onChange({ fileData: "", fileName: "", fileType: "" });
+      if (inputRef.current) inputRef.current.value = "";
+    }
+    setLoading(false);
   };
 
   const clearFile = () => {
+    setError(null);
     onChange({ fileData: "", fileName: "", fileType: "" });
     if (inputRef.current) inputRef.current.value = "";
   };
@@ -159,7 +163,7 @@ function PoolRow({
         <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2">
           <IconFilm size={16} className="shrink-0 text-brand-purple" />
           <span className="flex-1 truncate text-sm text-gray-700">{item.fileName}</span>
-          {loading && <span className="text-xs text-gray-400">처리 중...</span>}
+          {loading && <span className="text-xs text-gray-400">업로드 중...</span>}
           {!loading && (
             <button type="button" onClick={clearFile} className="text-gray-400 hover:text-red-500" aria-label="파일 제거">
               <IconX size={14} />
@@ -170,9 +174,10 @@ function PoolRow({
         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white px-3 py-2 text-center hover:border-brand-purple">
           <IconUpload size={16} className="text-gray-400" />
           <span className="text-xs font-medium text-gray-500">또는 영상 파일 첨부</span>
-          <input ref={inputRef} type="file" accept="video/*" onChange={handleFile} className="hidden" />
+          <input ref={inputRef} type="file" accept="video/mp4,video/quicktime" onChange={handleFile} className="hidden" />
         </label>
       )}
+      {error && <p className="text-xs font-medium text-red-600" role="alert">{error}</p>}
     </div>
   );
 }

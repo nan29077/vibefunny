@@ -76,12 +76,17 @@ export function withDb(mutator) {
   }
 }
 
-// src/lib/crypto.ts 와 동일한 키 유도·형식
+// src/lib/crypto.ts 와 동일한 키 유도·형식 (약한 키 판정도 src/lib/secrets.ts 와 동일)
 const PREFIX = "enc:v1:";
+const PLACEHOLDER = /change-?me|example|placeholder|dev-secret|your-|^secret$|^password$/i;
+function isWeakSecret(value) {
+  const v = String(value ?? "").trim();
+  return v.length < 32 || PLACEHOLDER.test(v);
+}
 function sensitiveKey() {
   const secret = process.env.DATA_ENCRYPTION_KEY;
-  if (!secret || secret.length < 32) {
-    if (process.env.NODE_ENV === "production") throw new Error("DATA_ENCRYPTION_KEY 환경변수는 32자 이상이어야 합니다.");
+  if (!secret || isWeakSecret(secret)) {
+    if (process.env.NODE_ENV === "production") throw new Error("DATA_ENCRYPTION_KEY 환경변수는 예시 값이 아닌 32자 이상 무작위 값이어야 합니다.");
     return createHash("sha256").update(process.env.SESSION_SECRET || "vibefunny-local-sensitive-data-key").digest();
   }
   return createHash("sha256").update(secret).digest();

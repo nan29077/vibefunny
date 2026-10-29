@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">VIBEFUNNY</title>
+  <desc id="desc">간결한 V 모노그램의 바이브퍼니 심볼</desc>
+  <rect x="3" y="3" width="58" height="58" rx="17" fill="#111111"/>
+  <rect x="3.75" y="3.75" width="56.5" height="56.5" rx="16.25" fill="none" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="1.5"/>
+  <path d="M16.5 19.5 29.7 45.2c.95 1.85 3.6 1.85 4.55 0L47.5 19.5" fill="none" stroke="#FFC928" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

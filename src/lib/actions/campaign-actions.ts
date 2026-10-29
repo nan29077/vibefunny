@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb, tx } from "../db";
 import { isHttpUrl } from "../url";
+import { ownedPrivateFileUrl } from "../uploads";
 import { requireRole, getCurrentUser } from "../auth";
 import { genId } from "../crypto";
 import {
@@ -15,7 +16,7 @@ import {
   ensurePointWallet,
   notifyUser,
 } from "../services";
-import { computeCampaignCost } from "../queries";
+import { computeCampaignCost, creatorRateSnapshot } from "../queries";
 import {
   cancelCampaign,
   cancelLegacyWalletCommissions,
@@ -47,8 +48,8 @@ const campaignSchema = z.object({
     "create_only",
   ]),
   category_id: z.string().optional(),
-  distribution_count: z.coerce.number().int().min(0).default(0),
-  video_production_count: z.coerce.number().int().min(0).default(0),
+  distribution_count: z.coerce.number().int().min(0).max(1000, "배포 건수는 1,000건 이하로 입력하세요.").default(0),
+  video_production_count: z.coerce.number().int().min(0).max(1000, "영상 제작 건수는 1,000건 이하로 입력하세요.").default(0),
   target_keywords: z.string().optional(),
   reference_links: z.string().optional(),
   start_date: z.string().optional(),
@@ -187,6 +188,18 @@ export async function createCampaignAction(
     }
   }
   if (!d.terms_agreed) return { ok: false, message: "캠페인 등록 약관에 동의해야 합니다." };
+  // 날짜는 YYYY-MM-DD 형식만 허용, 종료일은 오늘(한국 시간) 이후여야 한다 (형식 오류 시 마감 처리 누락, 과거 날짜 시 즉시 자동정산 방지)
+  for (const [key, value] of [["start_date", d.start_date], ["end_date", d.end_date]] as const) {
+    if (value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(new Date(`${value}T00:00:00+09:00`).getTime()))) {
+      return { ok: false, message: "날짜 형식이 올바르지 않습니다.", fieldErrors: { [key]: "YYYY-MM-DD 형식으로 입력하세요." } };
+    }
+  }
+  if (d.end_date) {
+    const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    if (d.end_date < todayKst) {
+      return { ok: false, message: "종료일은 오늘 이후로 선택하세요.", fieldErrors: { end_date: "오늘 이후 날짜를 선택하세요." } };
+    }
+  }
   if (d.start_date && d.end_date && new Date(d.start_date).getTime() > new Date(d.end_date).getTime()) {
     return { ok: false, message: "종료일은 시작일 이후여야 합니다." };
   }
@@ -211,7 +224,9 @@ export async function createCampaignAction(
   type PoolVideoInput = { url: string; file_data: string; file_name: string; file_type: string };
   const poolVideos: PoolVideoInput[] = [];
   if (ctype === "distribute_own_video" || ctype === "distribute_existing_video") {
-    const cnt = Math.max(0, Number(fd.get("pool_video_count") ?? 0));
+    // 영상 개수는 배포 건수(최대 50개) 이내로 제한 — 조작된 큰 값(Infinity 등)으로 서버가 멈추는 것 방지
+    const rawCnt = Math.floor(Number(fd.get("pool_video_count") ?? 0));
+    const cnt = Math.min(Number.isFinite(rawCnt) ? Math.max(0, rawCnt) : 0, Math.max(1, d.distribution_count), 50);
     for (let i = 0; i < cnt; i++) {
       const url = String(fd.get(`pool_video_${i}_url`) ?? "").trim();
       const fileData = String(fd.get(`pool_video_${i}_file_data`) ?? "").trim();
@@ -238,6 +253,22 @@ export async function createCampaignAction(
   let outcome: ActionState = { ok: false };
   let needCharge = false;
   tx((db) => {
+    // 첨부 파일·배포 영상 파일은 본인이 업로드한 비공개 파일 주소(/api/files/<id>)만 허용 (Base64·남의 파일 차단)
+    const attachment = ownedPrivateFileUrl(db, user.id, d.attachment_file_data);
+    if (attachment === false) {
+      outcome = { ok: false, message: "첨부 파일을 다시 업로드해 주세요." };
+      return;
+    }
+    for (const pv of poolVideos) {
+      const owned = ownedPrivateFileUrl(db, user.id, pv.file_data);
+      if (owned === false) {
+        outcome = { ok: false, message: "배포 영상 파일을 다시 업로드해 주세요." };
+        return;
+      }
+      pv.file_data = owned ?? "";
+    }
+    d.attachment_file_data = attachment ?? undefined;
+    if (!attachment) { d.attachment_file_name = undefined; d.attachment_file_type = undefined; }
     // 비용은 서버에서 계산 (클라이언트 금액 신뢰 금지)
     const cost = computeCampaignCost(db, {
       campaign_type: ctype,
@@ -294,6 +325,7 @@ export async function createCampaignAction(
       attachment_file_type: d.attachment_file_type ?? null,
       platform_distributions: Object.keys(platformDistributions).length > 0 ? platformDistributions : undefined,
       brand_name: d.brand_name ?? null,
+      creator_rate_snapshot: creatorRateSnapshot(db, d.video_duration_tier ?? null),
       industry: d.industry ?? null,
       website_url: d.website_url ?? null,
       creator_min_followers: d.creator_min_followers ?? null,
@@ -430,29 +462,6 @@ export async function applyCampaignAction(_fd: FormData): Promise<void> {
   revalidatePath("/creator/campaigns");
 }
 
-// === ADMIN/ADVERTISER: 참여자 승인/반려 ===============================
-export async function decideCampaignApplicationAction(fd: FormData): Promise<void> {
-  const user = getCurrentUser();
-  if (!user || (user.role !== "admin" && user.role !== "advertiser")) return;
-  const appId = String(fd.get("application_id") || "");
-  const decision = String(fd.get("decision") || ""); // approve | reject
-  tx((db) => {
-    const app = db.campaign_applications.find((a) => a.id === appId);
-    if (!app) return;
-    const c = db.ad_campaigns.find((x) => x.id === app.campaign_id);
-    if (!c) return;
-    if (user.role === "advertiser" && c.advertiser_id !== user.id) return;
-    app.status = decision === "approve" ? "approved" : "rejected";
-    app.updated_at = now();
-    if (decision === "approve" && c.status === "recruiting") {
-      c.status = "in_progress";
-      c.updated_at = now();
-    }
-  });
-  revalidatePath("/advertiser/campaigns");
-  revalidatePath("/admin/campaigns");
-}
-
 // === CREATOR: (구버전) 배포 증빙 제출 — 비활성화 ================================
 // 신규 제출은 참여(campaign_participations) 흐름의 작업물 제출만 허용한다.
 // (구버전 제출은 캠페인 상태를 submitted 로 바꿔 신규 참여자 제출을 막고, 이중 지급을 유발했음)
@@ -464,7 +473,8 @@ export async function submitCampaignProofAction(_fd: FormData): Promise<void> {
 // === ADMIN/ADVERTISER: 증빙 승인 -> CREATOR 수익 정산 =================
 export async function reviewCampaignProofAction(fd: FormData): Promise<void> {
   const user = getCurrentUser();
-  if (!user || (user.role !== "admin" && user.role !== "advertiser")) return;
+  // 가입비 미결제(pending) 등 비활성 계정은 사용할 수 없음
+  if (!user || user.status !== "active" || (user.role !== "admin" && user.role !== "advertiser")) return;
   const deliveryId = String(fd.get("delivery_id") || "");
   const decision = String(fd.get("decision") || ""); // approve | reject
   tx((db) => {
@@ -549,7 +559,8 @@ export async function joinParticipationAction(fd: FormData): Promise<ActionState
   const user = requireRole("creator");
   const campaignId = String(fd.get("campaign_id") || "");
   const participationType = String(fd.get("participation_type") || "deploy") as ParticipationType;
-  const result = tx((db) => joinParticipation(db, user, campaignId, participationType));
+  const platform = fd.get("platform") ? String(fd.get("platform")) : null;
+  const result = tx((db) => joinParticipation(db, user, campaignId, participationType, platform));
   revalidatePath("/creator/campaigns");
   return result.ok ? { ok: true, message: result.message } : { ok: false, message: result.error };
 }
@@ -557,16 +568,22 @@ export async function joinParticipationAction(fd: FormData): Promise<ActionState
 // === ADVERTISER/ADMIN: 참여 다단계 승인/반려 ============================
 export async function reviewParticipationAction(fd: FormData): Promise<void> {
   const user = getCurrentUser();
-  if (!user || (user.role !== "admin" && user.role !== "advertiser") || user.status !== "active") return;
+  // 가입비 미결제(pending) 등 비활성 계정은 사용할 수 없음
+  if (!user || user.status !== "active" || (user.role !== "admin" && user.role !== "advertiser") || user.status !== "active") return;
   const participationId = String(fd.get("participation_id") || "");
   const decision = String(fd.get("decision") || ""); // approve | reject
   const reason = String(fd.get("reason") || "");
+  // 화면을 띄운 사이 상태가 바뀌었으면(예: 선발 취소를 누르기 직전 크리에이터가 제출) 처리하지 않는다
+  const expectedStatus = String(fd.get("expected_status") || "");
   if (decision !== "approve" && decision !== "reject") return;
   let campaignId = "";
   const result = tx((db) => {
     const p = (db.campaign_participations ?? []).find((x) => x.id === participationId);
     if (!p) return { ok: false as const, status: 404, error: "참여 기록을 찾을 수 없습니다." };
     campaignId = p.campaign_id;
+    if (expectedStatus && p.status !== expectedStatus) {
+      return { ok: false as const, status: 409, error: "그 사이 참여 상태가 바뀌었습니다. 화면을 새로 고친 뒤 다시 처리해 주세요." };
+    }
     return reviewParticipation(db, user, p, decision, reason);
   });
   revalidatePath("/advertiser/campaigns");

@@ -1,10 +1,12 @@
 "use client";
 
+import { ModalShell } from "@/components/modal-shell";
 import { useState, useTransition } from "react";
 import type { AdCampaign, CampaignParticipation, CampaignDirectMessage } from "@/lib/schema";
 import { formatKRW } from "@/lib/money";
 import { PLATFORM_LABELS } from "@/lib/schema";
 import { CAMPAIGN_TYPE_LABELS } from "@/lib/labels";
+import { ConfirmDialog } from "@/components/form";
 import { DirectMessageThread } from "@/components/campaigns/direct-message-thread";
 import { ParticipationCommentThread } from "@/components/campaigns/participation-comment-thread";
 import {
@@ -149,14 +151,16 @@ function ParticipantRow({
       const res = await fetch(`/api/participations/${p.id}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: action, reason }),
+        body: JSON.stringify({ decision: action, reason, expected_status: p.status }),
       });
       if (res.ok) {
         const updated = await res.json();
         onUpdate(updated);
-        showToast(action === "approve" ? "승인했습니다" : "반려했습니다");
+        showToast(action === "approve" ? "승인했습니다" : updated?.status === "cancelled" ? "선발을 취소했습니다" : "반려했습니다");
       } else {
-        showToast("오류가 발생했습니다");
+        // 서버가 알려준 사유(정원 초과 등)를 그대로 보여준다
+        const data = await res.json().catch(() => null) as { error?: string; message?: string } | null;
+        showToast(data?.error || data?.message || "처리하지 못했습니다. 잠시 후 다시 시도하세요.");
       }
     });
   }
@@ -189,7 +193,7 @@ function ParticipantRow({
               "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
               p.participation_type === "deploy" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700",
             ].join(" ")}>
-              {p.participation_type === "deploy" ? "배포" : "영상제작"}
+              {p.participation_type === "deploy" ? `배포${p.platform ? ` · ${PLATFORM_LABELS[p.platform] ?? p.platform}` : ""}` : "영상제작"}
             </span>
           )}
         </div>
@@ -269,6 +273,17 @@ function ParticipantRow({
                 <IconX size={11} /> 반려
               </button>
             </>
+          )}
+
+          {/* 선발 취소 (선발 후 미작업·반려 후 미재제출) */}
+          {["accepted", "video_rejected", "deploy_rejected"].includes(p.status) && (
+            <button
+              onClick={() => setRejectOpen(true)}
+              disabled={isPending}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <IconX size={11} /> 선발 취소
+            </button>
           )}
 
           {/* DM 버튼 */}
@@ -381,17 +396,15 @@ function ParticipantRow({
 
       {/* 반려 모달 */}
       {rejectOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => { setRejectOpen(false); setRejectReason(""); }}
+        <ModalShell
+          onClose={() => { setRejectOpen(false); setRejectReason(""); }}
+          label="반려 사유 입력"
+          panelClassName="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
         >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
             <h3 className="text-base font-bold text-gray-900 mb-1">반려 사유 입력</h3>
             <p className="text-sm text-gray-500 mb-3">크리에이터에게 전달될 사유를 입력하세요.</p>
             <textarea
+              aria-label="반려 사유"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="예: 영상 품질이 기준 미달입니다. 다시 제출해주세요."
@@ -408,8 +421,7 @@ function ParticipantRow({
                 className="flex-1 rounded-xl bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
               >반려하기</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       {/* DM 패널 */}
@@ -446,13 +458,16 @@ function CampaignCard({
   const [expanded, setExpanded] = useState(false);
   const [participations, setParticipations] = useState(row.participations);
   const [cancelPending, startCancel] = useTransition();
+  const [askCancel, setAskCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   function cancelCampaign() {
-    if (!window.confirm("캠페인을 취소하고 사용 포인트를 환불하시겠습니까?")) return;
+    setAskCancel(false);
+    setCancelError(null);
     startCancel(async () => {
       const response = await fetch(`/api/advertiser/campaigns/${c.id}/cancel`, { method: "POST" });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) window.alert(result.error ?? "캠페인 취소에 실패했습니다.");
+      if (!response.ok) setCancelError(result.error ?? "캠페인 취소에 실패했습니다.");
       else window.location.reload();
     });
   }
@@ -520,7 +535,9 @@ function CampaignCard({
           <div className="text-right shrink-0">
             <div className="text-base font-bold text-gray-900">{formatKRW(c.total_cost)}</div>
             <div className="text-[10px] text-gray-400 mt-0.5">총 예산</div>
-            {!["completed", "cancelled", "refunded", "rejected"].includes(c.status) && <button type="button" disabled={cancelPending} onClick={cancelCampaign} className="mt-2 text-xs font-semibold text-red-500 disabled:opacity-50">캠페인 취소</button>}
+            {!["completed", "cancelled", "refunded", "rejected"].includes(c.status) && <button type="button" disabled={cancelPending} onClick={(e) => { e.stopPropagation(); setAskCancel(true); }} className="mt-1 inline-flex min-h-[36px] items-center rounded-lg px-2 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50">{cancelPending ? "취소 중..." : "캠페인 취소"}</button>}
+            {cancelError && <p className="mt-1 text-xs text-red-600" role="alert">{cancelError}</p>}
+            {askCancel && <ConfirmDialog message={"캠페인을 취소하고 사용 포인트를 환불하시겠습니까?\n(제출·완료된 작업이 있으면 취소할 수 없습니다)"} confirmLabel="캠페인 취소" danger onCancel={() => setAskCancel(false)} onConfirm={cancelCampaign} />}
           </div>
         </div>
 

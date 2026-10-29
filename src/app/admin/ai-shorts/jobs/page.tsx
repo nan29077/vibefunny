@@ -2,8 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Card, PageHeader, Table, Th, Td, Badge, EmptyState } from "@/components/ui";
-import { SubmitButton } from "@/components/form";
-import { adminCancelJobAction } from "@/lib/actions/ai-admin-actions";
+import { AdminCancelJobForm } from "@/components/ai-shorts/admin-forms";
 import { formatFunny } from "@/lib/funny";
 import { formatDateTime } from "@/lib/date";
 import { displayName } from "@/lib/schema";
@@ -47,7 +46,7 @@ export default function AdminAiJobsPage({ searchParams }: { searchParams: { stat
         ) : (
           <Table>
             <thead>
-              <tr><Th>일시</Th><Th>크리에이터</Th><Th>작업</Th><Th>모델</Th><Th>상태</Th><Th>퍼니(예약/사용)</Th><Th>원가</Th><Th>오류(관리자용 원문)</Th><Th></Th></tr>
+              <tr><Th>일시</Th><Th>크리에이터</Th><Th>작업</Th><Th>모델</Th><Th>상태</Th><Th>퍼니(예약/사용)</Th><Th>원가(지출)</Th><Th>오류(관리자용 원문)</Th><Th></Th></tr>
             </thead>
             <tbody>
               {jobs.map((j) => (
@@ -58,14 +57,11 @@ export default function AdminAiJobsPage({ searchParams }: { searchParams: { stat
                   <Td className="max-w-[160px] truncate text-xs">{model(j.model_ref)}</Td>
                   <Td><Badge tone={STATUS[j.status]?.tone ?? "gray"}>{STATUS[j.status]?.label ?? j.status}</Badge>{j.attempts > 1 && <span className="ml-1 text-[11px] text-gray-400">시도 {j.attempts}</span>}</Td>
                   <Td className="text-xs">{formatFunny(j.hold_paid + j.hold_bonus)} / {formatFunny(j.charged_funny)}</Td>
-                  <Td className="text-xs">{j.cost_won.toLocaleString()}원</Td>
+                  <Td className="text-xs">{j.cost_won.toLocaleString()}원{j.vendor_cost_won !== undefined && j.vendor_cost_won !== j.cost_won ? <span className="block text-[11px] text-gray-400">지출 {Math.round(j.vendor_cost_won).toLocaleString()}원</span> : null}</Td>
                   <Td className="max-w-[260px] whitespace-normal break-words text-[11px] text-red-600">{j.status === "failed" ? j.error_detail : ""}</Td>
                   <Td>
                     {(j.status === "queued" || j.status === "running") && (
-                      <form action={adminCancelJobAction}>
-                        <input type="hidden" name="job_id" value={j.id} />
-                        <SubmitButton size="sm" variant="outline">취소·환불</SubmitButton>
-                      </form>
+                      <AdminCancelJobForm jobId={j.id} />
                     )}
                   </Td>
                 </tr>

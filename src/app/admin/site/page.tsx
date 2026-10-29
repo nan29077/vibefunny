@@ -54,11 +54,11 @@ export default function SiteManagementPage() {
               <Textarea
                 name="announcement"
                 defaultValue={s.site_announcement ?? ""}
-                placeholder="예: 🎉 베타 서비스 시작! 지금 가입하면 첫 달 구독료 무료!"
+                placeholder="예: 🎉 베타 서비스 시작! 지금 가입하고 바이브회원이 되어 보세요!"
                 rows={2}
               />
             </Field>
-            <SubmitButton size="sm">저장</SubmitButton>
+            <SubmitButton size="sm" successMessage="저장되었습니다">저장</SubmitButton>
           </form>
           {s.site_announcement && (
             <div className="mt-4 rounded-xl bg-brand-purple/10 px-4 py-3 text-sm text-brand-purple">
@@ -74,6 +74,7 @@ export default function SiteManagementPage() {
           <IconGlobe size={16} className="text-brand-pink" />
           메인 배너 관리
         </h2>
+        <p className="-mt-2 mb-3 text-xs text-gray-500">활성화된 배너는 메인 홈 첫 화면(상단 슬라이드) 바로 아래에 표시됩니다. 버튼 링크는 /로 시작하는 사이트 경로 또는 http(s) 주소만 사용할 수 있습니다.</p>
 
         {/* 기존 배너 목록 */}
         {banners.length > 0 && (
@@ -106,7 +107,7 @@ export default function SiteManagementPage() {
                   </form>
                   <form action={deleteBannerAction}>
                     <input type="hidden" name="id" value={b.id} />
-                    <SubmitButton size="sm" variant="danger">삭제</SubmitButton>
+                    <SubmitButton size="sm" variant="danger" confirmMessage="이 배너를 삭제할까요?">삭제</SubmitButton>
                   </form>
                 </div>
               </div>
@@ -152,7 +153,7 @@ export default function SiteManagementPage() {
                 </label>
               </Field>
             </div>
-            <SubmitButton size="sm">배너 추가</SubmitButton>
+            <SubmitButton size="sm" successMessage="배너를 추가했습니다">배너 추가</SubmitButton>
           </form>
         </Card>
       </section>
@@ -163,6 +164,7 @@ export default function SiteManagementPage() {
           <IconFilm size={16} className="text-blue-500" />
           이용 방법 블록 편집
         </h2>
+        <p className="-mt-2 mb-3 text-xs text-gray-500">대상이 크리에이터인 블록은 이용자 대시보드에, 광고주인 블록은 광고주 대시보드에, 전체는 양쪽 모두에 표시됩니다.</p>
         <Card>
           <form action={updateHowtoBlockAction} className="space-y-5">
             {howtoBlocks.map((b, i) => (
@@ -201,7 +203,7 @@ export default function SiteManagementPage() {
                 </Field>
               </div>
             ))}
-            <SubmitButton size="sm">이용 방법 저장</SubmitButton>
+            <SubmitButton size="sm" successMessage="저장되었습니다">이용 방법 저장</SubmitButton>
           </form>
         </Card>
       </section>
@@ -233,7 +235,7 @@ export default function SiteManagementPage() {
                 </div>
               ))}
             </div>
-            <SubmitButton size="sm">수익 통계 저장</SubmitButton>
+            <SubmitButton size="sm" successMessage="저장되었습니다">수익 통계 저장</SubmitButton>
           </form>
         </Card>
       </section>
@@ -254,7 +256,7 @@ export default function SiteManagementPage() {
             <div className={`rounded-xl px-3 py-2 text-xs ${process.env.RESEND_API_KEY ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
               메일 발송 API: {process.env.RESEND_API_KEY ? "연결 설정됨" : "RESEND_API_KEY 설정 필요"}
             </div>
-            <SubmitButton size="sm">발신 이메일 저장</SubmitButton>
+            <SubmitButton size="sm" successMessage="저장되었습니다">발신 이메일 저장</SubmitButton>
           </form>
         </Card>
       </section>

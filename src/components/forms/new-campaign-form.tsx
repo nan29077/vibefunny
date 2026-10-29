@@ -302,7 +302,6 @@ export function NewCampaignForm({
   const [endDate, setEndDate] = useState("");
   const [targetKeywords, setTargetKeywords] = useState("");
   const [referenceLinks, setReferenceLinks] = useState("");
-  const [uploadedVideoUrl, setUploadedVideoUrl] = useState("");
 
   // Step 3
   const [briefProductName, setBriefProductName] = useState("");
@@ -409,7 +408,7 @@ export function NewCampaignForm({
     <div>
       <StepIndicator current={step} />
       <Card>
-        <form action={formAction} className="space-y-5">
+        <form action={formAction} noValidate className="space-y-5">
           {/* Hidden fields */}
           <input type="hidden" name="title" value={title} />
           <input type="hidden" name="description" value={description} />
@@ -431,7 +430,6 @@ export function NewCampaignForm({
           <input type="hidden" name="end_date" value={endDate} />
           <input type="hidden" name="target_keywords" value={targetKeywords} />
           <input type="hidden" name="reference_links" value={referenceLinks} />
-          <input type="hidden" name="uploaded_video_url" value={uploadedVideoUrl} />
           <input type="hidden" name="brief_product_name" value={briefProductName} />
           <input type="hidden" name="brief_product_detail" value={briefProductDetail} />
           <input type="hidden" name="brief_youtube_category" value={briefYoutubeCategory} />
@@ -510,8 +508,9 @@ export function NewCampaignForm({
           )}
 
           {/* ── STEP 2: 캠페인 설정 ────────────────────────────────── */}
-          {step === 2 && (
-            <div className="space-y-5">
+          {/* 2단계는 다른 단계로 넘어가도 언마운트하지 않는다 — 업로드한 영상·첨부 파일(hidden input)이 최종 제출에 포함되도록 */}
+          {(
+            <div className={step === 2 ? "space-y-5" : "hidden"} aria-hidden={step !== 2}>
               <SectionHeader sub="캠페인 유형, 플랫폼, 배포 건수, 일정을 설정해 주세요.">
                 캠페인 설정
               </SectionHeader>

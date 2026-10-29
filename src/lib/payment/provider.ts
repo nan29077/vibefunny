@@ -57,6 +57,18 @@ class MockPaymentProvider implements PaymentProvider {
 // --- Toss 자리 (TODO) ---------------------------------------------------
 // class TossPaymentProvider implements PaymentProvider { ... }
 
+/**
+ * 실제로 결제를 받을 수 있는 상태인지.
+ * 운영(production)에서 Mock 프로바이더는 모든 결제를 실패시키므로 결제창 대신 "결제 준비 중" 안내를 보여야 한다.
+ */
+export function paymentProviderReady(): boolean {
+  const provider = process.env.PAYMENT_PROVIDER || "mock";
+  // 아직 구현된 실제 PG가 없으므로(getPaymentProvider 는 모르는 값이면 Mock 반환) Mock 외 값도 운영에서는 준비 안 됨
+  const implemented = new Set<string>([]);
+  if (provider !== "mock" && implemented.has(provider)) return true;
+  return process.env.NODE_ENV !== "production";
+}
+
 export function getPaymentProvider(): PaymentProvider {
   const provider = process.env.PAYMENT_PROVIDER || "mock";
   switch (provider) {

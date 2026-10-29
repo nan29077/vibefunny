@@ -22,11 +22,8 @@ const M: Record<string, LabelDef> = {
   cancelled: { label: "취소", tone: "gray" },
   refunded: { label: "환불", tone: "blue" },
 
-  // video
+  // 공통
   draft: { label: "임시저장", tone: "gray" },
-  pending_review: { label: "승인대기", tone: "yellow" },
-  available: { label: "판매중", tone: "green" },
-  sold: { label: "판매완료", tone: "purple" },
   rejected: { label: "반려", tone: "red" },
   hidden: { label: "숨김", tone: "gray" },
 
@@ -96,7 +93,7 @@ export function payoutStatusLabel(status: string): LabelDef {
 }
 
 export const WALLET_TX_TYPE_LABELS: Record<string, string> = {
-  video_sale: "영상 판매",
+  video_sale: "영상 판매 (종료된 서비스)",
   custom_video: "제작 의뢰",
   campaign_reward: "캠페인 수익",
   signup_referral: "가입 추천 수당",
@@ -104,6 +101,12 @@ export const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   commerce_commission: "쇼츠 커머스 수수료",
   payout: "출금",
   adjustment: "관리자 조정",
+};
+
+/** 크리에이터(이용자) 화면용 라벨: 내부 용어("관리자 조정")를 이용자 친화 문구로 */
+export const CREATOR_WALLET_TX_TYPE_LABELS: Record<string, string> = {
+  ...WALLET_TX_TYPE_LABELS,
+  adjustment: "수익 정산 반영",
 };
 
 export const POINT_TX_TYPE_LABELS: Record<string, string> = {
@@ -116,8 +119,6 @@ export const POINT_TX_TYPE_LABELS: Record<string, string> = {
 
 export const PAYMENT_TYPE_LABELS: Record<string, string> = {
   signup_fee: "가입비",
-  subscription: "구독료",
-  video_purchase: "영상 구매",
   custom_video_order: "제작 의뢰",
   point_charge: "포인트 충전",
   funny_charge: "퍼니 충전",
@@ -128,5 +129,4 @@ export const CAMPAIGN_TYPE_LABELS: Record<string, string> = {
   distribute_own_video: "자체 영상 배포",
   distribute_existing_video: "기존 영상 기반 배포",
   create_only: "단순 영상 제작",
-  story_creation: "동화 제작 의뢰",
 };

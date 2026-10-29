@@ -39,7 +39,7 @@ export default function AdminInquiriesPage() {
               <Input type="time" name="support_hours_end" defaultValue={hours.end} required />
             </Field>
           </div>
-          <SubmitButton>문의 시간 저장</SubmitButton>
+          <SubmitButton successMessage="저장되었습니다">문의 시간 저장</SubmitButton>
         </form>
       </Card>
       <AdminInquiries />

@@ -15,6 +15,7 @@ export function AppShell({
   roleLabel,
   avatarUrl,
   sidebarSide = "left",
+  showSupport = true,
   children,
 }: {
   nav: NavItem[];
@@ -22,6 +23,8 @@ export function AppShell({
   roleLabel: string;
   avatarUrl?: string | null;
   sidebarSide?: "left" | "right";
+  /** 문의하기 위젯 표시 여부 (관리자는 문의를 받는 쪽이므로 숨김) */
+  showSupport?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -37,6 +40,10 @@ export function AppShell({
     const previousBodyOverflow = document.body.style.overflow;
     const previousOverscrollBehavior = document.documentElement.style.overscrollBehavior;
 
+    // Esc 로 메뉴 닫기
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = "100%";
@@ -44,6 +51,7 @@ export function AppShell({
     document.documentElement.style.overscrollBehavior = "none";
 
     return () => {
+      window.removeEventListener("keydown", onKey);
       document.body.style.position = previousBodyPosition;
       document.body.style.top = previousBodyTop;
       document.body.style.width = previousBodyWidth;
@@ -161,7 +169,7 @@ export function AppShell({
 
         {/* 모바일 드로어 */}
         {open && (
-          <div className="fixed inset-0 z-[100] overflow-hidden overscroll-none lg:hidden">
+          <div className="fixed inset-0 z-[100] overflow-hidden overscroll-none lg:hidden" role="dialog" aria-modal="true" aria-label="메뉴">
             <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
             <div className={cn(
               "vf-mobile-sidebar-panel absolute inset-y-0 flex h-[100dvh] w-72 flex-col overflow-hidden overscroll-contain bg-white p-4 shadow-xl animate-fade-in",
@@ -169,7 +177,7 @@ export function AppShell({
             )}>
               <div className="flex shrink-0 items-center justify-between">
                 {Logo}
-                <button onClick={() => setOpen(false)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
+                <button onClick={() => setOpen(false)} aria-label="메뉴 닫기" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
                   <IconX size={20} />
                 </button>
               </div>
@@ -204,9 +212,9 @@ export function AppShell({
         )}
 
         {/* 메인 콘텐츠 */}
-        <main className="flex-1 overflow-y-auto p-4 pb-6 lg:p-7">{children}</main>
+        <main className={`flex-1 overflow-y-auto p-4 lg:p-7 ${showSupport ? "pb-24 lg:pb-24" : "pb-6"}`}>{children}</main>
 
-        <SupportWidget isAuthenticated />
+        {showSupport && <SupportWidget isAuthenticated />}
       </div>
     </div>
   );

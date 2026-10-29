@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Card, LinkButton } from "@/components/ui";
 import { MockCheckout } from "@/components/mock-checkout";
+import { paymentProviderReady } from "@/lib/payment/provider";
 import { PAYMENT_TYPE_LABELS } from "@/lib/labels";
 import { IconCheckCircle } from "@/components/icons";
 import { isInternalPath } from "@/lib/url";
@@ -57,7 +58,7 @@ export default function CheckoutPage({
               <span className="block text-xs text-gray-400">1퍼니 = 10원 · AI 숏츠 제작 전용 · 현금 출금 불가</span>
             </Card>
           )}
-          <MockCheckout paymentId={payment.id} amount={payment.amount} orderName={orderName} />
+          <MockCheckout paymentId={payment.id} amount={payment.amount} orderName={orderName} ready={paymentProviderReady()} />
         </>
       )}
 
@@ -92,7 +93,8 @@ export default function CheckoutPage({
           <h2 className="mt-3 text-lg font-bold">결제에 실패했습니다.</h2>
           <p className="mt-1 text-sm text-gray-500">다시 시도해 주세요.</p>
           <div className="mt-5">
-            <LinkButton href={`/payment/${payment.id}`} className="w-full">
+            {/* 실패한 결제 건은 다시 승인할 수 없으므로, 새 결제를 시작할 수 있는 화면으로 보낸다 */}
+            <LinkButton href={payment.payment_type === "signup_fee" ? "/payment/activate" : next} className="w-full">
               다시 시도
             </LinkButton>
           </div>

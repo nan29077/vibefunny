@@ -1,6 +1,10 @@
 "use client";
 
+import { useNow } from "@/lib/use-now";
+import { ModalShell } from "@/components/modal-shell";
 import { useState, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { applyRequestAction } from "@/lib/actions/request-actions";
 import type { CustomVideoRequest } from "@/lib/schema";
 import { formatKRW } from "@/lib/money";
 import { safeHref } from "@/lib/url";
@@ -32,8 +36,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DeadlineCountdown({ deadline }: { deadline: string }) {
-  const now = new Date();
+  const now = useNow();
   const end = new Date(deadline);
+  if (!now) return <span className="text-gray-700">{end.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</span>;
   const diffMs = end.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
@@ -56,6 +61,10 @@ interface Props {
   request: CustomVideoRequest;
   userId: string;
   isAssignedCreator: boolean;
+  /** 이미 참여 신청했는지 */
+  hasApplied?: boolean;
+  /** 바이브회원 여부 — 일반회원은 신청·제출 버튼을 보이지 않는다 */
+  canAct?: boolean;
   onClose: () => void;
   onSubmitSuccess?: () => void;
 }
@@ -64,9 +73,14 @@ export function RequestDetailModal({
   request,
   userId,
   isAssignedCreator,
+  hasApplied = false,
+  canAct = true,
   onClose,
   onSubmitSuccess,
 }: Props) {
+  const router = useRouter();
+  const [proposal, setProposal] = useState("");
+  const [proposedPrice, setProposedPrice] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState(request.submitted_video_url ?? "");
   const [submitMessage, setSubmitMessage] = useState("");
@@ -83,7 +97,31 @@ export function RequestDetailModal({
   const curS = request.current_submissions ?? 0;
   const progress = maxC ? Math.min(100, Math.round((curS / maxC) * 100)) : 0;
 
-  const canSubmit = isAssignedCreator && ["in_progress", "revision_requested"].includes(status);
+  const canSubmit = canAct && isAssignedCreator && ["in_progress", "revision_requested"].includes(status);
+  const canApply = canAct && status === "open" && !hasApplied && request.buyer_id !== userId;
+
+  async function handleApply() {
+    const price = proposedPrice.trim() ? Math.floor(Number(proposedPrice)) : null;
+    if (price !== null && (!Number.isFinite(price) || price < 1 || price > request.budget)) {
+      showToast(`제안 금액은 1원 ~ ${request.budget.toLocaleString("ko-KR")}원 사이로 입력하세요`);
+      return;
+    }
+    const fd = new FormData();
+    fd.append("request_id", request.id);
+    fd.append("proposal_message", proposal);
+    if (price !== null) fd.append("proposed_price", String(price));
+    startTransition(async () => {
+      try {
+        const res = await applyRequestAction(fd);
+        if (!res.ok) { showToast(res.message); return; }
+        showToast(res.message);
+        router.refresh();
+        setTimeout(onClose, 1200);
+      } catch {
+        showToast("신청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    });
+  }
 
   function showToast(msg: string) {
     setToast(msg);
@@ -115,28 +153,27 @@ export function RequestDetailModal({
       });
       if (res.ok) {
         showToast("결과물을 제출했습니다!");
+        router.refresh();
         onSubmitSuccess?.();
         setTimeout(onClose, 1500);
       } else {
-        showToast("제출 실패");
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        showToast(data.error ?? "제출에 실패했습니다");
       }
     });
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      {toast && (
-        <div className="fixed top-4 left-1/2 z-[200] -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg">
+    <ModalShell
+      onClose={onClose}
+      label={request.title}
+      panelClassName="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+      before={toast && (
+        <div className="fixed top-4 left-1/2 z-[200] -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg" role="status">
           {toast}
         </div>
       )}
-      <div
-        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-100 bg-white px-6 py-4">
           <div className="flex-1 min-w-0">
@@ -149,10 +186,12 @@ export function RequestDetailModal({
             <h2 className="text-lg font-bold text-gray-900 leading-tight">{request.title}</h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="shrink-0 rounded-xl p-1.5 text-gray-400 hover:bg-gray-100"
+            aria-label="닫기"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100"
           >
-            X
+            ✕
           </button>
         </div>
 
@@ -254,6 +293,49 @@ export function RequestDetailModal({
             </div>
           )}
 
+          {/* 참여 신청 폼 */}
+          {hasApplied && status === "open" && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+              참여 신청을 완료했습니다. 작업자로 선정되면 알림으로 알려드립니다.
+            </div>
+          )}
+          {canApply && (
+            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="text-sm font-semibold text-amber-800">이 의뢰에 참여 신청</div>
+              <div>
+                <label htmlFor="req-proposal" className="mb-1 block text-xs font-medium text-gray-600">제안 내용 (경력·작업 계획 등)</label>
+                <textarea
+                  id="req-proposal"
+                  value={proposal}
+                  maxLength={2000}
+                  onChange={(e) => setProposal(e.target.value)}
+                  className="min-h-[70px] w-full resize-none rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div>
+                <label htmlFor="req-price" className="mb-1 block text-xs font-medium text-gray-600">제안 금액 (선택, 원) · 비워 두면 예산 {formatKRW(request.budget)}</label>
+                <input
+                  id="req-price"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={request.budget}
+                  value={proposedPrice}
+                  onChange={(e) => setProposedPrice(e.target.value)}
+                  className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleApply}
+                disabled={isPending}
+                className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {isPending ? "신청 중..." : "참여 신청하기"}
+              </button>
+            </div>
+          )}
+
           {/* 결과물 제출 폼 */}
           {canSubmit && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
@@ -294,6 +376,7 @@ export function RequestDetailModal({
 
               <input
                 type="url"
+                aria-label="영상 URL"
                 placeholder="영상 URL (YouTube, Google Drive 등)"
                 value={videoFile ? "" : videoUrl}
                 disabled={!!videoFile}
@@ -302,6 +385,7 @@ export function RequestDetailModal({
               />
 
               <textarea
+                aria-label="메모 또는 작업 설명"
                 placeholder="메모 또는 작업 설명 (선택)"
                 value={submitMessage}
                 onChange={(e) => setSubmitMessage(e.target.value)}
@@ -318,7 +402,6 @@ export function RequestDetailModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

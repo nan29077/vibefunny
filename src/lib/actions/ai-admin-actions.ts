@@ -9,8 +9,9 @@ import { grantFunny, revokeFunny, FunnyError, formatFunny } from "../funny";
 import type { ActionState } from "@/components/form";
 import type { AiCapability, AiModel, AiProvider, AiProviderKind, AiShortsChargeProduct } from "../schema";
 import { AI_CAPABILITIES, getAiShortsSettings } from "../ai/settings";
-import { PRESETS, mockAllowed } from "../ai/providers";
-import { adapterFor, aiTables, AiError, cancelJob } from "../ai/engine";
+import { PRESETS, mockAllowed, type AiInput } from "../ai/providers";
+import { VendorError } from "../ai/http";
+import { adapterFor, aiTables, AiError, cancelJob, recordAdminTestCost } from "../ai/engine";
 import { publicError } from "../ai/engine";
 import { sniffMime } from "../ai/media";
 
@@ -112,6 +113,18 @@ export async function saveAiShortsSettingsAction(_prev: ActionState, fd: FormDat
 }
 
 // --- 공급사 ---------------------------------------------------------------------
+/** 공급사 API 주소: https 이고 내부망(localhost·사설 IP·메타데이터 주소)이 아니어야 한다 (API 키가 실려 나가므로) */
+function isSafeProviderBaseUrl(value: string): boolean {
+  let url: URL;
+  try { url = new URL(value); } catch { return false; }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) return false;
+  if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) return false;
+  if (host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")) return false;
+  return true;
+}
+
 export async function addProviderAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const admin = requireAdmin();
   const kind = String(fd.get("kind") || "") as AiProviderKind;
@@ -120,6 +133,10 @@ export async function addProviderAction(_prev: ActionState, fd: FormData): Promi
   const key = String(fd.get("api_key") || "").trim();
   if (kind !== "mock" && key.length < 8) return { ok: false, message: "API 키를 입력하세요." };
   const preset = PRESETS[kind];
+  const baseInput = String(fd.get("base_url") || "").trim();
+  if (kind !== "mock" && baseInput && !isSafeProviderBaseUrl(baseInput)) {
+    return { ok: false, message: "API 주소는 외부 https:// 주소여야 합니다." };
+  }
   tx((db) => {
     const { providers, models } = aiTables(db);
     const provider: AiProvider = {
@@ -171,7 +188,7 @@ export async function updateProviderAction(_prev: ActionState, fd: FormData): Pr
       p.name = String(fd.get("name") || p.name).trim().slice(0, 60) || p.name;
       const base = String(fd.get("base_url") ?? "").trim();
       if (base) {
-        if (!/^https:\/\//.test(base)) throw new AiError("주소는 https:// 로 시작해야 합니다.");
+        if (!isSafeProviderBaseUrl(base)) throw new AiError("주소는 외부 https:// 주소여야 합니다.");
         p.base_url = base.slice(0, 300);
       }
       p.active = fd.get("active") === "on";
@@ -321,7 +338,7 @@ export async function addModelAction(_prev: ActionState, fd: FormData): Promise<
 
 /** 관리자 시험 생성 (퍼니 차감 없음 · 플랫폼 비용) — 대본·이미지·음성만 */
 export async function testModelAction(_prev: ActionState & { preview?: string; previewType?: string }, fd: FormData): Promise<ActionState & { preview?: string; previewType?: string }> {
-  requireAdmin();
+  const admin = requireAdmin();
   const id = String(fd.get("model_id_ref") || "");
   const db = getDb();
   const m = (db.ai_models ?? []).find((x) => x.id === id);
@@ -330,14 +347,27 @@ export async function testModelAction(_prev: ActionState & { preview?: string; p
   if (m.capability === "video" || m.capability === "music") return { ok: false, message: "영상·음악은 비용과 시간이 많이 들어 시험 생성을 지원하지 않습니다. 크리에이터 베타 계정으로 확인하세요." };
   const adapter = adapterFor(p.kind);
   if (!adapter) return { ok: false, message: "이 환경에서 쓸 수 없는 공급사입니다." };
+  const capability = m.capability;
+  const input: AiInput =
+    capability === "text"
+      ? { prompt: '한 문장으로 자기소개를 JSON {"text":""} 으로 답해 주세요.', maxTokens: 200, json: true }
+      : capability === "image"
+        ? { prompt: "A cute honey bee mascot waving, vertical 9:16, bright, no text", aspect: "9:16" }
+        : { text: "안녕하세요, 바이브퍼니 AI 숏츠 음성 시험입니다." };
+  // 시험 생성도 실제 공급사 비용이 난다 → 일반 작업처럼 월 예산·공급사 지출에 기록한다 (기록 실패는 결과에 영향 없음)
+  const recordCost = (ok: boolean, usage?: { input: number; output: number }, error?: string) => {
+    try {
+      tx((db) => recordAdminTestCost(db, { adminId: admin.id, model: m, capability, input, usage, ok, error }));
+    } catch (e) {
+      console.error("[ai-admin] test cost record failed", m.id, e);
+    }
+  };
+  let sent = false;
   try {
-    const input =
-      m.capability === "text"
-        ? { prompt: '한 문장으로 자기소개를 JSON {"text":""} 으로 답해 주세요.', maxTokens: 200, json: true }
-        : m.capability === "image"
-          ? { prompt: "A cute honey bee mascot waving, vertical 9:16, bright, no text", aspect: "9:16" }
-          : { text: "안녕하세요, 바이브퍼니 AI 숏츠 음성 시험입니다." };
-    const out = await adapter.run({ provider: p, model: m, capability: m.capability, input, key: p.kind === "mock" ? "" : decryptSensitive(p.api_key_enc) });
+    const key = p.kind === "mock" ? "" : decryptSensitive(p.api_key_enc);
+    sent = true;
+    const out = await adapter.run({ provider: p, model: m, capability, input, key });
+    recordCost(true, out.status === "done" ? out.result.usage : undefined);
     if (out.status !== "done") return { ok: true, message: "요청이 접수되었습니다(비동기 처리 모델)." };
     if (m.capability === "text") return { ok: true, message: `응답: ${String(out.result.text || "").slice(0, 300)}` };
     const buf = out.result.data;
@@ -347,23 +377,30 @@ export async function testModelAction(_prev: ActionState & { preview?: string; p
     if (buf.length > 3 * 1024 * 1024) return { ok: true, message: `생성 성공 (${Math.round(buf.length / 1024)}KB)` };
     return { ok: true, message: "생성 성공", preview: `data:${sniff.mime};base64,${buf.toString("base64")}`, previewType: sniff.mime };
   } catch (error) {
+    // 오류 응답·연결 실패(billed=false)는 과금되지 않는다 — 그 밖의 실패는 비용이 난 것으로 본다(작업 엔진과 같은 기준)
+    if (sent && !(error instanceof VendorError && error.billed === false)) recordCost(false, undefined, (error as Error)?.message);
     return { ok: false, message: `실패: ${publicError(error)}` };
   }
 }
 
 // --- 작업 강제 취소 -----------------------------------------------------------------
-export async function adminCancelJobAction(fd: FormData): Promise<void> {
+export async function adminCancelJobAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const admin = requireAdmin();
   const id = String(fd.get("job_id") || "");
+  if (!id) return { ok: false, message: "작업을 선택하세요." };
   try {
     tx((db) => {
       const job = cancelJob(db, id, admin);
       notifyUser(db, { recipientId: job.user_id, title: "AI 숏츠 작업 취소", message: "관리자가 작업을 취소해 예약한 퍼니를 모두 돌려드렸습니다.", link: `/creator/ai-shorts/${job.project_id}` });
     });
-  } catch {
-    /* 이미 끝난 작업 */
+  } catch (error) {
+    // 이미 끝난 작업·찾을 수 없는 작업 등 → 관리자 화면에 이유를 보여 준다
+    if (!(error instanceof AiError || error instanceof FunnyError)) console.error("[ai-admin] job cancel failed", id, error);
+    revalidatePath("/admin/ai-shorts/jobs");
+    return { ok: false, message: error instanceof AiError || error instanceof FunnyError ? error.message : "작업을 취소하지 못했습니다. 잠시 후 다시 시도해 주세요." };
   }
   revalidatePath("/admin/ai-shorts/jobs");
+  return { ok: true, message: "작업을 취소하고 예약한 퍼니를 돌려드렸습니다." };
 }
 
 // --- 퍼니 지급·회수 ---------------------------------------------------------------

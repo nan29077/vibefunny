@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useFormState } from "react-dom";
 import { signupAction } from "@/lib/actions/auth-actions";
 import { FieldError, FormMessage, SubmitButton, initialActionState } from "@/components/form";
@@ -32,9 +32,14 @@ function SignupForm() {
   const [role, setRole] = useState<Role>(
     isAgencyReferralLink || urlRole === "advertiser" ? "advertiser" : "creator"
   );
-  // 광고주 유형: 대행사 추천인 링크이면 agency 고정
+  // 광고주 유형: 대행사 추천인 링크이면 agency 고정, 아니면 ?type= 값(실행사/대행사 가입 버튼)으로 미리 선택
+  const urlType = searchParams.get("type");
   const [advertiserType, setAdvertiserType] = useState<AdvertiserType>(
-    isAgencyReferralLink ? "agency" : ""
+    isAgencyReferralLink
+      ? "agency"
+      : urlRole === "advertiser" && (urlType === "agency" || urlType === "execution_company")
+        ? urlType
+        : ""
   );
   // 대행사가 추천인 없음을 선택했는지
   const [noReferral, setNoReferral] = useState(false);
@@ -44,15 +49,6 @@ function SignupForm() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
-  const [referralRequired, setReferralRequired] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/signup-config")
-      .then((response) => response.json())
-      .then((config) => setReferralRequired(Boolean(config.referralRequired)))
-      .catch(() => setReferralRequired(false));
-  }, []);
-
   async function requestCode() {
     if (!email) return setEmailMessage("이메일을 먼저 입력하세요.");
     setEmailBusy(true);
@@ -93,7 +89,7 @@ function SignupForm() {
   return (
     <main className="vf-auth-page mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-10">
       <Link href="/" className="vf-auth-brand mb-6 justify-center text-center text-2xl font-black tracking-tight" aria-label="바이브퍼니 메인으로">
-        <Image src="/images/vibefunny-video-bee-logo.png" alt="" width={52} height={52} priority className="vf-auth-brand-image" />
+        <Image src="/images/brand/vibefunny-mark.svg" alt="VIBEFUNNY" width={52} height={52} priority className="vf-auth-brand-image" />
         <span>VIBE</span><b>FUNNY</b>
       </Link>
       <Card>
@@ -128,7 +124,7 @@ function SignupForm() {
 
           <Field label="이메일">
             <div className="flex gap-2">
-              <Input name="email" type="email" value={email} disabled={emailVerified} onChange={(event) => { setEmail(event.target.value); setEmailVerified(false); }} placeholder="you@example.com" autoComplete="email" />
+              <Input name="email" type="email" aria-label="이메일" value={email} disabled={emailVerified} onChange={(event) => { setEmail(event.target.value); setEmailVerified(false); }} placeholder="you@example.com" autoComplete="email" />
               {emailVerified && <input type="hidden" name="email" value={email} />}
               <button type="button" onClick={requestCode} disabled={emailBusy || emailVerified} className="shrink-0 rounded-xl bg-gray-900 px-4 text-sm font-bold text-white disabled:opacity-50">인증하기</button>
             </div>
@@ -137,7 +133,7 @@ function SignupForm() {
 
           <Field label="인증번호">
             <div className="flex gap-2">
-              <Input value={code} disabled={emailVerified} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" maxLength={6} placeholder="6자리 인증번호" />
+              <Input aria-label="인증번호" value={code} disabled={emailVerified} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" maxLength={6} placeholder="6자리 인증번호" />
               <button type="button" onClick={verifyCode} disabled={emailBusy || emailVerified || code.length !== 6} className="shrink-0 rounded-xl border border-amber-400 bg-amber-50 px-4 text-sm font-bold text-amber-800 disabled:opacity-50">확인</button>
             </div>
             {emailMessage && <p className={`mt-2 text-xs ${emailVerified ? "text-green-600" : "text-gray-500"}`}>{emailMessage}</p>}
@@ -173,9 +169,10 @@ function SignupForm() {
           )}
 
           {/* 크리에이터 추천인 코드 */}
-          {role === "creator" && (referralRequired || referralLinkMode) && (
-            <Field label={`추천인 코드${referralRequired ? " (필수)" : ""}`}>
-              <Input name="referral_code" defaultValue={lockedReferralCode} readOnly={referralLinkMode} required={referralRequired} className={referralLinkMode ? "bg-gray-100" : undefined} placeholder="추천인 코드를 입력하세요" />
+          {role === "creator" && (
+            <Field label="추천인(멘토) 코드 (필수)">
+              <Input name="referral_code" defaultValue={lockedReferralCode} readOnly={referralLinkMode} required className={referralLinkMode ? "bg-gray-100" : undefined} placeholder="바이브회원에게 받은 추천인 코드를 입력하세요" />
+              {!referralLinkMode && <p className="mt-1 text-xs text-gray-500">크리에이터는 추천인 코드가 있어야 가입할 수 있습니다. 가입 후 가입비를 결제하면 바이브회원이 됩니다.</p>}
               {referralLinkMode && <p className="mt-1 text-xs text-amber-700">공유받은 추천인 코드가 자동 적용되어 수정할 수 없습니다.</p>}
               <FieldError state={state} name="referral_code" />
             </Field>
@@ -219,7 +216,11 @@ function SignupForm() {
 
           <FormMessage state={state} />
           <SubmitButton className="w-full">회원가입 완료</SubmitButton>
-          {!emailVerified && <p className="text-center text-xs text-red-500">이메일 인증을 완료해야 회원가입할 수 있습니다.</p>}
+          {!emailVerified && (
+            <p className={`text-center text-xs ${state.message ? "text-red-500" : "text-gray-400"}`}>
+              이메일 인증을 완료해야 회원가입할 수 있습니다.
+            </p>
+          )}
         </form>
         <p className="mt-5 text-center text-sm text-gray-500">이미 계정이 있으신가요? <Link href="/login" className="font-semibold text-amber-700 hover:underline">로그인</Link></p>
       </Card>

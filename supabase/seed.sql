@@ -5,11 +5,11 @@
 -- ===========================================================================
 
 -- 기본 설정 (fee_settings)
-insert into fee_settings (target_role, signup_fee_enabled, signup_fee_amount, referral_commission_rate, subscription_enabled, subscription_amount) values
-  ('creator', false, 0, 10, false, 30000),
-  ('buyer', false, 0, 10, false, 0),
-  ('advertiser', false, 0, 10, false, 0),
-  ('admin', false, 0, 0, false, 0);
+insert into fee_settings (target_role, signup_fee_enabled, signup_fee_amount, referral_commission_rate) values
+  ('creator', false, 0, 10),
+  ('buyer', false, 0, 10),
+  ('advertiser', false, 0, 10),
+  ('admin', false, 0, 0);
 
 -- app_settings (단가/수수료 묶음)
 insert into app_settings (key, value_json, description) values
@@ -25,8 +25,6 @@ insert into app_settings (key, value_json, description) values
     {"platform":"instagram","label":"Instagram Reels","creator_payout":10000,"advertiser_charge":15000},
     {"platform":"tiktok","label":"TikTok","creator_payout":10000,"advertiser_charge":15000}
   ]'::jsonb, '배포 단가'),
-  ('video_sale_platform_fee_rate', '20'::jsonb, '영상 판매 플랫폼 수수료(%)'),
-  ('video_auto_approve', 'false'::jsonb, '영상 자동 승인 여부'),
   ('advertiser_commission_rate', '5'::jsonb, '실행사 수수료율(%)'),
   ('advertiser_commission_basis', '"agency_spend"'::jsonb, '실행사 수수료 기준'),
   ('extra_creation_fee', '20000'::jsonb, '제작 포함 추가 비용(1건)');

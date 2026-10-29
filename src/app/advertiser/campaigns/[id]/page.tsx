@@ -8,7 +8,6 @@ import { CAMPAIGN_TYPE_LABELS } from "@/lib/labels";
 import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import {
-  decideCampaignApplicationAction,
   reviewCampaignProofAction,
   reviewParticipationAction,
   openDisputeAction,
@@ -21,6 +20,8 @@ import {
   IconCheckCircle,
 } from "@/components/icons";
 import { safeHref } from "@/lib/url";
+import { formatDate } from "@/lib/date";
+import { isCampaignActive, isPastDeadline } from "@/lib/campaign-workflow";
 
 export const dynamic = "force-dynamic";
 
@@ -80,12 +81,13 @@ function DisputeForm({ participationId }: { participationId: string }) {
   );
 }
 
-function RejectForm({ participationId, label = "반려" }: { participationId: string; label?: string }) {
+function RejectForm({ participationId, expectedStatus, label = "반려" }: { participationId: string; expectedStatus: string; label?: string }) {
   return (
     <form action={reviewParticipationAction} className="flex items-center gap-1">
       <input type="hidden" name="participation_id" value={participationId} />
+      <input type="hidden" name="expected_status" value={expectedStatus} />
       <input type="hidden" name="decision" value="reject" />
-      <input name="reason" placeholder="반려 사유 (선택)" className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:border-brand-purple focus:outline-none" />
+      <input name="reason" aria-label="사유" placeholder="사유 (선택)" className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:border-brand-purple focus:outline-none" />
       <SubmitButton size="sm" variant="outline">{label}</SubmitButton>
     </form>
   );
@@ -140,6 +142,11 @@ export default function AdvertiserCampaignDetailPage({
         title={campaign.title}
         description={`${campaign.brand_name ? campaign.brand_name + " · " : ""}${CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}`}
       />
+      {isCampaignActive(campaign) && isPastDeadline(campaign.end_date) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <b>마감됨</b> · 모집 마감일이 지났습니다. 검토 대기 작업을 처리하면 완료된 작업량 기준으로 자동 정산되고, 남은 포인트는 환불됩니다.
+        </div>
+      )}
       {notice && (
         <div className={`rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {notice}
@@ -217,8 +224,8 @@ export default function AdvertiserCampaignDetailPage({
           <div><span className="text-gray-500">플랫폼</span><div className="font-medium">{campaign.platforms.map((pl) => PLATFORM_LABELS[pl]).join(", ")}</div></div>
           <div><span className="text-gray-500">배포 건수</span><div className="font-medium">{campaign.distribution_count}건</div></div>
           <div><span className="text-gray-500">집행 금액</span><div className="font-bold text-brand-purple">{formatKRW(campaign.total_cost)}</div></div>
-          {campaign.start_date && <div><span className="text-gray-500">시작 희망일</span><div className="font-medium">{campaign.start_date}</div></div>}
-          {campaign.end_date && <div><span className="text-gray-500">종료 희망일</span><div className="font-medium">{campaign.end_date}</div></div>}
+          {campaign.start_date && <div><span className="text-gray-500">시작 희망일</span><div className="font-medium">{formatDate(campaign.start_date)}</div></div>}
+          {campaign.end_date && <div><span className="text-gray-500">종료 희망일</span><div className="font-medium">{formatDate(campaign.end_date)}</div></div>}
         </div>
         {campaign.description && (
           <div className="mt-3 text-sm"><span className="text-gray-500">설명</span><p className="mt-1 text-gray-700">{campaign.description}</p></div>
@@ -254,7 +261,8 @@ export default function AdvertiserCampaignDetailPage({
 
       {applications.length > 0 && (
         <Card>
-          <div className="font-semibold text-gray-800 mb-3">신청한 크리에이터 ({applications.length}명)</div>
+          <div className="font-semibold text-gray-800">이전 방식 신청 내역 ({applications.length}명)</div>
+          <p className="mb-3 mt-0.5 text-xs text-gray-500">예전 참여 방식으로 접수된 기록입니다. 현재는 아래 &lsquo;배포/영상제작 참여&rsquo;에서 선발·검수합니다.</p>
           <div className="space-y-2">
             {applications.map((a) => (
               <div key={a.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
@@ -263,18 +271,7 @@ export default function AdvertiserCampaignDetailPage({
                   <StatusBadge status={a.status} />
                 </div>
                 {a.status === "applied" && (
-                  <div className="flex gap-1">
-                    <form action={decideCampaignApplicationAction}>
-                      <input type="hidden" name="application_id" value={a.id} />
-                      <input type="hidden" name="decision" value="approve" />
-                      <SubmitButton size="sm">승인</SubmitButton>
-                    </form>
-                    <form action={decideCampaignApplicationAction}>
-                      <input type="hidden" name="application_id" value={a.id} />
-                      <input type="hidden" name="decision" value="reject" />
-                      <SubmitButton size="sm" variant="outline">반려</SubmitButton>
-                    </form>
-                  </div>
+                  <span className="whitespace-nowrap text-xs text-gray-400">이전 방식 신청 · 처리 불필요</span>
                 )}
               </div>
             ))}
@@ -297,13 +294,19 @@ export default function AdvertiserCampaignDetailPage({
                     <div className="flex gap-1">
                       <form action={reviewParticipationAction}>
                         <input type="hidden" name="participation_id" value={pt.id} />
+                        <input type="hidden" name="expected_status" value={pt.status} />
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">선발 승인</SubmitButton>
                       </form>
-                      <RejectForm participationId={pt.id} />
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} />
                     </div>
                   )}
-                  {pt.status === "accepted" && <span className="text-xs text-gray-500">배포 링크 제출 대기 중</span>}
+                  {pt.status === "accepted" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-gray-500">배포 링크 제출 대기 중</span>
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} label="선발 취소" />
+                    </div>
+                  )}
                 </div>
                 {pt.status === "deploy_submitted" && (
                   <div className="mt-2 space-y-2">
@@ -318,10 +321,11 @@ export default function AdvertiserCampaignDetailPage({
                     <div className="flex gap-1">
                       <form action={reviewParticipationAction}>
                         <input type="hidden" name="participation_id" value={pt.id} />
+                        <input type="hidden" name="expected_status" value={pt.status} />
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">배포 승인</SubmitButton>
                       </form>
-                      <RejectForm participationId={pt.id} />
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} />
                     </div>
                   </div>
                 )}
@@ -354,13 +358,19 @@ export default function AdvertiserCampaignDetailPage({
                     <div className="flex gap-1">
                       <form action={reviewParticipationAction}>
                         <input type="hidden" name="participation_id" value={pt.id} />
+                        <input type="hidden" name="expected_status" value={pt.status} />
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">선발 승인</SubmitButton>
                       </form>
-                      <RejectForm participationId={pt.id} />
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} />
                     </div>
                   )}
-                  {pt.status === "accepted" && <span className="text-xs text-gray-500">영상 제출 대기 중</span>}
+                  {pt.status === "accepted" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-gray-500">영상 제출 대기 중</span>
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} label="선발 취소" />
+                    </div>
+                  )}
                 </div>
                 {pt.status === "video_submitted" && (
                   <div className="mt-2 space-y-2">
@@ -375,10 +385,11 @@ export default function AdvertiserCampaignDetailPage({
                     <div className="flex gap-1">
                       <form action={reviewParticipationAction}>
                         <input type="hidden" name="participation_id" value={pt.id} />
+                        <input type="hidden" name="expected_status" value={pt.status} />
                         <input type="hidden" name="decision" value="approve" />
                         <SubmitButton size="sm">영상 승인</SubmitButton>
                       </form>
-                      <RejectForm participationId={pt.id} />
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} />
                     </div>
                   </div>
                 )}
@@ -386,6 +397,7 @@ export default function AdvertiserCampaignDetailPage({
                   <div className="mt-2 flex gap-1">
                     <form action={reviewParticipationAction}>
                       <input type="hidden" name="participation_id" value={pt.id} />
+                      <input type="hidden" name="expected_status" value={pt.status} />
                       <input type="hidden" name="decision" value="approve" />
                       <SubmitButton size="sm">완료 처리 (수익 지급)</SubmitButton>
                     </form>

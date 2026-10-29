@@ -27,22 +27,18 @@ const btnSizes: Record<ButtonSize, string> = {
   lg: "h-12 px-6 text-base",
 };
 
-export function Button({
-  variant = "primary",
-  size = "md",
-  className,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-}) {
+export const Button = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }
+>(function Button({ variant = "primary", size = "md", className, ...props }, ref) {
   return (
     <button
+      ref={ref}
       className={cn(btnBase, btnVariants[variant], btnSizes[size], className)}
       {...props}
     />
   );
-}
+});
 
 export function LinkButton({
   href,
@@ -152,12 +148,21 @@ export const Textarea = React.forwardRef<
   );
 });
 
+// 기본 화살표를 감춘(appearance-none) 선택 상자에 화살표 아이콘 표시
+const SELECT_ARROW =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")";
+
 export const Select = React.forwardRef<
   HTMLSelectElement,
   React.SelectHTMLAttributes<HTMLSelectElement>
 >(function Select({ className, children, ...props }, ref) {
   return (
-    <select ref={ref} className={cn(inputCls, "appearance-none", className)} {...props}>
+    <select
+      ref={ref}
+      className={cn(inputCls, "appearance-none bg-no-repeat pr-9", className)}
+      {...props}
+      style={{ backgroundImage: SELECT_ARROW, backgroundPosition: "right 0.75rem center", backgroundSize: "12px", ...props.style }}
+    >
       {children}
     </select>
   );
@@ -178,12 +183,30 @@ export function Field({
   children: React.ReactNode;
   className?: string;
 }) {
+  // htmlFor 를 주지 않은 경우: 자식 중 첫 입력 요소(Input/Select/Textarea/input…)에 id 를 연결해 라벨-입력 관계를 만든다 (스크린리더·라벨 클릭)
+  const autoId = React.useId();
+  let linkedFor = htmlFor;
+  let content: React.ReactNode = children;
+  if (!htmlFor) {
+    let linked = false;
+    content = React.Children.map(children, (child) => {
+      if (linked || !React.isValidElement(child)) return child;
+      const el = child as React.ReactElement<{ id?: string; type?: string }>;
+      const t = el.type;
+      const isField = t === "input" || t === "select" || t === "textarea" || t === Input || t === Textarea || t === Select;
+      if (!isField || el.props.type === "hidden") return child;
+      linked = true;
+      if (el.props.id) { linkedFor = el.props.id; return child; }
+      linkedFor = `f${autoId.replace(/:/g, "")}`;
+      return React.cloneElement(el, { id: linkedFor });
+    });
+  }
   return (
     <div className={className}>
-      <Label htmlFor={htmlFor} required={required}>
+      <Label htmlFor={linkedFor} required={required}>
         {label}
       </Label>
-      {children}
+      {content}
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
     </div>
   );
@@ -211,7 +234,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+        "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold",
         toneCls[tone],
         className
       )}

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual } from "crypto";
+import { isWeakSecret } from "./secrets";
 
 // ===========================================================================
 // 세션 = 서명된 쿠키(HMAC). 로컬 모드 전용 Mock Auth.
@@ -14,14 +15,14 @@ const COOKIE_NAME = "vf_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 // SESSION_SECRET 환경변수 처리
-// - production: 미설정 시 에러 throw
+// - production: 미설정·예시 값·32자 미만이면 에러 throw
 // - development: 미설정 시 경고만 출력하고 dev-secret 사용
 function resolveSecret(): string {
   const secret = process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === "production" && isWeakSecret(secret)) {
+    throw new Error("SESSION_SECRET 환경변수가 비어 있거나 예시 값/32자 미만입니다");
+  }
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET 환경변수가 설정되지 않았습니다");
-    }
     console.warn("[session] SESSION_SECRET 미설정 — 개발용 시크릿 사용 중 (프로덕션에서는 반드시 설정)");
     return "vibefunny-dev-secret";
   }

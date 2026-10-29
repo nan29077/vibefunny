@@ -64,20 +64,18 @@ const testAccounts = process.env.NODE_ENV === "production" ? [] : [
 
 // ── 소셜 로그인 버튼 ─────────────────────────────────────────────────────────
 function SocialButtons() {
-  const handleSocial = () => {
-    alert("준비 중입니다.");
-  };
   return (
     <div style={{ boxShadow: "none", borderColor: "inherit" }}>
       <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-gray-400">
-        소셜 계정으로 로그인
+        소셜 계정으로 로그인 <span className="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] normal-case tracking-normal text-gray-500">준비 중</span>
       </p>
       <div className="grid grid-cols-3 gap-2">
         {/* 카카오 */}
         <button
           type="button"
-          onClick={handleSocial}
-          className="flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:opacity-80"
+          disabled
+          aria-label="카카오 로그인 (준비 중)"
+          className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold opacity-50"
           style={{ background: "#FEE500", borderColor: "#FEE500", color: "#191919" }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -89,8 +87,9 @@ function SocialButtons() {
         {/* 네이버 */}
         <button
           type="button"
-          onClick={handleSocial}
-          className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-white transition hover:opacity-80"
+          disabled
+          aria-label="네이버 로그인 (준비 중)"
+          className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-white opacity-50"
           style={{ background: "#03C75A" }}
         >
           <span className="text-sm font-black leading-none">N</span>
@@ -100,8 +99,9 @@ function SocialButtons() {
         {/* 구글 */}
         <button
           type="button"
-          onClick={handleSocial}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+          disabled
+          aria-label="구글 로그인 (준비 중)"
+          className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-bold text-gray-700 opacity-50"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -129,9 +129,10 @@ export default function LoginPage() {
   return (
     <main className="vf-auth-page mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-10">
       <Link href="/" className="vf-auth-brand mb-6 justify-center text-center text-2xl font-black tracking-tight" aria-label="바이브퍼니 메인으로">
-        <Image src="/images/vibefunny-video-bee-logo.png" alt="" width={52} height={52} priority className="vf-auth-brand-image" />
+        <Image src="/images/brand/vibefunny-mark.svg" alt="VIBEFUNNY" width={52} height={52} priority className="vf-auth-brand-image" />
         <span>VIBE</span><b>FUNNY</b>
       </Link>
+      <h1 className="sr-only">로그인</h1>
 
       {/* 테스트 계정 빠른 로그인 */}
       {testAccounts.length > 0 && <div className="mb-4">
@@ -140,15 +141,15 @@ export default function LoginPage() {
         </p>
         <div className="grid grid-cols-2 gap-2">
           {testAccounts.map((acc) => (
-            <form key={acc.email} action={acc.action}>
+            <form key={acc.email} action={acc.action} className="min-w-0">
               <button
                 type="submit"
-                className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs transition ${acc.bg}`}
+                className={`flex w-full min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs transition ${acc.bg}`}
               >
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${acc.iconBg}`}>
                   <acc.Icon size={14} />
                 </span>
-                <span>
+                <span className="min-w-0">
                   <span className={`block font-bold ${acc.textColor}`}>{acc.label}</span>
                   <span className={`block truncate ${acc.subColor}`}>{acc.email}</span>
                 </span>

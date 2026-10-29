@@ -51,7 +51,7 @@ const EXEC_ITEMS = [
 ];
 
 const AGENCY_ITEMS = [
-  "실행사 추천 코드 입력 후 가입 (필수)",
+  "실행사 추천 코드 입력 또는 '추천인 없음' 선택 후 가입",
   "복수 클라이언트 캠페인 일괄 관리",
   "대행 수수료 실행사에 자동 정산",
   "통합 리포트로 클라이언트 결과 제공",
@@ -72,14 +72,14 @@ const BENEFITS = [
 ];
 
 const PROCESS = [
-  { n: "01", title: "계정 생성",           desc: "실행사 또는 대행사 유형 선택 후 가입. 대행사는 실행사 추천 코드를 입력하세요." },
+  { n: "01", title: "계정 생성",           desc: "실행사 또는 대행사 유형 선택 후 가입. 대행사는 실행사 추천 코드를 입력하거나 '추천인 없음'을 선택하세요." },
   { n: "02", title: "포인트 충전",          desc: "캠페인 예산만큼 포인트를 충전합니다. 최소 ₩150,000부터 시작 가능합니다." },
   { n: "03", title: "캠페인 등록",          desc: "플랫폼·카테고리·기간을 선택하고 홍보 영상을 업로드합니다. 관리자 심사 후 즉시 집행됩니다." },
   { n: "04", title: "실시간 리포트 확인",   desc: "크리에이터별 배포 현황, 도달률, 포인트 소진 내역을 실시간으로 확인하세요." },
 ];
 
 const COMPARISON = [
-  { feature: "가입 방법",          exec: "직접 가입",           agency: "실행사 추천 코드 필수" },
+  { feature: "가입 방법",          exec: "직접 가입",           agency: "실행사 코드 또는 추천인 없음" },
   { feature: "캠페인 운영 주체",   exec: "자사 브랜드 캠페인",  agency: "클라이언트 복수 캠페인" },
   { feature: "포인트 충전",        exec: "직접 충전",           agency: "대행사 선불 충전" },
   { feature: "수수료 구조",        exec: "기본 단가 적용",      agency: "실행사 위탁 수수료 적용" },
@@ -113,13 +113,13 @@ const TESTIMONIALS = [
 ];
 
 const FAQS = [
-  { q: "대행사는 반드시 실행사 코드로 가입해야 하나요?", a: "네, 대행사는 반드시 상위 실행사의 추천 코드를 입력해야 가입이 완료됩니다. 실행사 코드 없이는 대행사 계정 생성이 불가합니다. 가입 후에는 실행사와 계층 관계가 자동으로 설정됩니다." },
+  { q: "대행사는 반드시 실행사 코드로 가입해야 하나요?", a: "아니요. 대행사는 가입 시 상위 실행사의 추천 코드를 입력하거나 '추천인 없음'을 선택해 가입할 수 있습니다. 실행사 코드를 입력하면 해당 실행사와 계층 관계가 자동으로 설정되고, 대행사 집행에 대한 실행사 수수료가 정산됩니다." },
   { q: "최소 캠페인 예산은 얼마인가요?", a: "최소 ₩150,000 상당의 포인트를 충전하면 첫 캠페인 집행이 가능합니다. 포인트는 배포 1건 완료 시마다 차감됩니다." },
   { q: "영상을 직접 제작해야 하나요?", a: "아닙니다. 플랫폼 내 크리에이터에게 영상 제작을 의뢰하거나, 직접 제작한 영상을 업로드하는 것 모두 가능합니다." },
   { q: "캠페인 집행 후 어떤 리포트를 받을 수 있나요?", a: "배포 건수, 크리에이터별 진행 현황, 플랫폼별 도달률, 포인트 소진 내역을 실시간 대시보드에서 확인할 수 있습니다." },
   { q: "대행사 수수료는 어떻게 정산되나요?", a: "대행사가 포인트를 충전하거나 캠페인을 집행할 때, 사전에 설정된 비율만큼 실행사에게 자동으로 수수료가 지급됩니다. 수수료율은 관리자가 설정합니다." },
   { q: "여러 클라이언트의 캠페인을 동시에 운영할 수 있나요?", a: "네, 대행사 계정에서는 복수 클라이언트의 캠페인을 통합 대시보드에서 동시 관리할 수 있습니다. 클라이언트별 예산과 결과를 분리해서 확인 가능합니다." },
-  { q: "실행사가 되려면 포인트를 얼마나 충전해야 하나요?", a: "포인트를 1,000,000원(100만원) 이상 충전하면 자동으로 실행사 등급이 부여됩니다. 실행사는 대행사를 모집·초대할 수 있으며, 대행사의 캠페인 집행 시 자동 수수료 수익이 발생합니다. 100만원 미만 충전 시에는 대행사로 분류됩니다." },
+  { q: "실행사가 되려면 포인트를 얼마나 충전해야 하나요?", a: "충전 금액과 무관합니다. 광고주 유형(실행사/대행사)은 회원가입 시 직접 선택하며, 포인트 충전액에 따라 자동으로 바뀌지 않습니다. 실행사는 자신의 추천 코드로 대행사를 모집할 수 있고, 연결된 대행사의 캠페인 집행 시 관리자가 설정한 비율의 수수료가 자동 정산됩니다." },
   { q: "Facebook Reels도 배포가 가능한가요?", a: "네, VIBEFUNNY는 YouTube Shorts, Instagram Reels, TikTok, Facebook Reels 4대 플랫폼 동시 배포를 지원합니다. 하나의 캠페인으로 30억 이상의 Facebook MAU에 도달할 수 있습니다." },
   { q: "포인트는 만료되나요?", a: "충전된 포인트는 만료 기간 없이 유지됩니다. 실제 배포 건수가 완료될 때마다 포인트가 차감되며, 캠페인 종료 후 잔여 포인트는 다음 캠페인에 그대로 사용 가능합니다." },
 ];
@@ -365,7 +365,7 @@ export default function ForAdvertisersPage() {
 
               {/* description */}
               <p className="mt-5 text-sm leading-[1.7] text-gray-600">
-                복수 클라이언트의 광고를 대신 집행하는 광고 대행사. 실행사 추천 코드로 가입하면 계층 관계가 자동으로 설정됩니다.
+                복수 클라이언트의 광고를 대신 집행하는 광고 대행사. 실행사 추천 코드로 가입하면 계층 관계가 자동으로 설정되며, 코드 없이 &lsquo;추천인 없음&rsquo;으로도 가입할 수 있습니다.
               </p>
 
               {/* feature list — flex-1 pushes button to bottom */}
@@ -393,17 +393,17 @@ export default function ForAdvertisersPage() {
       </section>
 
 
-      {/* -------------- POINT TIER — 충전 금액 기준 -------------- */}
+      {/* -------------- ADVERTISER TYPE — 가입 유형 기준 -------------- */}
       <section className="px-6 py-20 md:px-16" style={{ background: "#fff7e6" }}>
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-yellow-600">Point Charging Tier</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-yellow-600">Advertiser Type</p>
             <h2 className="text-3xl font-black text-gray-900 md:text-5xl leading-[1.25]">
-              포인트 충전 금액에 따른<br />
+              가입 유형에 따른<br />
               <span style={{ color: "#f59e0b" }}>실행사 · 대행사 구분</span>
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-base text-gray-500">
-              VIBEFUNNY 광고주는 포인트 충전 금액에 따라 실행사와 대행사로 구분됩니다.<br />충전 규모가 클수록 더 많은 권한과 혜택이 주어집니다.
+              VIBEFUNNY 광고주 유형은 회원가입 시 직접 선택합니다.<br />포인트 충전 금액에 따라 유형이 자동으로 바뀌지 않습니다.
             </p>
           </div>
 
@@ -418,12 +418,12 @@ export default function ForAdvertisersPage() {
               </div>
               <h3 className="text-2xl font-black text-gray-900">실행사</h3>
               <div className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}>
-                <span className="text-sm font-medium text-gray-600">충전 기준</span>
-                <span className="text-lg font-black" style={{ color: "#f59e0b" }}>₩1,000,000 이상</span>
+                <span className="text-sm font-medium text-gray-600">가입 방법</span>
+                <span className="text-lg font-black" style={{ color: "#f59e0b" }}>직접 가입</span>
               </div>
               <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                포인트를 <strong className="text-gray-900">100만원 이상</strong> 충전한 광고주는 실행사 등급을 획득합니다.
-                실행사는 하위 대행사를 직접 모집·관리하고, 대행사의 캠페인 집행에서 <strong className="text-gray-900">자동 수수료 수익</strong>을 받을 수 있습니다.
+                가입 시 <strong className="text-gray-900">실행사</strong>를 선택하면 별도 코드 없이 바로 가입됩니다.
+                실행사는 추천 코드로 하위 대행사를 모집·관리하고, 연결된 대행사의 캠페인 집행에서 <strong className="text-gray-900">자동 수수료 수익</strong>을 받을 수 있습니다.
               </p>
               <ul className="mt-5 space-y-2.5">
                 {[
@@ -451,16 +451,16 @@ export default function ForAdvertisersPage() {
               </div>
               <h3 className="text-2xl font-black text-gray-900">대행사</h3>
               <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2">
-                <span className="text-sm font-medium text-gray-600">충전 기준</span>
-                <span className="text-lg font-black text-orange-500">₩1,000,000 미만</span>
+                <span className="text-sm font-medium text-gray-600">가입 방법</span>
+                <span className="text-lg font-black text-orange-500">실행사 코드 · 추천인 없음</span>
               </div>
               <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                포인트를 <strong className="text-gray-900">100만원 미만</strong>으로 충전하거나 실행사 추천 코드로 가입하면 대행사로 분류됩니다.
+                가입 시 <strong className="text-gray-900">대행사</strong>를 선택하고 실행사 추천 코드를 입력하거나 &lsquo;추천인 없음&rsquo;을 선택하면 됩니다.
                 대행사는 복수 클라이언트의 캠페인을 효율적으로 운영하는 데 최적화되어 있습니다.
               </p>
               <ul className="mt-5 space-y-2.5">
                 {[
-                  "실행사 추천 코드 필수 가입",
+                  "실행사 코드 입력 또는 추천인 없음 가입",
                   "복수 클라이언트 통합 관리",
                   "클라이언트별 예산·성과 분리",
                   "통합 리포트 제공",
@@ -482,7 +482,7 @@ export default function ForAdvertisersPage() {
               {[
                 { range: "₩150,000 ~ ₩499,999", label: "스타터", color: "#6b7280", items: ["캠페인 1건 집행 가능", "기본 리포트 제공", "자동 크리에이터 매칭"] },
                 { range: "₩500,000 ~ ₩999,999", label: "그로스", color: "#f97316", items: ["멀티 캠페인 동시 운영", "상세 분석 리포트", "우선 매칭 신청 가능"] },
-                { range: "₩1,000,000+", label: "실행사 등급", color: "#f59e0b", items: ["대행사 모집 권한 획득", "수수료 자동 수익 발생", "전담 매니저 배정 예정", "최우선 크리에이터 배정"] },
+                { range: "₩1,000,000+", label: "스케일", color: "#f59e0b", items: ["대규모 멀티 캠페인 운영", "플랫폼별 상세 리포트", "전담 매니저 배정 예정", "최우선 크리에이터 배정"] },
               ].map((tier) => (
                 <div key={tier.label} className="rounded-xl p-5 bg-white border" style={{ borderColor: tier.color === "#f59e0b" ? "#f59e0b" : "#e5e7eb", boxShadow: tier.color === "#f59e0b" ? "0 0 0 2px rgba(245,158,11,0.2)" : "none" }}>
                   <div className="mb-2 text-xs font-black uppercase tracking-widest" style={{ color: tier.color }}>{tier.label}</div>
@@ -593,7 +593,7 @@ export default function ForAdvertisersPage() {
                     <IconStar key={i} size={13} strokeWidth={1.5} className="text-yellow-400" />
                   ))}
                 </div>
-                <p className="mt-4 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>"{t.text}"</p>
+                <p className="mt-4 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>&quot;{t.text}&quot;</p>
                 <div className="mt-6 flex items-center justify-between border-t pt-5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
                   <div className="flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}

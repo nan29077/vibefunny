@@ -4,6 +4,28 @@ export const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
 export const EMAIL_CODE_COOLDOWN_MS = 60 * 1000;
 export const EMAIL_CODE_MAX_ATTEMPTS = 5;
 
+/** 인증 완료 후 가입까지 허용 시간 (인증 완료 시점부터) */
+export const EMAIL_VERIFIED_TTL_MS = 30 * 60 * 1000;
+/** 인증을 마친 브라우저에만 주는 쿠키 — 다른 사람이 같은 이메일로 가입을 가로채지 못하게 */
+export const EMAIL_VERIFY_COOKIE = "vf_email_verified";
+
+export function hashVerifyToken(token: string): string {
+  return createHash("sha256").update(`verify-token:${token}`).digest("hex");
+}
+
+/** 쿠키 값(id.token)이 해당 인증 기록과 맞는지 */
+export function verifyTokenMatches(cookieValue: string | undefined, item: { id: string; verify_token_hash?: string | null }): boolean {
+  if (!cookieValue || !item.verify_token_hash) return false;
+  const dot = cookieValue.indexOf(".");
+  if (dot <= 0) return false;
+  const id = cookieValue.slice(0, dot);
+  const token = cookieValue.slice(dot + 1);
+  if (id !== item.id || !token) return false;
+  const a = Buffer.from(hashVerifyToken(token), "hex");
+  const b = Buffer.from(item.verify_token_hash, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { openModalFlag } from "@/lib/modal-flag";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
@@ -42,12 +43,16 @@ const toDraft = (v: View): Draft => ({
   shots: v.project.shots.map(editableShot),
 });
 
-function JobState({ job, label }: { job: JobBrief | null | undefined; label: string }) {
+/** clearedAfter: 이 시각 이후 같은 컷에서 성공한 작업이 있으면 예전 실패 메시지는 숨긴다 */
+function JobState({ job, label, clearedAfter }: { job: JobBrief | null | undefined; label: string; clearedAfter?: string }) {
   if (!job) return null;
   if (job.status === "queued" || job.status === "running") {
     return <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600"><span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />{label} 만드는 중{job.progress > 0 && job.progress < 1 ? ` ${Math.round(job.progress * 100)}%` : ""}</span>;
   }
-  if (job.status === "failed" || job.status === "cancelled") return <span className="text-xs text-red-600">{job.error}</span>;
+  if (job.status === "failed" || job.status === "cancelled") {
+    if (clearedAfter && job.finishedAt && clearedAfter > job.finishedAt) return null;
+    return <span role="alert" className="text-xs text-red-600">{label}: {job.error}</span>;
+  }
   return null;
 }
 
@@ -72,13 +77,26 @@ export function ShortsEditor({
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirm, setConfirm] = useState<{ action: Action; shotIds?: string[]; title: string; estimate: Estimate; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 컷 하나에 대한 요청이 거절됐을 때 그 컷 옆에 보여 줄 오류 (그 컷이 다음에 성공하면 사라진다) */
+  const [shotErrors, setShotErrors] = useState<Record<string, { text: string; at: string }>>({});
+  const [authExpired, setAuthExpired] = useState(false);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
   const readOnly = !view.access.open;
   const p = view.project;
 
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/ai-shorts/projects/${p.id}`, { cache: "no-store" });
+    let res: Response;
+    try {
+      res = await fetch(`/api/ai-shorts/projects/${p.id}`, { cache: "no-store" });
+    } catch {
+      return; // 일시적인 네트워크 오류: 다음 주기에 다시 시도
+    }
+    if (res.status === 401 || res.status === 403) {
+      // 로그인이 풀렸으면 더 조회하지 않고 다시 로그인하도록 안내
+      setAuthExpired(true);
+      return;
+    }
     if (!res.ok) return;
     const next = (await res.json()) as View;
     setView(next);
@@ -88,10 +106,59 @@ export function ShortsEditor({
 
   // 진행 중인 작업이 있으면 2.5초마다 새로 고침
   useEffect(() => {
-    if (view.activeCount === 0) return;
+    if (view.activeCount === 0 || authExpired) return;
     const t = setInterval(() => void refresh(), 2500);
     return () => clearInterval(t);
-  }, [view.activeCount, refresh]);
+  }, [view.activeCount, refresh, authExpired]);
+
+  // 성공 안내는 잠시 뒤 자동으로 닫는다 (오류는 사용자가 닫을 때까지 유지)
+  useEffect(() => {
+    if (!notice?.ok) return;
+    const t = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  // 저장 막대가 떠 있는 동안: 오른쪽 아래 "문의하기" 버튼이 저장 버튼을 가리지 않도록 숨긴다
+  const saveBarOpen = dirty && !readOnly;
+  useEffect(() => {
+    if (!saveBarOpen) return;
+    return openModalFlag();
+  }, [saveBarOpen]);
+
+  // 확인 창이 열려 있는 동안: 떠 있는 상담 버튼 등이 가리지 않도록 표시 + Esc 로 닫기
+  const modalOpen = !!confirm;
+  useEffect(() => {
+    if (!modalOpen) return;
+    const closeFlag = openModalFlag();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirm(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      closeFlag();
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [modalOpen]);
+
+  function shotError(shotIds: string[] | undefined, text: string) {
+    if (shotIds?.length !== 1) return;
+    const id = shotIds[0];
+    setShotErrors((m) => ({ ...m, [id]: { text, at: new Date().toISOString() } }));
+  }
+  function clearShotErrors(shotIds: string[] | undefined) {
+    if (!shotIds?.length) return;
+    setShotErrors((m) => {
+      const next = { ...m };
+      for (const id of shotIds) delete next[id];
+      return next;
+    });
+  }
+  /** 401(로그인 만료)이면 안내로 바꾸고 true */
+  function expired(res: Response) {
+    if (res.status !== 401) return false;
+    setAuthExpired(true);
+    return true;
+  }
 
   // 저장 안 한 편집이 있으면 나가기 전에 경고
   useEffect(() => {
@@ -160,6 +227,7 @@ export function ShortsEditor({
           shots: draft.shots.map((s) => ({ ...s, id: s.id || undefined, seconds: Number(s.seconds) || 4 })),
         }),
       });
+      if (expired(res)) return false;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "저장하지 못했습니다.");
       setDirty(false);
@@ -185,11 +253,14 @@ export function ShortsEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, shotIds, estimateOnly: true }),
       });
+      if (expired(res)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "견적을 계산하지 못했습니다.");
       setConfirm({ action, shotIds, title, estimate: data as Estimate, key: `${action}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}` });
     } catch (err) {
-      setNotice({ ok: false, text: (err as Error).message });
+      const text = (err as Error).message;
+      setNotice({ ok: false, text });
+      shotError(shotIds, text);
     } finally {
       setBusy(false);
     }
@@ -204,13 +275,20 @@ export function ShortsEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: confirm.action, shotIds: confirm.shotIds, idempotencyKey: confirm.key }),
       });
+      if (expired(res)) {
+        setConfirm(null);
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "시작하지 못했습니다.");
       setConfirm(null);
+      clearShotErrors(confirm.shotIds);
       setNotice({ ok: true, text: data.held > 0 ? `${funny(data.held)}를 예약하고 시작했습니다. 완료되면 실제 사용량만 차감됩니다.` : "시작했습니다." });
       await refresh();
     } catch (err) {
-      setNotice({ ok: false, text: (err as Error).message });
+      const text = (err as Error).message;
+      setNotice({ ok: false, text });
+      shotError(confirm.shotIds, text);
       setConfirm(null);
     } finally {
       setBusy(false);
@@ -219,6 +297,7 @@ export function ShortsEditor({
 
   async function cancelJob(jobId: string) {
     const res = await fetch(`/api/ai-shorts/jobs/${jobId}/cancel`, { method: "POST" });
+    if (expired(res)) return;
     const data = await res.json().catch(() => ({}));
     setNotice(res.ok ? { ok: true, text: "작업을 취소하고 퍼니를 돌려드렸습니다." } : { ok: false, text: data.error || "취소하지 못했습니다." });
     await refresh();
@@ -239,13 +318,14 @@ export function ShortsEditor({
   const missingAudio = p.shots.filter((s) => !s.audio_file_id && s.narration.trim()).length;
   const caps = view.capabilities;
   const composing = view.composeJob && (view.composeJob.status === "queued" || view.composeJob.status === "running");
+  const needsRecompose = !!p.output_file_id && !composing && (view.needsRecompose || dirty);
   const steps = [
     { n: 1, label: "대본", done: hasShots },
     { n: 2, label: "컷 이미지", done: hasShots && missingImages === 0 },
     { n: 3, label: "내레이션", done: hasShots && missingAudio === 0 },
     { n: 4, label: "영상 클립", done: p.shots.some((s) => s.video_file_id), optional: true },
     { n: 5, label: "배경음악", done: !!p.bgm_file_id, optional: true },
-    { n: 6, label: "합성", done: !!p.output_file_id },
+    { n: 6, label: needsRecompose ? "합성 (다시 필요)" : "합성", done: !!p.output_file_id && !needsRecompose },
   ];
 
   return (
@@ -272,12 +352,14 @@ export function ShortsEditor({
 
       {readOnly && (
         <Card className="border-yellow-200 bg-yellow-50 text-sm text-yellow-900">
-          {view.access.reason} 지금은 보기·다운로드와 합성(무료)만 할 수 있습니다. 진행 중이던 작업은 끝까지 처리됩니다.
+          {view.access.reason}{view.access.reason.includes("바이브회원") ? " 지금은 이전에 만든 숏츠 보기·다운로드만 할 수 있습니다." : " 지금은 보기·다운로드와 합성(무료)만 할 수 있습니다."} 진행 중이던 작업은 끝까지 처리됩니다.
         </Card>
       )}
-      {notice && (
-        <div role="status" className={`rounded-xl px-3 py-2 text-sm ${notice.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-          {notice.text}
+      {authExpired && (
+        <div role="alert" className="sticky top-2 z-40 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shadow">
+          로그인이 만료되었습니다. 상태를 더 확인할 수 없습니다.{" "}
+          <a href="/login" className="font-semibold underline">다시 로그인</a>
+          {dirty ? " (저장하지 않은 변경은 로그인 후 다시 입력해야 할 수 있습니다)" : ""}
         </div>
       )}
 
@@ -376,6 +458,9 @@ export function ShortsEditor({
               const server = s.id ? shotById.get(s.id) : undefined;
               const jobs = s.id ? view.shotJobs[s.id] : undefined;
               const stale = server?.audio_file_id && server.audio_text !== undefined && server.audio_text !== null && server.audio_text !== s.narration;
+              const lastOk = s.id ? view.lastShotSuccess[s.id] : undefined;
+              const localErr = s.id ? shotErrors[s.id] : undefined;
+              const showLocalErr = localErr && !(lastOk && lastOk > localErr.at);
               return (
                 <div key={s.id || `new-${i}`} className="rounded-2xl border border-gray-200 p-3 sm:p-4">
                   <div className="flex flex-col gap-4 sm:flex-row">
@@ -412,7 +497,7 @@ export function ShortsEditor({
                         </label>
                       </div>
                       <label className="block">
-                        <span className="text-xs font-medium text-gray-600">장면 묘사 (이미지·영상 AI에 전달, 영어 권장)</span>
+                        <span className="text-xs font-medium text-gray-600">장면 묘사 (이미지·영상 AI에 전달 · 한국어로 써도 됩니다)</span>
                         <Textarea value={s.visual} onChange={(e) => editShot(i, { visual: e.target.value })} disabled={readOnly} maxLength={800} className="min-h-[56px] text-xs" />
                       </label>
                       <div className="flex flex-wrap items-end gap-2">
@@ -432,13 +517,22 @@ export function ShortsEditor({
                       <div className="flex flex-wrap items-center gap-2 pt-1">
                         {!readOnly && s.id && (
                           <>
-                            <Button size="sm" variant="secondary" disabled={busy || !caps.image.ready || isActive(jobs?.image)} onClick={() => void ask("images", `${i + 1}번 컷 이미지 ${server?.image_file_id ? "다시 " : ""}만들기`, [s.id])}>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy || !caps.image.ready || isActive(jobs?.image) || isActive(jobs?.video)}
+                              title={isActive(jobs?.video) ? "영상 클립을 만드는 중에는 이미지를 다시 만들 수 없습니다." : undefined}
+                              onClick={() => {
+                                if (server?.video_file_id && !window.confirm("이미지를 다시 만들면 기존 영상 클립이 삭제됩니다. 영상 클립에 사용한 퍼니는 돌아오지 않습니다. 계속할까요?")) return;
+                                void ask("images", `${i + 1}번 컷 이미지 ${server?.image_file_id ? "다시 " : ""}만들기`, [s.id]);
+                              }}
+                            >
                               {server?.image_file_id ? "이미지 다시" : "이미지 만들기"}
                             </Button>
                             <Button size="sm" variant="secondary" disabled={busy || !caps.tts.ready || !s.narration.trim() || isActive(jobs?.tts)} onClick={() => void ask("tts", `${i + 1}번 컷 내레이션 ${server?.audio_file_id ? "다시 " : ""}만들기`, [s.id])}>
                               {server?.audio_file_id ? "음성 다시" : "음성 만들기"}
                             </Button>
-                            <Button size="sm" variant="outline" disabled={busy || !caps.video.ready || !server?.image_file_id || isActive(jobs?.video)} onClick={() => void ask("videos", `${i + 1}번 컷 AI 영상 클립 만들기`, [s.id])}>
+                            <Button size="sm" variant="outline" disabled={busy || !caps.video.ready || !server?.image_file_id || isActive(jobs?.video) || isActive(jobs?.image)} onClick={() => void ask("videos", `${i + 1}번 컷 AI 영상 클립 만들기`, [s.id])}>
                               {server?.video_file_id ? "영상 다시" : "영상 클립"}
                             </Button>
                           </>
@@ -446,16 +540,17 @@ export function ShortsEditor({
                         {!readOnly && !s.id && <span className="text-xs text-gray-400">저장하면 이 컷에서 AI 생성을 쓸 수 있습니다.</span>}
                         {!readOnly && (
                           <span className="ml-auto flex gap-1">
-                            <Button size="sm" variant="ghost" aria-label="위로" disabled={i === 0} onClick={() => moveShot(i, -1)}>↑</Button>
-                            <Button size="sm" variant="ghost" aria-label="아래로" disabled={i === draft.shots.length - 1} onClick={() => moveShot(i, 1)}>↓</Button>
-                            <Button size="sm" variant="ghost" aria-label="컷 삭제" onClick={() => removeShot(i)}>삭제</Button>
+                            <Button size="sm" variant="ghost" className="h-10 w-10 px-0 text-lg" aria-label={`${i + 1}번 컷을 위로 이동`} title="위로 이동" disabled={i === 0} onClick={() => moveShot(i, -1)}>↑</Button>
+                            <Button size="sm" variant="ghost" className="h-10 w-10 px-0 text-lg" aria-label={`${i + 1}번 컷을 아래로 이동`} title="아래로 이동" disabled={i === draft.shots.length - 1} onClick={() => moveShot(i, 1)}>↓</Button>
+                            <Button size="sm" variant="ghost" className="h-10" aria-label={`${i + 1}번 컷 삭제`} onClick={() => removeShot(i)}>삭제</Button>
                           </span>
                         )}
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <JobState job={jobs?.image} label="이미지" />
-                        <JobState job={jobs?.tts} label="음성" />
-                        <JobState job={jobs?.video} label="영상 클립" />
+                        {showLocalErr && <span role="alert" className="text-xs font-medium text-red-600">{localErr.text}</span>}
+                        <JobState job={jobs?.image} label="이미지" clearedAfter={lastOk} />
+                        <JobState job={jobs?.tts} label="음성" clearedAfter={lastOk} />
+                        <JobState job={jobs?.video} label="영상 클립" clearedAfter={lastOk} />
                         {[jobs?.image, jobs?.tts, jobs?.video].filter((j) => j?.canCancel).map((j) => (
                           <button key={j!.id} type="button" onClick={() => void cancelJob(j!.id)} className="w-fit text-[11px] text-gray-500 underline">대기 중인 작업 취소</button>
                         ))}
@@ -516,9 +611,13 @@ export function ShortsEditor({
       {hasShots && (
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold">6. 합성 · 완성 (무료)</h2>
+            <h2 className="flex items-center gap-2 text-base font-bold">
+              6. 합성 · 완성 (무료)
+              {needsRecompose && <Badge tone="yellow">다시 합성 필요</Badge>}
+            </h2>
             <JobState job={view.composeJob} label="합성" />
           </div>
+          {needsRecompose && <p className="mt-1 text-xs font-medium text-orange-700">마지막 합성 이후 내레이션·자막·이미지·음성·영상 클립·배경음악이 바뀌었습니다. 다시 합성해야 완성본에 반영됩니다.</p>}
           <p className="mt-1 text-xs text-gray-500">컷 이미지(또는 영상 클립) + 내레이션 + 자막 + 배경음악을 세로 720×1280 MP4로 합칩니다. 퍼니가 들지 않습니다.</p>
           {p.compose_error && !composing && <p className="mt-2 text-sm text-red-600">{p.compose_error}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -562,10 +661,25 @@ export function ShortsEditor({
         <button type="button" onClick={() => void removeProject()} className="text-xs text-red-500 underline">숏츠 삭제</button>
       </div>
 
+      {/* 안내 · 오류 알림: 화면 아래에 떠서 어디를 보고 있든 보인다 */}
+      {notice && (
+        <div className={`pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4 ${dirty && !readOnly ? "bottom-36" : "bottom-24"}`}>
+          <div
+            role={notice.ok ? "status" : "alert"}
+            aria-live={notice.ok ? "polite" : "assertive"}
+            className={`pointer-events-auto flex w-full max-w-md items-start gap-2 rounded-xl px-4 py-3 text-sm shadow-lg ${notice.ok ? "bg-gray-900 text-white" : "bg-red-600 text-white"}`}
+          >
+            <span className="min-w-0 flex-1 break-words">{notice.text}</span>
+            <button type="button" onClick={() => setNotice(null)} aria-label="알림 닫기" className="-m-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/80 hover:bg-white/10">✕</button>
+          </div>
+        </div>
+      )}
+
       {/* 저장 막대 */}
       {dirty && !readOnly && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {/* PC 에서는 사이드바(왼쪽/오른쪽, 폭 16rem) 아래에 깔리지 않도록 양쪽 여백을 둔다 */}
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 lg:px-64 lg:max-w-none">
             <span className="text-sm text-gray-600">저장하지 않은 변경이 있습니다.</span>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => { setDraft(toDraft(view)); setDirty(false); }}>되돌리기</Button>

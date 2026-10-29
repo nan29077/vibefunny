@@ -72,7 +72,7 @@ export default function AdminAiProvidersPage() {
             )}
             <form action={deleteProviderAction} className="mt-4 text-right">
               <input type="hidden" name="provider_id" value={p.id} />
-              <SubmitButton size="sm" variant="ghost">공급사 삭제 (진행 중 작업이 없을 때만)</SubmitButton>
+              <SubmitButton size="sm" variant="ghost" confirmMessage="이 공급사를 삭제할까요? 연결된 모델 설정도 함께 사용할 수 없게 됩니다.">공급사 삭제 (진행 중 작업이 없을 때만)</SubmitButton>
             </form>
           </Card>
         );

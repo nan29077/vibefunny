@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync, timingSafeEqual, randomUUID } from "crypto";
+import { isWeakSecret } from "./secrets";
 
 // ===========================================================================
 // 비밀번호 해싱 (로컬 모드 전용). scrypt 사용.
@@ -41,9 +42,9 @@ const SENSITIVE_PREFIX = "enc:v1:";
 
 function sensitiveKey(): Buffer {
   const secret = process.env.DATA_ENCRYPTION_KEY;
-  if (!secret || secret.length < 32) {
+  if (!secret || isWeakSecret(secret)) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("DATA_ENCRYPTION_KEY 환경변수는 32자 이상이어야 합니다.");
+      throw new Error("DATA_ENCRYPTION_KEY 환경변수는 예시 값이 아닌 32자 이상 무작위 값이어야 합니다.");
     }
     return createHash("sha256").update(process.env.SESSION_SECRET || "vibefunny-local-sensitive-data-key").digest();
   }

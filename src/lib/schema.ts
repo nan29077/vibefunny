@@ -72,7 +72,9 @@ export interface Profile {
   avatar_url: string | null;
   creator_gender?: "female" | "male" | "other" | null;
   creator_age_group?: "teens" | "20s" | "30s" | "40plus" | null;
-  subscription_active_until: string | null; // 구독 만료일(ISO). null이면 미구독
+  // 크리에이터 회원 등급: 가입비를 결제해 '바이브회원'이 된 시각. null 이면 '일반회원'(결제 전)
+  // (가입비 제도가 꺼져 있으면 가입 즉시 바이브회원)
+  vibe_member_at?: string | null;
   session_version?: number; // 로그아웃·비밀번호 변경 시 증가 → 이전 세션 토큰 무효화
   created_at: string;
   updated_at: string;
@@ -104,6 +106,8 @@ export interface EmailVerification {
   consumed_at: string | null;
   attempts: number;
   requested_at: string;
+  /** 인증을 마친 브라우저 쿠키 토큰의 해시 (가입 시 같은 브라우저인지 확인) */
+  verify_token_hash?: string | null;
 }
 
 /** 화면 표시용 이름: 닉네임이 있으면 닉네임, 없으면 실제 이름 */
@@ -119,8 +123,6 @@ export interface FeeSetting {
   signup_fee_enabled: boolean;
   signup_fee_amount: number;
   referral_reward_amount: number;    // 고정 추천 수당 금액 (원)
-  subscription_enabled: boolean;
-  subscription_amount: number; // 월 구독료
 }
 
 // 영상 제작 단가 구간
@@ -130,15 +132,6 @@ export interface VideoPricingTier {
   max_seconds: number | null; // null = 직접 입력/상한 없음
   amount: number; // 크리에이터 제작 단가 (크리에이터에게 지급)
   advertiser_charge: number; // 광고주 청구 단가 (광고주 포인트에서 차감)
-}
-
-// 회원 영상판매 가격 구간 (바이브포터)
-export interface MemberVideoSalePriceTier {
-  key: string;           // e.g. "30s"
-  label: string;         // e.g. "30초 이하"
-  max_seconds: number | null; // null = 초과(상한 없음)
-  price: number;         // 광고주(바이브포터 회원) 판매 가격(원)
-  creator_payout: number; // 크리에이터 제작 단가 (크리에이터에게 적립)
 }
 
 // 플랫폼별 배포 단가
@@ -188,9 +181,6 @@ export interface AppSettings {
   fees: Record<Role, FeeSetting>;
   video_pricing_tiers: VideoPricingTier[];
   distribution_rates: DistributionRate[];
-  video_sale_platform_fee_rate: number; // 영상 판매 플랫폼 수수료 %
-  video_auto_approve: boolean; // 영상 등록 시 자동 판매 여부(false=관리자 승인 대기)
-  member_video_sale_price_tiers: MemberVideoSalePriceTier[]; // 영상 길이별 판매 가격 (바이브포터)
   // 추천인 제도
   referral_system_enabled: boolean; // 관리자가 ON/OFF – false면 추천 코드 처리 안 함
   is_paid_model: boolean;           // 유료 부업 여부 (true 시 고정 추천 수당 지급)
@@ -213,7 +203,6 @@ export interface AppSettings {
   // ── 유튜브 쇼츠 커머스 ──────────────────────────────────────────────
   cafe24?: Cafe24Settings;                  // 카페24 Open API 연동 설정
   shorts_commerce_default_commission_rate?: number; // 쇼츠 커머스 기본 판매 수수료율 %(크리에이터 수익)
-  ai_story?: AiStorySettings;               // AI스토리(동화 제작 의뢰) 연동 설정
   ai_shorts?: AiShortsSettings;             // AI 숏츠 제작(퍼니 과금) 설정
   updated_at: string;
   updated_by: string | null;
@@ -229,15 +218,6 @@ export interface Cafe24Settings {
   refresh_token: string;     // OAuth Refresh Token
   api_version: string;       // API 버전 (예: "2024-06-01")
   shop_no: number;           // 멀티쇼핑몰 번호 (기본 1)
-}
-
-// AI스토리(동화 제작 의뢰) 연동 설정 — 추후 AI스토리 앱과 동화 의뢰 연동 대비
-export interface AiStorySettings {
-  enabled: boolean;          // true면 실제 AI스토리 연동, false면 준비/미리보기
-  api_base: string;          // AI스토리 API Base URL
-  api_key: string;           // API Key
-  webhook_secret: string;    // 동화 의뢰 수신 Webhook 서명 시크릿
-  auto_import: boolean;      // 동화 제작 의뢰 자동 수신(캠페인 생성) 여부
 }
 
 // 6.4 referral_relations --------------------------------------------------
@@ -275,7 +255,7 @@ export interface Wallet {
 
 // 6.6 wallet_transactions (수익/정산 ledger) -----------------------------
 export type WalletTxType =
-  | "video_sale"
+  | "video_sale" // 종료된 영상판매 기능의 과거 적립 내역 표시용 (신규 생성 없음)
   | "custom_video"
   | "campaign_reward"
   | "signup_referral"
@@ -328,8 +308,6 @@ export interface PointTransaction {
 // 6.9 payments ------------------------------------------------------------
 export type PaymentType =
   | "signup_fee"
-  | "subscription"
-  | "video_purchase"
   | "custom_video_order"
   | "point_charge"
   | "funny_charge";
@@ -361,71 +339,6 @@ export interface Category {
   parent_id: string | null;
   sort_order: number;
   is_active: boolean;
-}
-
-// 6.11 videos -------------------------------------------------------------
-export type VideoStatus =
-  | "draft"
-  | "pending_review"
-  | "available"
-  | "sold"
-  | "rejected"
-  | "hidden";
-export interface Video {
-  id: string;
-  creator_id: string;
-  title: string;
-  description: string;
-  platform: Platform;
-  category_id: string | null;
-  tags: string[];
-  duration_seconds: number;
-  price: number;
-  original_video_url: string; // private storage 경로 (signed URL로만 접근)
-  preview_video_url: string | null;
-  thumbnail_url: string | null;
-  status: VideoStatus;
-  copyright_confirmed: boolean;
-  sold_to_user_id: string | null;
-  sold_at: string | null;
-  created_at: string;
-  updated_at: string;
-  // 바이브포터 연동 필드
-  vibeporter_enabled?: boolean;      // 크리에이터가 바이브포터 노출 신청
-  vibeporter_approved?: boolean;     // 어드민 승인 여부
-  vibeporter_approved_at?: string;   // 승인 일시
-  vibeporter_price?: number;         // 바이브포터 전용 판매 금액 (없으면 기본 price 사용)
-}
-
-// 6.11-b vibeporter_requests -----------------------------------------------
-export type VibeporterRequestStatus = "open" | "in_progress" | "completed" | "cancelled";
-export interface VibeporterRequest {
-  id: string;
-  title: string;
-  description: string;
-  budget: number;
-  platform: string[];
-  status: VibeporterRequestStatus;
-  buyer_name: string;           // 바이브포터 구매자 이름
-  buyer_id: string;             // 바이브포터 구매자 ID
-  accepted_creator_id?: string;
-  accepted_at?: string;
-  created_at: string;
-  source: "vibeporter";         // 식별자
-}
-
-// 6.12 video_purchases ----------------------------------------------------
-export type VideoPurchaseStatus = "pending" | "paid" | "completed" | "refunded";
-export interface VideoPurchase {
-  id: string;
-  buyer_id: string;
-  video_id: string;
-  payment_id: string | null;
-  amount: number;
-  status: VideoPurchaseStatus;
-  download_count: number;
-  created_at: string;
-  updated_at: string;
 }
 
 // 6.13 custom_video_requests ---------------------------------------------
@@ -503,33 +416,8 @@ export type CampaignType =
   | "create_and_distribute"
   | "distribute_own_video"
   | "distribute_existing_video"
-  | "create_only"
-  | "story_creation"; // 동화 제작 의뢰 (AI스토리 연동)
+  | "create_only";
 
-// 동화 제작 의뢰 프롬프트 (AI스토리 story_requests와 1:1 매핑 — 추후 연동 대비)
-export interface StoryBrief {
-  source: "ai_story";                  // 출처 식별자 (추후 AI스토리 연동)
-  source_request_id?: string | null;   // AI스토리 story_requests.id (연동 시 매핑)
-  child_name: string;                  // 주인공(아이) 이름
-  child_age: number;                   // 아이 나이
-  child_photo_url?: string | null;     // 아이 사진 URL
-  story_theme: string;                 // 동화 테마/주제
-  story_note: string;                  // 요청 줄거리/메모
-  art_style: string;                   // 그림 스타일 (예: 수채화풍, 3D 픽사풍)
-  tone: string;                        // 톤/분위기 (예: 따뜻하고 잔잔한)
-  page_count: number;                  // 페이지(장면) 수
-  target_age_range: string;            // 대상 연령대 (예: 3~6세)
-  key_characters: string;              // 주요 등장 캐릭터
-  moral_lesson?: string | null;        // 전달 교훈/메시지
-  language?: string | null;            // 언어 (기본 한국어)
-  requester_name?: string | null;      // 의뢰자(부모) 이름
-  style_requirements?: string | null;  // 스타일/제작 요구사항 (자유 입력)
-  reference_image_urls?: string[];     // 참고 이미지 URL 목록
-  // 목소리(내레이션) 파일 — 부모/아이 목소리 더빙용 (추후 AI스토리 voice_profile 연동)
-  voice_file_url?: string | null;      // 목소리 파일 URL/경로
-  voice_file_name?: string | null;     // 목소리 파일명
-  voice_label?: string | null;         // 목소리 라벨 (예: "엄마 목소리")
-}
 export type CampaignStatus =
   | "draft"
   | "point_pending"
@@ -583,8 +471,7 @@ export interface AdCampaign {
   attachment_file_data?: string | null;  // Base64-encoded
   attachment_file_name?: string | null;  // 원본 파일명
   attachment_file_type?: string | null;  // MIME type
-  // 캠페인 출처 / 참여 제한
-  source_type?: "advertiser" | "vibeporter" | "ai_story";
+  // 참여 제한
   participation_limit?: number;
   // 브랜드 정보
   brand_name?: string | null;
@@ -613,8 +500,13 @@ export interface AdCampaign {
   video_production_count?: number;
   // 영상 길이 구간 키 (15s|30s|60s|90s) — 광고주 청구단가/크리에이터 제작단가 산정 기준
   video_duration_tier?: string | null;
-  // 동화 제작 의뢰 프롬프트 (campaign_type === "story_creation" 시 사용, AI스토리 연동 대비)
-  story_brief?: StoryBrief | null;
+  expired_review_notified_at?: string | null; // 마감 후 검토 대기 알림 발송 시각 (자동 정산 대기)
+  // 등록(결제) 시점의 크리에이터 지급 단가 — 이후 관리자가 단가를 바꿔도 이 캠페인 지급액은 그대로
+  creator_rate_snapshot?: {
+    video_payout: number;
+    deploy_payouts: Partial<Record<SocialPlatform, number>>;
+    captured_at: string;
+  } | null;
 }
 
 // 6.17 campaign_applications ---------------------------------------------
@@ -742,6 +634,7 @@ export interface CampaignParticipation {
   creator_id: string;
   status: CampaignParticipationStatus;
   participation_type?: "deploy" | "video_production"; // 참여 유형
+  platform?: SocialPlatform; // 배포 참여 시 배정된 플랫폼 (플랫폼별 배포 건수·단가 적용. 구버전 데이터는 없음)
   video_url?: string;
   video_note?: string;
   deploy_link?: string;  // 배포 참여자가 제출한 SNS 게시물 URL
@@ -752,6 +645,8 @@ export interface CampaignParticipation {
   video_file_type?: string | null;
   rejection_reason?: string;
   dispute_previous_status?: CampaignParticipationStatus;
+  /** 취소 주체 — creator(본인 취소)만 재신청 가능. reviewer(광고주·관리자 선발 취소)·admin(분쟁 취소)·system(캠페인 종료)은 재신청 불가 */
+  cancelled_by?: "creator" | "reviewer" | "admin" | "system";
   applied_at: string;
   updated_at: string;
 }
@@ -945,10 +840,6 @@ export interface CreatorShortsLink {
   content_note: string;            // 영상 내용 설명 (추천 매칭 기준)
   linked_product_ids: string[];    // 연동된 상품 id 목록
   status: ShortsCommerceStatus;
-  // 영상 출처 (직접 제작 / 바이브포터 구매 영상)
-  video_source?: "self" | "vibeporter";
-  source_video_id?: string | null;     // 바이브포터 영상 id
-  source_video_title?: string | null;  // 바이브포터 영상 제목(스냅샷)
   created_at: string;
   updated_at: string;
 }
@@ -1094,11 +985,13 @@ export interface AiJob {
   next_poll_at: string | null;
   lease_until: string | null;      // 작업을 잡은 워커의 임대 만료 시각 (만료 시 다른 워커가 이어받음)
   worker_id: string | null;
+  heartbeat_at?: string | null;    // 실행 중인 워커가 마지막으로 임대를 연장한 시각 (2분 넘게 끊기면 회수)
   units: number;                   // 예상 사용량(단위)
   hold_paid: number;
   hold_bonus: number;
   charged_funny: number;           // 실제 차감 퍼니
   cost_won: number;                // 실제 원가(원)
+  vendor_cost_won?: number;        // 공급사에 실제로 보낸 요청의 누적 원가(원, 재시도·실패·취소 포함) — 월 예산 집계용
   progress: number;                // 0~1 (합성)
   error: string | null;            // 크리에이터에게 보여줄 정리된 오류
   error_detail: string | null;     // 관리자 전용 원문
@@ -1186,6 +1079,7 @@ export interface FunnyTransaction {
 export interface Database {
 
   profile_character_migration_version?: number;
+  membership_migrated_at?: string; // 구독료 제거 · 일반/바이브회원 등급 도입 마이그레이션 완료 시각
 
   profiles: Profile[];
   settings: AppSettings;
@@ -1197,8 +1091,6 @@ export interface Database {
   point_transactions: PointTransaction[];
   payments: Payment[];
   categories: Category[];
-  videos: Video[];
-  video_purchases: VideoPurchase[];
   custom_video_requests: CustomVideoRequest[];
   custom_video_applications: CustomVideoApplication[];
   custom_video_deliveries: CustomVideoDelivery[];
@@ -1217,7 +1109,6 @@ export interface Database {
   participation_comments: ParticipationComment[];
   notifications?: Notification[];
   private_files?: PrivateFile[];
-  vibeporter_requests: VibeporterRequest[];
   audit_logs: AuditLog[];
   // 유튜브 쇼츠 커머스
   product_categories: ProductCategory[];

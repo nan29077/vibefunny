@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { roleHome } from "@/lib/routes";
 import { logoutAction } from "@/lib/actions/auth-actions";
 import { HoneyHeroCarousel } from "@/components/marketing/honey-hero-carousel";
+import { SiteBanners } from "@/components/site/site-content";
 import { MobileMainMenu, MobilePublicNav } from "@/components/marketing/mobile-main-menu";
 import { SupportWidget } from "@/components/support/support-widget";
 import { NotificationBell } from "@/components/marketing/notification-bell";
@@ -38,7 +39,7 @@ const PLATFORMS = [
 const TESTIMONIALS = [
   { name: "이민준", role: "크리에이터 · 3개월 차", income: "월 68만원", quote: "처음에는 반신반의했는데, AI 영상 제작법 배우고 나서 첫 달부터 수익이 나왔어요. 본업 말고 진짜 부업이 생긴 기분입니다. 3개월 지난 지금은 월 68만원 정도 들어와요." },
   { name: "김서연", role: "크리에이터 · 6개월 차", income: "월 140만원", quote: "숏폼 배포 수익이 생각보다 꾸준해서 놀랐어요. 매월 안정적으로 들어오니까 부담 없이 계속할 수 있어요. 지금은 추천 수당까지 합쳐서 월 140만원 수준이에요." },
-  { name: "박도현", role: "크리에이터 · 1년 차", income: "월 290만원", quote: "추천 수당이 쌓이면서 영상 안 해도 매달 수익이 들어와요. 1년 넘으니까 수익 파이프라인이 세 개 다 돌아가는 느낌입니다. 솔직히 본업 수입을 넘어섰어요." },
+  { name: "박도현", role: "크리에이터 · 1년 차", income: "월 290만원", quote: "추천 수당이 쌓이면서 영상 안 해도 매달 수익이 들어와요. 1년 넘으니까 수익 파이프라인이 네 개 다 돌아가는 느낌입니다. 솔직히 본업 수입을 넘어섰어요." },
   { name: "최유리", role: "크리에이터 · 2개월 차", income: "월 45만원", quote: "영상 편집 경험이 전혀 없었는데 AI 도구 덕분에 생각보다 빨리 시작했어요. 가입하고 2주 만에 첫 수익이 들어왔고, 지금은 꾸준히 월 40~50만원 버는 중이에요." },
   { name: "정재원", role: "크리에이터 · 9개월 차", income: "월 210만원", quote: "부업으로 시작했는데 지금은 반전업 수준이에요. 추천 네트워크가 50명을 넘으니까 제가 영상 안 올려도 매달 수익이 들어오는 구조가 됐습니다." },
   { name: "한소희", role: "크리에이터 · 4개월 차", income: "월 95만원", quote: "직장 다니면서 틈틈이 AI 영상 만들어서 올리는데 한 달에 95만원 정도 됩니다. 퇴근 후 1~2시간 투자하는 것치고는 만족해요. 올해 목표는 월 150만원입니다." },
@@ -47,23 +48,23 @@ const TESTIMONIALS = [
 const FAQS = [
   { q: "영상 제작 경험이 없어도 시작할 수 있나요?", a: "네, 가능합니다. 가입 후 제공되는 AI 영상 제작 가이드를 따라하면 경험이 없어도 충분히 시작할 수 있습니다. 실제로 활동 크리에이터의 60% 이상이 영상 경험 없이 시작했습니다." },
   { q: "수익은 어떻게 정산되나요?", a: "배포 1건당 고정 단가가 지급되며, 수익은 지갑에 적립됩니다. 일정 금액 이상 쌓이면 출금 신청을 통해 현금으로 받을 수 있습니다. 정산 주기는 매월 말 기준입니다." },
-  { q: "첫 수익까지 얼마나 걸리나요?", a: "평균적으로 가입 후 1~2주 안에 첫 수익이 발생합니다. 첫 영상 배포가 완료되는 즉시 단가가 적립되며, 추천인 코드를 활용하면 가입 당일에도 추천 수당을 받을 수 있습니다." },
+  { q: "첫 수익까지 얼마나 걸리나요?", a: "평균적으로 가입 후 1~2주 안에 첫 수익이 발생합니다. 첫 영상 배포가 완료되는 즉시 단가가 적립되며, 바이브회원이 된 뒤 내 추천 코드로 가입한 멘티가 가입비를 결제하면 추천 수당이 1회 적립됩니다." },
   { q: "어떤 종류의 영상을 만들 수 있나요?", a: "광고 영상, 브랜드 소개 영상, 제품 홍보 영상 등 다양한 카테고리의 숏폼 콘텐츠를 제작하고 납품할 수 있습니다. 15초~60초 분량의 숏폼이 주를 이룹니다." },
   { q: "월 얼마 정도 벌 수 있나요?", a: "활동 수준에 따라 다릅니다. 가볍게 시작하는 크리에이터는 월 30~70만원, 적극적으로 활동하면 월 100~200만원, 추천 네트워크까지 구축하면 월 300만원 이상도 가능합니다." },
-  { q: "크리에이터 가입 조건이 있나요?", a: "특별한 조건은 없습니다. 누구나 가입하고 활동을 시작할 수 있습니다. 채널 구독자 수, 팔로워 수 등 기존 SNS 지표와 무관하게 참여 가능합니다." },
-  { q: "추천인 코드는 어떻게 사용하나요?", a: "가입 시 추천인 코드 입력란에 코드를 입력하면 됩니다. 추천인은 가입 완료 즉시 수당이 지급됩니다. 내가 초대한 크리에이터의 활동이 활발할수록 추천 네트워크 효과가 커집니다." },
+  { q: "크리에이터 가입 조건이 있나요?", a: "바이브회원(가입비 결제 회원)에게 받은 추천인 코드가 있어야 가입할 수 있습니다. 가입하면 먼저 일반회원이 되고, 가입비를 결제하면 바이브회원으로 전환되어 캠페인 참여·쇼츠 커머스·AI 숏츠·출금 등 모든 수익 기능을 이용할 수 있습니다. 채널 구독자 수, 팔로워 수 등 기존 SNS 지표와는 무관합니다." },
+  { q: "추천인 코드는 어떻게 사용하나요?", a: "크리에이터 가입 시 추천인 코드 입력란에 바이브회원에게 받은 코드를 입력합니다(필수). 가입비를 결제해 바이브회원이 되면 나도 내 추천 코드로 멘티를 받을 수 있고, 멘티가 가입비를 결제하면 추천 수당이 적립됩니다." },
   { q: "AI 영상 제작에 어떤 도구를 사용하나요?", a: "Gemini, Veo, Sora, Runway 등 최신 AI 영상 생성 도구를 활용합니다. 가입 후 제공되는 가이드에서 무료 또는 저렴하게 이용할 수 있는 AI 도구 목록과 사용법을 확인할 수 있습니다." },
   { q: "스마트폰만으로도 가능한가요?", a: "가능합니다. AI 영상 제작 도구 대부분이 모바일을 지원하며, 배포와 수익 확인도 모바일에서 가능합니다. 고가 장비 없이도 충분히 활동할 수 있습니다." },
-  { q: "부업 이외에 전업으로도 가능한가요?", a: "충분히 가능합니다. 현재 활동 중인 크리에이터 중 약 15%는 VIBEFUNNY를 주 수입원으로 활동하고 있습니다. 세 파이프라인을 모두 적극 운영하면 전업 수준의 수익이 가능합니다." },
+  { q: "부업 이외에 전업으로도 가능한가요?", a: "충분히 가능합니다. 현재 활동 중인 크리에이터 중 약 15%는 VIBEFUNNY를 주 수입원으로 활동하고 있습니다. 캠페인 배포·캠페인 영상 제작·쇼츠 커머스·추천 수당 네 가지 수익원을 모두 적극 운영하면 전업 수준의 수익이 가능합니다." },
 ];
 
 const ROADMAP_STEPS = [
-  { day: "D+1",   title: "가입 & 온보딩",    desc: "5분 가입 완료 후 AI 영상 제작 가이드를 확인합니다. 추천 코드를 지인과 공유하면 이날부터 추천 수당 발생 가능.", badge: "START",     color: "#f59e0b" },
+  { day: "D+1",   title: "가입 & 온보딩",    desc: "추천 코드로 가입(일반회원) 후 가입비를 결제하면 바이브회원으로 전환됩니다. AI 영상 제작 가이드를 확인하고 내 추천 코드도 공유할 수 있습니다.", badge: "START",     color: "#f59e0b" },
   { day: "D+7",   title: "첫 영상 납품",      desc: "AI 도구로 첫 숏폼 영상을 제작해 납품합니다. 납품 완료 즉시 수익이 지갑에 적립됩니다.",                             badge: "첫 수익",   color: "#10b981" },
   { day: "D+14",  title: "배포 루틴 구축",    desc: "YouTube Shorts · Instagram Reels · TikTok · Facebook 4개 플랫폼에 동시 배포 루틴을 잡습니다. 매 배포마다 단가가 쌓입니다.",            badge: "배포 시작",  color: "#3b82f6" },
   { day: "D+30",  title: "첫 정산",           desc: "한 달간의 AI 납품 + 배포 + 추천 수당을 합산해 첫 정산을 받습니다. 대부분의 크리에이터가 30~80만원 내외.",          badge: "첫 정산",   color: "#8b5cf6" },
   { day: "D+90",  title: "수익 가속화",       desc: "추천 네트워크가 확장되고 AI 납품 퀄리티가 높아지면서 수익이 빠르게 성장합니다. 평균 월 100~200만원대.",             badge: "성장 구간",  color: "#ef4444" },
-  { day: "D+180", title: "안정적 월 수익",    desc: "영상 납품·배포·추천 세 파이프라인이 자동화됩니다. 내가 쉬는 날에도 수익이 들어오는 구조.",                          badge: "자동화 수익", color: "#f59e0b" },
+  { day: "D+180", title: "안정적 월 수익",    desc: "캠페인 배포·영상 제작·쇼츠 커머스·추천 네 가지 수익원이 함께 돌아갑니다. 내가 쉬는 날에도 수익이 들어오는 구조.",                          badge: "자동화 수익", color: "#f59e0b" },
 ];
 
 const INCOME_TIERS = [
@@ -299,9 +300,10 @@ export default function HomePage() {
   const advertiserCtaHref = dashHref ?? "/for-advertisers";
   const announcement = db.settings.site_announcement;
   const revenueStats = db.settings.site_revenue_stats ?? [];
-  // 가입비 문구는 관리자 정책 설정값을 따른다 (하드코딩 "가입비 0원" 제거)
+  // 가입비 문구는 관리자 정책 설정값을 따른다 (하드코딩 문구 사용 금지)
   const feeLabel = signupFeeLabel(db.settings);
   const signupFee = creatorSignupFee(db.settings);
+  const referralReward = db.settings.fees.creator.referral_reward_amount;
   const myNotifications = currentUser
     ? (db.notifications ?? []).filter((item) => item.recipient_id === currentUser.id).sort((a, b) => b.created_at.localeCompare(a.created_at))
     : [];
@@ -362,6 +364,7 @@ export default function HomePage() {
       )}
 
       <HoneyHeroCarousel ctaHref={creatorCtaHref} />
+      <SiteBanners banners={db.settings.site_banners} />
       {/* <FullBg
         src={BG.hero}
         overlay="linear-gradient(160deg, rgba(0,0,0,0.75) 0%, rgba(10,0,30,0.7) 100%)"
@@ -377,8 +380,8 @@ export default function HomePage() {
             숏폼으로<br /><span style={{ color: "#f59e0b" }}>수익을</span><br />만들다
           </h1>
           <p className="mt-8 max-w-xl text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-            AI 영상 제작 · 숏폼 배포 · 추천 수당.<br />
-            세 가지 수익 파이프라인이 동시에 작동합니다.<br />
+            캠페인 배포 · 영상 제작 · 쇼츠 커머스 · 추천 수당.<br />
+            네 가지 수익 파이프라인이 동시에 작동합니다.<br />
             {feeLabel}, 영상 경험 불필요, 지금 바로 시작하세요.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -522,7 +525,7 @@ export default function HomePage() {
             <div className="grid gap-4 md:grid-cols-4">
               {[
                 { StageIcon: IcoSprout,     stage: "입문 단계", period: "1~4주", color: "#3b82f6", items: ["AI 도구 기초 습득 (ChatGPT, Runway/Pika 영상 생성)", "첫 숏폼 영상 제작 완료", "플랫폼 계정 개설 및 첫 업로드"] },
-                { StageIcon: IcoTrendingUp, stage: "성장 단계", period: "2~3개월", color: "#10b981", items: ["AI 편집 툴 활용 (CapCut AI, Descript, HeyGen)", "월 20~50개 영상 생산 루틴 완성", "첫 수익 발생 (배포 수당 + 판매 수익)"] },
+                { StageIcon: IcoTrendingUp, stage: "성장 단계", period: "2~3개월", color: "#10b981", items: ["AI 편집 툴 활용 (CapCut AI, Descript, HeyGen)", "월 20~50개 영상 생산 루틴 완성", "첫 수익 발생 (배포 수당 + 제작 수당)"] },
                 { StageIcon: IcoAward,      stage: "숙련 단계", period: "3~6개월", color: "#f59e0b", items: ["자신만의 AI 영상 스타일 확립", "추천 시스템 활용 + 팀 빌딩 시작", "월 50~150만원 수익 구조 안정화"] },
                 { StageIcon: IcoCrown,      stage: "전문가 단계", period: "6개월+", color: "#ef4444", items: ["AI 영상 노하우로 강의/컨설팅 부가 수익", "광고주 캠페인 직접 수주", "월 200만원+ 멀티 수익 파이프라인"] },
               ].map((rs) => (
@@ -582,8 +585,8 @@ export default function HomePage() {
           </div>
           <div className="mx-auto max-w-3xl rounded-2xl p-8 text-center" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)" }}>
             <p className="text-xl font-black text-white leading-snug md:text-2xl">
-              "처음엔 그냥 부업이었는데,<br />
-              <span style={{ color: "#f59e0b" }}>지금은 AI 영상 전문가로 불립니다."</span>
+              &quot;처음엔 그냥 부업이었는데,<br />
+              <span style={{ color: "#f59e0b" }}>지금은 AI 영상 전문가로 불립니다.&quot;</span>
             </p>
             <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>— 박도현, 크리에이터 1년 차 · 현재 월 290만원 수익</p>
             <Link href="/signup" className="mt-6 inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-black text-black transition hover:scale-105 hover:opacity-90" style={{ background: "#f59e0b" }}>
@@ -593,22 +596,22 @@ export default function HomePage() {
         </div>
       </FullBg>
 
-      <FullBg id="income" src={BG.aiVideo} overlay="rgba(0,0,6,0.72)">
+      <FullBg id="income" src={BG.aiVideo} overlay="rgba(0,0,6,0.72)" className="vf-income-feature-section">
         <div className="mx-auto max-w-6xl px-6 py-20 md:px-16">
           <div className="grid items-center gap-16 md:grid-cols-2">
             <div>
               <SectionLabel text="01 — AI Video Creation" />
               <h2 className="text-4xl font-black leading-[1.25] text-white md:text-6xl">AI 영상 제작</h2>
               <p className="mt-6 text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-                Gemini·Veo·Sora 등 최신 AI 도구로 15~60초 숏폼 영상을 제작하고 광고주에게 직접 납품하세요.
+                Gemini·Veo·Sora 등 최신 AI 도구로 15~60초 숏폼 영상을 제작해 광고주 캠페인에 납품하세요.
                 영상 한 편이 반복 수익으로 이어지며, 납품 즉시 수익이 지갑에 적립됩니다.
               </p>
-              <div className="mt-6 space-y-3">
+              <div className="vf-ai-steps mt-6 grid gap-3 sm:grid-cols-2">
                 {[
                   { n: "1", t: "AI 도구 접속",   d: "Gemini, Veo, Runway 등 무료·저가 AI 영상 도구 사용" },
                   { n: "2", t: "숏폼 영상 생성",  d: "프롬프트 입력 → 15~60초 광고 영상 자동 생성" },
-                  { n: "3", t: "광고주에게 납품", d: "플랫폼에 업로드하면 광고주가 선택하고 결제" },
-                  { n: "4", t: "수익 즉시 적립",  d: "납품 완료 확인 즉시 지갑에 단가 지급" },
+                  { n: "3", t: "캠페인에 납품", d: "참여한 캠페인에 결과물을 제출하면 검수 진행" },
+                  { n: "4", t: "수익 적립",  d: "검수 승인 시 지갑에 제작 단가 지급" },
                 ].map((s) => (
                   <div key={s.n} className="flex items-start gap-3 rounded-xl p-3" style={{ background: "rgba(255,255,255,0.06)" }}>
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black text-black" style={{ background: "#f59e0b" }}>{s.n}</span>
@@ -631,24 +634,18 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-            <div className="hidden text-right md:block">
-              <span className="font-black text-[200px] leading-none select-none" style={{ color: "rgba(255,255,255,0.05)" }}>01</span>
-            </div>
           </div>
         </div>
       </FullBg>
 
-      <FullBg src={BG.shortform} overlay="rgba(5,0,15,0.70)">
+      <FullBg src={BG.shortform} overlay="rgba(5,0,15,0.70)" className="vf-income-feature-section">
         <div className="mx-auto max-w-6xl px-6 py-20 md:px-16">
           <div className="grid items-center gap-16 md:grid-cols-2">
-            <div className="hidden md:block">
-              <span className="font-black text-[200px] leading-none select-none" style={{ color: "rgba(255,255,255,0.05)" }}>02</span>
-            </div>
             <div>
               <SectionLabel text="02 — Shortform Distribution" />
               <h2 className="text-5xl font-black leading-[1.25] text-white md:text-7xl">숏폼 배포</h2>
               <p className="mt-6 text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-                YouTube Shorts · Instagram Reels · TikTok 세 플랫폼에 동시 배포.
+                YouTube Shorts · Instagram Reels · TikTok · Facebook Reels 4개 플랫폼에 동시 배포.
                 배포 1건당 <strong className="text-white">고정 단가</strong>가 즉시 지급되며,
                 채널 규모와 상관없이 누구나 참여할 수 있습니다.
               </p>
@@ -666,7 +663,7 @@ export default function HomePage() {
                 ))}
               </div>
               <div className="mt-6 flex flex-wrap gap-2">
-                {["YouTube Shorts", "Instagram Reels", "TikTok", "동시 배포", "고정 단가"].map((t) => <Tag key={t}>{t}</Tag>)}
+                {["YouTube Shorts", "Instagram Reels", "TikTok", "Facebook Reels", "동시 배포", "고정 단가"].map((t) => <Tag key={t}>{t}</Tag>)}
               </div>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/revenue/distribution" className="rounded-full border px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10" style={{ borderColor: "rgba(255,255,255,0.3)" }}>
@@ -681,18 +678,19 @@ export default function HomePage() {
         </div>
       </FullBg>
 
-      <FullBg src={BG.referral} overlay="rgba(0,0,0,0.72)">
-        <div className="mx-auto max-w-6xl px-6 py-20 md:px-16">
-          <div className="grid items-center gap-16 md:grid-cols-2">
-            <div>
+      <FullBg id="referral" src={BG.referral} overlay="linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(12,9,2,0.78) 100%)" className="vf-income-feature-section">
+        <div className="mx-auto w-full max-w-6xl px-6 py-20 md:px-16">
+          <div className="grid items-stretch gap-8 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className="flex flex-col justify-center">
               <SectionLabel text="03 — Referral Reward" />
               <h2 className="text-5xl font-black leading-[1.25] text-white md:text-7xl">추천 수당</h2>
               <p className="mt-6 text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-                친구나 지인을 VIBEFUNNY에 초대하면 가입 즉시 <strong className="text-white">고정 수당</strong>이 지급됩니다.
-                추천 인원에 제한이 없으며, 추천 네트워크가 커질수록 자동으로 수익이 쌓입니다.
+                내 추천 링크로 가입한 멘티가 가입비 결제를 완료하면
+                <strong className="text-white"> 정책 추천수당</strong>이 1회 보류 적립됩니다.
+                가입 안내부터 첫 활동까지 함께 돕는 멘토형 수익 구조입니다.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
-                {["추천 링크", "즉시 지급", "무제한", "고정 수당", "자동화 수익"].map((t) => <Tag key={t}>{t}</Tag>)}
+                {["전용 추천 링크", "직접 추천", "보류 적립", "현황 관리", "멘토 활동"].map((t) => <Tag key={t}>{t}</Tag>)}
               </div>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/revenue/referral" className="rounded-full border px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10" style={{ borderColor: "rgba(255,255,255,0.3)" }}>
@@ -703,19 +701,47 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-            <div className="hidden text-right md:block">
-              <span className="font-black text-[200px] leading-none select-none" style={{ color: "rgba(255,255,255,0.05)" }}>03</span>
+            <div className="rounded-[28px] border p-5 shadow-2xl sm:p-7" style={{ background: "rgba(12,12,12,0.82)", borderColor: "rgba(245,158,11,0.3)", backdropFilter: "blur(16px)" }}>
+              <div className="flex items-start justify-between gap-4 border-b pb-5" style={{ borderColor: "rgba(255,255,255,0.09)" }}>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: "#f59e0b" }}>Mentor reward</p>
+                  <h3 className="mt-2 text-2xl font-black text-white">추천 한 건의 진행 과정</h3>
+                </div>
+                <div className="rounded-2xl px-4 py-3 text-right" style={{ background: "rgba(245,158,11,0.12)" }}>
+                  <p className="text-[10px] font-bold text-gray-400">현재 정책 수당</p>
+                  <p className="mt-1 text-xl font-black" style={{ color: "#f59e0b" }}>{referralReward.toLocaleString("ko-KR")}원</p>
+                </div>
+              </div>
+              <div className="vf-referral-steps mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                {[
+                  { n: "01", title: "링크 공유", desc: "내 추천코드가 포함된 전용 링크를 안내합니다." },
+                  { n: "02", title: "가입비 결제", desc: "멘티가 가입비를 결제해 바이브회원이 됩니다." },
+                  { n: "03", title: "수당 적립", desc: "정책 수당이 보류 상태로 지갑에 기록됩니다." },
+                ].map((step) => (
+                  <div key={step.n} className="rounded-2xl border p-4" style={{ background: "rgba(255,255,255,0.035)", borderColor: "rgba(255,255,255,0.08)" }}>
+                    <span className="text-sm font-black" style={{ color: "#f59e0b" }}>{step.n}</span>
+                    <p className="mt-3 font-black text-white">{step.title}</p>
+                    <p className="mt-2 text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.52)" }}>{step.desc}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 rounded-2xl border px-4 py-4" style={{ background: "linear-gradient(90deg, rgba(245,158,11,0.14), rgba(245,158,11,0.04))", borderColor: "rgba(245,158,11,0.22)" }}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-white">추천 현황은 대시보드에서 한눈에</p>
+                    <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>추천 회원 · 보류 수당 · 지급 상태를 투명하게 확인합니다.</p>
+                  </div>
+                  <span className="shrink-0 rounded-full px-3 py-1 text-[10px] font-black text-black" style={{ background: "#f59e0b" }}>LIVE</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </FullBg>
 
-      <FullBg src="/images/marketing/creator-workspace-mobile.webp" overlay="linear-gradient(160deg, rgba(10,0,20,0.86) 0%, rgba(0,0,0,0.82) 100%)">
+      <FullBg src="/images/marketing/creator-workspace-mobile.webp" overlay="linear-gradient(160deg, rgba(10,0,20,0.86) 0%, rgba(0,0,0,0.82) 100%)" className="vf-income-feature-section">
         <div className="mx-auto max-w-6xl px-6 py-20 md:px-16">
           <div className="grid items-center gap-16 md:grid-cols-2">
-            <div className="hidden md:block">
-              <span className="font-black text-[200px] leading-none select-none" style={{ color: "rgba(255,255,255,0.05)" }}>04</span>
-            </div>
             <div>
               <SectionLabel text="04 — YouTube Shorts Commerce" />
               <h2 className="text-4xl font-black leading-[1.25] text-white md:text-6xl">유튜브 쇼츠 커머스</h2>

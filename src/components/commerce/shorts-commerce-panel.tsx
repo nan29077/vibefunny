@@ -8,29 +8,20 @@ import { saveShortsLinkAction, deleteShortsLinkAction } from "@/lib/actions/comm
 import { recommendProducts } from "@/lib/recommend";
 import { creatorCommission } from "@/lib/commerce";
 import { formatKRW } from "@/lib/money";
-import { IconFilm, IconShoppingBag, IconCheck } from "@/components/icons";
+import { IconCheck } from "@/components/icons";
 import type { Product, ProductCategory, CreatorYoutubeChannel, CreatorShortsLink } from "@/lib/schema";
 import { safeHref } from "@/lib/url";
-
-export interface SourceVideo {
-  id: string;
-  title: string;
-  url: string;
-  thumbnail: string | null;
-}
 
 export function ShortsCommercePanel({
   products,
   categories,
   channels,
   links,
-  vibeporterVideos,
 }: {
   products: Product[];
   categories: ProductCategory[];
   channels: CreatorYoutubeChannel[];
   links: CreatorShortsLink[];
-  vibeporterVideos: SourceVideo[];
 }) {
   const [state, action] = useFormState(saveShortsLinkAction, initialActionState);
 
@@ -39,14 +30,11 @@ export function ShortsCommercePanel({
   const [title, setTitle] = useState("");
   const [contentNote, setContentNote] = useState("");
   const [channelId, setChannelId] = useState("");
-  const [videoSource, setVideoSource] = useState<"self" | "vibeporter">("self");
-  const [sourceVideoId, setSourceVideoId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState("");
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
-  const vpMap = useMemo(() => new Map(vibeporterVideos.map((v) => [v.id, v])), [vibeporterVideos]);
 
   const recommended = useMemo(
     () => recommendProducts(products, categories, { title, content: contentNote, shortsUrl }, 6),
@@ -66,7 +54,6 @@ export function ShortsCommercePanel({
     if (state.ok && !prevOk.current) {
       setEditId(""); setShortsUrl(""); setTitle(""); setContentNote("");
       setChannelId(""); setSelected([]); setShowAll(false); setSearch("");
-      setVideoSource("self"); setSourceVideoId("");
     }
     prevOk.current = state.ok;
   }, [state.ok]);
@@ -80,21 +67,10 @@ export function ShortsCommercePanel({
     setTitle(link.title);
     setContentNote(link.content_note);
     setChannelId(link.channel_id ?? "");
-    setVideoSource(link.video_source === "vibeporter" ? "vibeporter" : "self");
-    setSourceVideoId(link.source_video_id ?? "");
     setSelected(link.linked_product_ids.filter((id) => productMap.has(id)));
     setShowAll(false);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  const onPickVibeporter = (id: string) => {
-    setSourceVideoId(id);
-    const v = vpMap.get(id);
-    if (v && !title.trim()) setTitle(v.title);
-    if (v && !contentNote.trim()) setContentNote(v.title);
-  };
-
-  const sourceVideoTitle = sourceVideoId ? (vpMap.get(sourceVideoId)?.title ?? "") : "";
 
   const ProductCard = ({ p, matched }: { p: Product; matched?: string[] }) => {
     const on = selected.includes(p.id);
@@ -151,49 +127,6 @@ export function ShortsCommercePanel({
         <form action={action} className="space-y-4">
           <input type="hidden" name="edit_id" value={editId} />
           <input type="hidden" name="product_ids" value={selected.join(",")} />
-          <input type="hidden" name="video_source" value={videoSource} />
-          <input type="hidden" name="source_video_id" value={videoSource === "vibeporter" ? sourceVideoId : ""} />
-          <input type="hidden" name="source_video_title" value={videoSource === "vibeporter" ? sourceVideoTitle : ""} />
-
-          {/* 영상 출처 */}
-          <div>
-            <div className="mb-1 block text-sm font-medium text-gray-700">영상 출처</div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => { setVideoSource("self"); setSourceVideoId(""); }}
-                className={"inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold transition " +
-                  (videoSource === "self" ? "border-brand-purple bg-brand-purple/5 text-brand-purple" : "border-gray-300 text-gray-600 hover:bg-gray-50")}
-              >
-                <IconFilm size={15} /> 직접 제작한 쇼츠
-              </button>
-              <button
-                type="button"
-                onClick={() => setVideoSource("vibeporter")}
-                className={"inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold transition " +
-                  (videoSource === "vibeporter" ? "border-brand-pink bg-brand-pink/5 text-brand-pink" : "border-gray-300 text-gray-600 hover:bg-gray-50")}
-              >
-                <IconShoppingBag size={15} /> 바이브포터 구매 영상
-              </button>
-            </div>
-            {videoSource === "vibeporter" && (
-              <div className="mt-3 rounded-xl border border-brand-pink/30 bg-brand-pink/5 p-3">
-                <p className="mb-2 text-xs text-gray-600">
-                  바이브포터 앱에서 크리에이터 할인가로 구매한 영상을 선택하세요. 구매한 영상으로 쇼츠를 운영할 수 있습니다.
-                </p>
-                {vibeporterVideos.length === 0 ? (
-                  <p className="text-sm text-gray-400">구매/이용 가능한 바이브포터 영상이 없습니다.</p>
-                ) : (
-                  <Select value={sourceVideoId} onChange={(e) => onPickVibeporter(e.target.value)}>
-                    <option value="">— 영상 선택 —</option>
-                    {vibeporterVideos.map((v) => (
-                      <option key={v.id} value={v.id}>{v.title}</option>
-                    ))}
-                  </Select>
-                )}
-              </div>
-            )}
-          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="운영 채널">
@@ -257,7 +190,7 @@ export function ShortsCommercePanel({
             <SubmitButton>{editId ? "수정 저장" : "쇼츠 저장"}</SubmitButton>
             {editId && (
               <Button type="button" variant="outline" onClick={() => {
-                setEditId(""); setShortsUrl(""); setTitle(""); setContentNote(""); setChannelId(""); setSelected([]); setVideoSource("self"); setSourceVideoId("");
+                setEditId(""); setShortsUrl(""); setTitle(""); setContentNote(""); setChannelId(""); setSelected([]);
               }}>취소</Button>
             )}
             <FormMessage state={state} />
@@ -283,13 +216,9 @@ export function ShortsCommercePanel({
                         <Badge tone={link.status === "linked" ? "green" : "gray"}>
                           {link.status === "linked" ? "상품 연동됨" : "상품 미연동"}
                         </Badge>
-                        {link.video_source === "vibeporter" && <Badge tone="purple">바이브포터 영상</Badge>}
                         {ch && <span className="text-xs text-gray-400">{ch.channel_name}</span>}
                       </div>
                       <div className="mt-1 font-semibold text-gray-900">{link.title || "(제목 없음)"}</div>
-                      {link.video_source === "vibeporter" && link.source_video_title && (
-                        <div className="flex items-center gap-1 text-xs text-brand-pink"><IconShoppingBag size={12} /> {link.source_video_title}</div>
-                      )}
                       <a href={safeHref(link.shorts_url)} target="_blank" rel="noreferrer" className="text-xs text-brand-purple underline break-all">
                         {link.shorts_url}
                       </a>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" role="img" aria-labelledby="title desc">
+  <title id="title">VIBEFUNNY</title>
+  <desc id="desc">바이브퍼니 공식 가로형 로고</desc>
+  <g transform="translate(2 2)">
+    <rect width="60" height="60" rx="17" fill="#111111"/>
+    <rect x=".75" y=".75" width="58.5" height="58.5" rx="16.25" fill="none" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="1.5"/>
+    <path d="M13.5 17.5 27.2 44.2c.95 1.85 3.6 1.85 4.55 0L45.5 17.5" fill="none" stroke="#FFC928" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="78" y="43.5" fill="#111111" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="900" letter-spacing="-1.3">VIBE<tspan fill="#E9A900">FUNNY</tspan></text>
+</svg>

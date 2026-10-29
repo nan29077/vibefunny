@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { displayName } from "@/lib/schema";
 import { nanoid } from "nanoid";
 import { authorizeApi } from "@/lib/auth";
 import { getDb, tx } from "@/lib/db";
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     const participation = (db.campaign_participations ?? []).find((item) => item.id === input.participation_id)!;
     const message: CampaignDirectMessage = {
       id: nanoid(), campaign_id: participation.campaign_id, participation_id: participation.id,
-      creator_id: participation.creator_id, from_role: user.role, from_name: user.name,
+      creator_id: participation.creator_id, from_role: user.role, from_name: displayName(user),
       content, created_at: new Date().toISOString(), read: false,
     };
     if (!db.campaign_direct_messages) db.campaign_direct_messages = [];

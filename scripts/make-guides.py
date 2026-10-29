@@ -229,7 +229,7 @@ def page_bg(c,variant,color,ctop,total):
 def footer(c,pageno,label,color):
     c.setStrokeColor(LINE); c.setLineWidth(0.6); c.line(MX,14*mm,A4w-MX,14*mm)
     c.setFillColor(GRAY); c.setFont(R,7.5); c.drawString(MX,9.5*mm,label)
-    c.drawString(MX,A4h-13*mm,'VIBEACTION')
+    c.drawString(MX,A4h-13*mm,'VIBEFUNNY')
     c.setFillColor(color); c.roundRect(A4w-MX-12*mm,8*mm,12*mm,5*mm,2.5,fill=1,stroke=0)
     c.setFillColor(colors.white); c.setFont(B,7.5); c.drawCentredString(A4w-MX-6*mm,9.6*mm,f'{pageno:02d}')
 
@@ -255,7 +255,7 @@ def cover(c,subtitle,color,label):
     cx=A4w/2
     c.setFillColor(AMBER); c.rect(cx-9*mm,A4h*0.60,18*mm,1.6*mm,fill=1,stroke=0)
     c.setFillColor(colors.HexColor('#C4B5FD')); c.setFont(R,11); c.drawCentredString(cx,A4h*0.555,'AI SHORTFORM CREATOR · COMMERCE PLATFORM')
-    c.setFillColor(colors.white); c.setFont(B,46); c.drawCentredString(cx,A4h*0.47,'VIBEACTION')
+    c.setFillColor(colors.white); c.setFont(B,46); c.drawCentredString(cx,A4h*0.47,'VIBEFUNNY')
     c.setFont(B,24); c.drawCentredString(cx,A4h*0.405,subtitle)
     c.setFillColor(AMBER); c.setFont(B,15); c.drawCentredString(cx,A4h*0.33,'"숏폼으로 수익을 만들다"')
     c.setFillColor(colors.HexColor('#D9D5E8')); c.setFont(R,11)
@@ -267,24 +267,22 @@ def cover(c,subtitle,color,label):
 # 크리에이터용 가이드
 # =========================================================================
 def build_creator():
-    c=canvas.Canvas("/tmp/vibeaction-guide-creator.pdf",pagesize=A4)
+    c=canvas.Canvas("/tmp/vibefunny-guide-creator.pdf",pagesize=A4)
     LB='크리에이터 가이드 · CONFIDENTIAL'
-    cover(c,'크리에이터 가이드',PURPLE,'크리에이터가 여섯 갈래로 수익을 만드는 법')
+    cover(c,'크리에이터 가이드',PURPLE,'크리에이터가 네 갈래로 수익을 만드는 법')
     pg=2
-    # 2 한눈에 보기 (6대)
+    # 2 한눈에 보기 (4대)
     render(c,[
-        TitleBlock('OVERVIEW','한눈에 보는 6대 수익원','layers',PURPLE),
-        para('VIBEACTION 크리에이터는 아래 여섯 가지 수익 활동을 자유롭게 조합합니다. 하나만 해도 되고, 합칠수록 수익이 빠르게 커집니다.',align=TA_CENTER,color=GRAY),
-        KPIRow([('6','수익 파이프라인'),('0원','가입비'),('4','동시 배포 플랫폼')],PURPLE,h=22*mm),
+        TitleBlock('OVERVIEW','한눈에 보는 4대 수익원','layers',PURPLE),
+        para('VIBEFUNNY 크리에이터는 아래 네 가지 수익 활동을 자유롭게 조합합니다. 하나만 해도 되고, 합칠수록 수익이 빠르게 커집니다.',align=TA_CENTER,color=GRAY),
+        KPIRow([('4','수익 파이프라인'),('99만원','가입비'),('4','동시 배포 플랫폼')],PURPLE,h=22*mm),
         tbl([[chl('수익원'),ch('수익 방식'),chl('특징')],
             [cbl('① 캠페인 배포'),cc('배포 건당 고정 단가'),cl('가장 쉬움 · 구독자 0도 가능')],
             [cbl('② 영상 제작'),cc('길이 구간별 제작 단가'),cl('AI 도구로 제작·납품')],
-            [cbl('③ 영상 판매'),cc('영상 판매가의 일부 적립'),cl('한 번 만들면 반복 수익')],
-            [cbl('④ 동화 제작'),cc('동화 1편 제작 적립'),cl('AI스토리 동화 의뢰 연동')],
-            [cbl('⑤ 쇼츠 커머스'),cc('판매가 × 수수료율'),cl('채널 운영 + 상품 연동')],
-            [cbl('⑥ 쇼츠 자체·추천'),cc('조회수 수익 + 추천 수당'),cl('네트워크로 자동화')]],
+            [cbl('③ 쇼츠 커머스'),cc('판매가 × 수수료율'),cl('채널 운영 + 상품 연동')],
+            [cbl('④ 쇼츠 자체·추천'),cc('조회수 수익 + 추천 수당'),cl('멘티 가입비 결제 시 1회')]],
             [40*mm,64*mm,61*mm]),
-        Callout('핵심 전략','쉬운 배포로 기본 수익 → 제작·판매·동화로 단가↑ → 쇼츠 커머스로 상한↑ → 추천·맞구독으로 가속. 순서대로 쌓으세요.',PURPLE,'rocket'),
+        Callout('핵심 전략','쉬운 배포로 기본 수익 → 영상 제작으로 단가↑ → 쇼츠 커머스로 상한↑ → 추천·맞구독으로 가속. (수익 활동은 가입비 결제 후 바이브회원부터) 순서대로 쌓으세요.',PURPLE,'rocket'),
     ],PURPLE,'panel',pg,LB); pg+=1
     # 3 캠페인 배포
     render(c,[
@@ -323,47 +321,9 @@ def build_creator():
         ],AMBER),
         Callout('더 버는 법','AI 도구로 제작 시간을 줄여 건수를 늘리세요. 30초 구간을 하루 3~5건 루틴화하면 안정적입니다.',AMBER,'rocket'),
     ],AMBER,'panel',pg,LB); pg+=1
-    # 5 영상 판매
+    # 5 쇼츠 커머스
     render(c,[
-        TitleBlock('수익원 ③','영상 판매 — 바이브포터','play',ORANGE),
-        para('제작한 숏폼을 <b>바이브포터</b> 마켓에 등록하면 판매될 때마다 적립됩니다. 한 번 만든 영상이 카탈로그에 쌓여 반복 수익이 됩니다.'),
-        tbl([[ch('영상 길이'),ch('판매가'),ch('크리에이터 적립')],
-            [cc('30초 이하'),cc('3,000원'),cb('1,500원',ORANGE)],
-            [cc('60초 이하'),cc('5,000원'),cb('2,500원',ORANGE)],
-            [cc('90초 이하'),cc('7,000원'),cb('3,500원',ORANGE)],
-            [cc('90초 초과'),cc('10,000원'),cb('5,000원',ORANGE)]],
-            [55*mm,55*mm,55*mm],head=ORANGE),
-        FlowDiagram(['영상 등록','노출 승인','마켓 판매','판매분 적립'],ORANGE,h=20*mm),
-        StepList([
-            ('영상 등록','영상판매 메뉴에서 제목·길이·썸네일과 함께 영상을 등록합니다.'),
-            ('노출 승인 대기','관리자 검수 후 마켓에 노출됩니다.'),
-            ('판매','구매자가 영상을 구매합니다. (거래는 바이브포터 앱)'),
-            ('적립·출금','판매분이 적립되고 누적 후 출금합니다.'),
-        ],ORANGE),
-        Callout('더 버는 법','트렌드·계절·인기 카테고리를 반복 제작해 카탈로그를 키우세요. 등록 수가 많을수록 판매·누적 수익이 커집니다.',ORANGE,'rocket'),
-    ],ORANGE,'corner',pg,LB); pg+=1
-    # 6 동화 제작 (NEW)
-    render(c,[
-        TitleBlock('수익원 ④','동화 제작 — AI스토리 의뢰','doc',GREEN),
-        para('AI스토리에서 들어온 <b>맞춤 동화 제작 의뢰</b> 캠페인에 참여해 그림동화를 제작합니다. 아이 이름·테마·그림체·페이지수·목소리 브리프에 맞춰 제작하고 적립받습니다.'),
-        tbl([[ch('동화 분량'),ch('제작 적립(예시)'),ch('비고')],
-            [cc('8페이지 이하'),cb('30,000원',GREEN),cl('짧은 그림동화')],
-            [cc('12페이지 이하'),cb('45,000원',GREEN),cl('표준 그림동화')],
-            [cc('16페이지 이상'),cb('60,000원',GREEN),cl('장편 · 고난도')]],
-            [50*mm,52*mm,63*mm],head=GREEN),
-        FlowDiagram(['동화 캠페인 참여','브리프대로 제작','제출(목소리 포함)','검수 승인 → 적립'],GREEN,h=20*mm),
-        StepList([
-            ('동화 캠페인 찾기','캠페인 메뉴에서 "동화 제작(AI스토리)" 유형 캠페인을 찾습니다.'),
-            ('브리프 확인·신청','아이 이름·나이·테마·그림체·페이지수·목소리 브리프를 확인하고 참여 신청합니다.'),
-            ('동화 제작','브리프에 맞춰 그림+텍스트 동화를 제작하고, 필요 시 목소리 더빙을 반영합니다.'),
-            ('결과물 제출','완성한 동화를 제출합니다.'),
-            ('정산 수령','검수 승인 후 분량별 제작 적립금이 지갑에 들어옵니다.'),
-        ],GREEN),
-        Callout('더 버는 법','그림체를 다양화하고 회차를 빠르게 소화하세요. 목소리 더빙 등 옵션 작업까지 맡으면 건당 적립을 높일 수 있습니다.',GREEN,'rocket'),
-    ],GREEN,'panel',pg,LB); pg+=1
-    # 7 쇼츠 커머스
-    render(c,[
-        TitleBlock('수익원 ⑤','유튜브 쇼츠 커머스','cart',PINK),
+        TitleBlock('수익원 ③','유튜브 쇼츠 커머스','cart',PINK),
         para('내 유튜브 채널 쇼츠에 상품을 연동해 <b>판매 수수료</b>를 얻습니다. 관리자가 등록한 카페24 연동 상품을 영상에 맞게 추천받아 연결하고, 결제·배송은 카페24가 처리합니다.'),
         tbl([[chl('상품(예시)'),ch('판매가'),ch('수수료'),ch('건당 적립')],
             [cl('뷰티 수분세럼'),cc('24,900'),cc('12%'),cb('2,988원',PINK)],
@@ -372,39 +332,38 @@ def build_creator():
             [56*mm,33*mm,30*mm,46*mm],head=PINK),
         StepList([
             ('운영 채널 등록','내 SNS 계정 → "숏폼 운영 채널 YouTube"에 운영 채널을 등록합니다.'),
-            ('쇼츠 준비','직접 제작하거나 바이브포터에서 구매한 영상으로 쇼츠를 업로드합니다.'),
+            ('쇼츠 준비','직접 제작한 영상으로 쇼츠를 업로드합니다.'),
             ('상품 연동','쇼츠 커머스 메뉴에서 링크 입력 → 추천 상품 중 골라 연동합니다.'),
             ('판매 발생','시청자가 연동 상품을 구매합니다. (결제·배송은 카페24)'),
             ('수수료 수령','판매가 × 수수료율이 적립 → 출금 신청.'),
         ],PINK),
         Callout('더 버는 법','한 쇼츠에 여러 상품을 연동하면 영상 1편이 다중 수익원이 됩니다. 영상 주제와 잘 맞는 고수수료 상품을 고르세요.',PINK,'rocket'),
     ],PINK,'sideband',pg,LB); pg+=1
-    # 8 자체수익 + 추천
+    # 6 자체수익 + 추천
     render(c,[
-        TitleBlock('수익원 ⑥','쇼츠 자체 수익 · 추천/맞구독','users',PURPLE2),
-        para('<b>쇼츠 자체 수익</b> — 내 채널 쇼츠는 상품 수수료와 별개로 <b>조회수 기반 수익화</b>로도 수익이 납니다. <b>추천·맞구독</b> — 회원 맞구독으로 초기 구독자를 모으고, 추천 링크로 수당을 받습니다.'),
+        TitleBlock('수익원 ④','쇼츠 자체 수익 · 추천/맞구독','users',PURPLE2),
+        para('<b>쇼츠 자체 수익</b> — 내 채널 쇼츠는 상품 수수료와 별개로 <b>조회수 기반 수익화</b>로도 수익이 납니다. <b>추천·맞구독</b> — 회원 맞구독으로 초기 구독자를 모으고, 내 추천 코드로 가입한 멘티가 가입비를 결제하면 1회 고정 추천 수당을 받습니다.'),
         FlowDiagram(['맞구독·추천','구독자 확보','수익화 조건 도달','조회수·추천 수익'],PURPLE2,h=20*mm),
         StepList([
             ('수익화 조건 확인','내 운영 채널의 쇼츠 수익화 조건(구독자/조회수)을 확인합니다.'),
             ('맞구독 참여','SNS 맞구독 커뮤니티에서 서로 구독해 초기 구독자를 확보합니다.'),
             ('추천 링크 공유','내 추천 코드/링크를 지인에게 공유합니다.'),
             ('꾸준한 업로드','쇼츠를 지속 업로드해 조회수 기반 수익을 키웁니다.'),
-            ('수익 수령','추천 수당과 쇼츠 수익이 적립됩니다.'),
+            ('수익 수령','멘티 가입비 결제 시 1회 추천 수당, 쇼츠 수익이 적립됩니다.'),
         ],PURPLE2),
-        Callout('더 버는 법','초반엔 맞구독으로 구독자를 빠르게 모아 수익화 조건을 채우세요. 추천은 인원 제한이 없어 네트워크가 클수록 자동 수익이 쌓입니다.',PURPLE2,'rocket'),
+        Callout('더 버는 법','초반엔 맞구독으로 구독자를 빠르게 모아 수익화 조건을 채우세요. 추천은 1단계(직접 추천)만 적용되며 인원 제한은 없습니다.',PURPLE2,'rocket'),
     ],PURPLE2,'panel',pg,LB); pg+=1
-    # 9 통합 시뮬
+    # 7 통합 시뮬 (월 합계는 각 항목 합산으로 계산)
+    SIM=[('라이트',20,0,6,4),('액티브',40,5,30,15),('전업',80,24,120,30)]  # 단위: 만원 (제작=서비스 소개서와 동일 가정)
     render(c,[
         TitleBlock('SIMULATION','통합 월 수익 시뮬레이션','chart',PURPLE),
         para('여러 수익원을 함께 운영했을 때의 합산 예시입니다. (가정치 · 실제는 활동량/전환율에 따라 변동)',align=TA_CENTER,color=GRAY),
-        tbl([[chl('시나리오'),ch('배포'),ch('제작·동화'),ch('쇼츠 커머스'),ch('판매·추천'),ch('월 합계')],
-            [cbl('라이트'),cc('20만'),cc('-'),cc('~6만'),cc('~4만'),cb('약 30만원')],
-            [cbl('액티브'),cc('40만'),cc('10만'),cc('~30만'),cc('~15만'),cb('약 95~120만원')],
-            [cbl('전업'),cc('80만'),cc('30만'),cc('~120만'),cc('~30만'),cb('약 200만원+')]],
+        tbl([[chl('시나리오'),ch('배포'),ch('영상 제작'),ch('쇼츠 커머스'),ch('추천/기타'),ch('월 합계')]]+
+            [[cbl(n),cc(f'{d}만'),cc(f'{m}만' if m else '-'),cc(f'~{sc}만'),cc(f'~{r}만'),cb(f'약 {d+m+sc+r}만원')] for n,d,m,sc,r in SIM],
             [22*mm,24*mm,26*mm,28*mm,24*mm,41*mm]),
-        Callout('수익 극대화 공식','① 쉬운 배포로 베이스 → ② 제작·판매·동화로 단가↑ → ③ 쇼츠 커머스로 상한↑ → ④ 추천·맞구독으로 자동화. 여섯 수익원을 단계적으로 쌓으면 수익 곡선이 가팔라집니다.',PURPLE,'star'),
+        Callout('수익 극대화 공식','① 쉬운 배포로 베이스 → ② 영상 제작으로 단가↑ → ③ 쇼츠 커머스로 상한↑ → ④ 추천·맞구독으로 가속. 네 수익원을 단계적으로 쌓으면 수익 곡선이 가팔라집니다.',PURPLE,'star'),
     ],PURPLE,'bar',pg,LB); pg+=1
-    # 10 정산 + 행동가이드
+    # 8 정산 + 행동가이드
     render(c,[
         TitleBlock('PAYOUT & ROUTINE','정산 흐름 · 실전 루틴','wallet',BLUE),
         para('<b>정산</b> — 적립(대기) → 작업 승인 시 출금가능 전환 → 언제든 출금 신청. 출금 시 세무 처리 후 지급됩니다.'),
@@ -414,14 +373,14 @@ def build_creator():
             ('출금 신청','출금가능 잔액을 계좌로 출금 신청합니다.'),
             ('세무 처리·지급','원천징수 등 처리 후 지급됩니다.'),
         ],BLUE,title='출금 방법'),
-        Callout('주간 루틴 체크리스트','매일: 배포 1~2건 + 쇼츠 1편. 주간: 영상 5~10건 마켓 등록, 동화 캠페인 확인, 쇼츠 상품 연동 점검, 맞구독·추천 공유.',BLUE,'check'),
+        Callout('주간 루틴 체크리스트','매일: 배포 1~2건 + 쇼츠 1편. 주간: 제작 캠페인 확인, 쇼츠 상품 연동 점검, 맞구독·추천 공유.',BLUE,'check'),
     ],BLUE,'corner',pg,LB); pg+=1
-    # 11 CTA
+    # 9 CTA
     render(c,[
         TitleBlock('START','지금 시작하세요','rocket',PURPLE),
-        para('가입 → SNS/운영 채널 등록 → 가장 쉬운 배포부터 시작하면 됩니다. 활동을 늘리고 조합할수록 수익이 커집니다.',align=TA_CENTER),
-        KPIRow([('6','수익 파이프라인'),('0원','가입비'),('4','동시 배포 플랫폼')],PURPLE,h=22*mm),
-        Callout('VIBEACTION 크리에이터로 시작하기','앱에서 가입 후 대시보드의 캠페인·쇼츠 커머스 메뉴에서 바로 활동을 시작할 수 있습니다.',PURPLE,'play'),
+        para('추천 코드로 가입(일반회원) → 가입비 990,000원 결제(바이브회원) → SNS/운영 채널 등록 → 가장 쉬운 배포부터 시작하면 됩니다. 활동을 늘리고 조합할수록 수익이 커집니다.',align=TA_CENTER),
+        KPIRow([('4','수익 파이프라인'),('99만원','가입비'),('4','동시 배포 플랫폼')],PURPLE,h=22*mm),
+        Callout('VIBEFUNNY 크리에이터로 시작하기','추천 코드로 가입 후 가입비를 결제해 바이브회원이 되면 대시보드의 캠페인·쇼츠 커머스 메뉴에서 활동을 시작할 수 있습니다.',PURPLE,'play'),
     ],PURPLE,'panel',pg,LB); pg+=1
     c.save(); return pg-1
 
@@ -429,15 +388,15 @@ def build_creator():
 # 광고주용 가이드
 # =========================================================================
 def build_advertiser():
-    c=canvas.Canvas("/tmp/vibeaction-guide-advertiser.pdf",pagesize=A4)
+    c=canvas.Canvas("/tmp/vibefunny-guide-advertiser.pdf",pagesize=A4)
     LB='광고주 가이드 · CONFIDENTIAL'
-    cover(c,'광고주 가이드',BLUE,'실행사 · 대행사 · 제작의뢰인을 위한 숏폼 마케팅')
+    cover(c,'광고주 가이드',BLUE,'실행사 · 대행사를 위한 숏폼 마케팅')
     pg=2
     render(c,[
-        TitleBlock('OVERVIEW','왜 VIBEACTION 인가','target',BLUE),
+        TitleBlock('OVERVIEW','왜 VIBEFUNNY 인가','target',BLUE),
         para('검증된 크리에이터 풀로 숏폼 영상 제작과 4대 플랫폼 동시 배포를 빠르고 합리적인 단가로 집행합니다. 포인트 기반으로 투명하게 정산되고, 성과까지 추적할 수 있습니다.',align=TA_CENTER,color=GRAY),
         KPIRow([('4','동시 배포 플랫폼'),('80억+','4대 플랫폼 사용자'),('포인트','투명 정산')],BLUE,h=22*mm),
-        tbl([[chl('니즈'),ch('VIBEACTION 제공')],
+        tbl([[chl('니즈'),ch('VIBEFUNNY 제공')],
             [cbl('빠른 제작',BLUE),cl('AI 기반 다수 크리에이터 동시 제작 · 표준 단가')],
             [cbl('넓은 도달',BLUE),cl('YouTube·Instagram·TikTok·Facebook 동시 배포')],
             [cbl('안전한 집행',BLUE),cl('브랜드 세이프티 옵션 · 검수 승인 후 지급')],
@@ -501,7 +460,7 @@ def build_advertiser():
     render(c,[
         TitleBlock('ROI','도입 효과 · ROI','rocket',PURPLE),
         para('자체 제작·개별 섭외 대비 시간과 비용을 줄이면서 도달을 키웁니다. 예시로 단순 비교해 봅니다.',align=TA_CENTER,color=GRAY),
-        tbl([[chl('구분'),ch('기존 방식(예시)'),ch('VIBEACTION')],
+        tbl([[chl('구분'),ch('기존 방식(예시)'),ch('VIBEFUNNY')],
             [cbl('영상 1편 제작'),cc('수십만원·수일'),cb('15초 1만원~ · 신속')],
             [cbl('4채널 배포'),cc('개별 섭외·관리'),cb('1세트 6만원 일괄')],
             [cbl('성과 추적'),cc('수기/분산'),cb('UTM·코드·KPI 통합')]],
@@ -513,8 +472,8 @@ def build_advertiser():
         para('실행사–대행사 수직 구조를 지원하며, 대행사 집행액 기준 수직 수수료가 자동 반영됩니다.'),
         tbl([[chl('주체'),ch('역할')],
             [cbl('실행사',BLUE),cl('캠페인 직접 집행 · 대행사 관리')],
-            [cbl('대행사',BLUE),cl('상위 실행사 소속으로 캠페인 집행')],
-            [cbl('제작의뢰인',BLUE),cl('영상 제작 의뢰(바이브포터 등) 중심')]],
+            [cbl('대행사',BLUE),cl('실행사 코드 또는 추천인 없음으로 가입해 캠페인 집행')],
+            [cbl('유형 선택',BLUE),cl('회원가입 시 선택 (충전액으로 자동 변경 없음)')]],
             [40*mm,125*mm],head=BLUE),
         Callout('정산 정책','포인트 충전·사용·환불이 원장으로 관리되고, 대행사 거래는 실행사 수직 수수료(예: 5%)가 자동 정산됩니다.',BLUE,'wallet'),
     ],BLUE,'panel',pg,LB); pg+=1
@@ -523,11 +482,11 @@ def build_advertiser():
         para('간단한 절차로 바로 시작할 수 있습니다.',align=TA_CENTER),
         FlowDiagram(['광고주 가입','포인트 충전','캠페인 등록','집행·검수·정산'],PURPLE),
         Callout('도입 문의','제휴·대량 집행·맞춤 단가는 앱 내 문의 또는 운영팀 이메일로 연락 주세요. 캠페인 설계부터 리포팅까지 함께합니다.',PURPLE,'handshake'),
-        para('© 2025 VIBEACTION · 본 자료의 수치/단가는 예시이며 정책에 따라 변동될 수 있습니다.',size=8,color=GRAY,align=TA_CENTER),
+        para('© 2025 VIBEFUNNY · 본 자료의 수치/단가는 예시이며 정책에 따라 변동될 수 있습니다.',size=8,color=GRAY,align=TA_CENTER),
     ],PURPLE,'corner',pg,LB); pg+=1
     c.save(); return pg-1
 
 n1=build_creator(); n2=build_advertiser()
 print("creator pages:",n1+1,"advertiser pages:",n2+1)
-for f in ["/tmp/vibeaction-guide-creator.pdf","/tmp/vibeaction-guide-advertiser.pdf"]:
+for f in ["/tmp/vibefunny-guide-creator.pdf","/tmp/vibefunny-guide-advertiser.pdf"]:
     print(f, os.path.getsize(f),"bytes")

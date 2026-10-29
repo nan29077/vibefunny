@@ -4,7 +4,7 @@ import { SubmitButton } from "@/components/form";
 import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { PLATFORM_LABELS } from "@/lib/schema";
-import { reviewDeliveryAction } from "@/lib/actions/request-actions";
+import { reviewDeliveryAction, acceptApplicationAction, cancelRequestAction } from "@/lib/actions/request-actions";
 import { requireAdmin } from "@/lib/auth";
 import { safeHref } from "@/lib/url";
 
@@ -20,6 +20,8 @@ const STATUS_LABELS: Record<string, string> = {
   approved: "승인됨",
   paid: "지급됨",
   assigned: "배정됨",
+  payment_pending: "결제 대기",
+  refunded: "환불됨",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -62,6 +64,8 @@ export default function AdminRequestsPage() {
           const statusLabel = STATUS_LABELS[r.status] ?? r.status;
           const maxC = r.max_creators;
           const curS = r.current_submissions ?? 0;
+          const applications = db.custom_video_applications.filter((a) => a.request_id === r.id);
+          const cancellable = ["payment_pending", "open", "assigned", "in_progress", "submitted", "revision_requested"].includes(r.status);
 
           return (
             <div key={r.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -122,6 +126,35 @@ export default function AdminRequestsPage() {
                 </div>
               )}
 
+              {/* 참여 신청자 (모집중일 때 작업자 선정) */}
+              {applications.length > 0 && (
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <div className="mb-2 text-sm font-semibold text-gray-700">참여 신청 ({applications.length})</div>
+                  <div className="space-y-2">
+                    {applications.map((a) => (
+                      <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-gray-800">{nameOf(db, a.creator_id)}</span>
+                            <span className="whitespace-nowrap rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+                              {{ applied: "신청", accepted: "선정", rejected: "미선정", cancelled: "취소" }[a.status] ?? a.status}
+                            </span>
+                            <span className="text-xs text-gray-500">제안가 {formatKRW(a.proposed_price ?? r.budget)}</span>
+                          </div>
+                          {a.proposal_message && <p className="mt-0.5 text-xs text-gray-500">{a.proposal_message}</p>}
+                        </div>
+                        {r.status === "open" && a.status === "applied" && (
+                          <form action={acceptApplicationAction}>
+                            <input type="hidden" name="application_id" value={a.id} />
+                            <SubmitButton size="sm">작업자로 선정</SubmitButton>
+                          </form>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Deliveries */}
               {deliveries.length > 0 && (
                 <div className="mt-4 border-t border-gray-100 pt-3">
@@ -138,7 +171,7 @@ export default function AdminRequestsPage() {
                           </div>
                           {d.video_url && (
                             <a href={safeHref(d.video_url)} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline truncate block max-w-xs">
-                              {d.video_url.startsWith("/uploads/") ? "업로드된 파일 보기" : d.video_url}
+                              {d.video_url.startsWith("/api/files/") || d.video_url.startsWith("/uploads/") ? "업로드된 파일 보기" : d.video_url}
                             </a>
                           )}
                           {d.message && <p className="text-xs text-gray-500 mt-0.5">{d.message}</p>}
@@ -161,6 +194,16 @@ export default function AdminRequestsPage() {
                     ))}
                   </div>
                 </div>
+              )}
+              {cancellable && (
+                <form action={cancelRequestAction} className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                  <input type="hidden" name="request_id" value={r.id} />
+                  <label htmlFor={`cancel-reason-${r.id}`} className="sr-only">취소 사유</label>
+                  <input id={`cancel-reason-${r.id}`} name="reason" aria-label="취소 사유" placeholder="취소 사유 (의뢰자에게 전달)" className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                  <SubmitButton size="sm" variant="outline" confirmMessage={r.payment_id ? `의뢰를 취소하고 결제액 ${r.budget.toLocaleString("ko-KR")}원을 환불 처리할까요?` : "의뢰를 취소할까요?"}>
+                    {r.payment_id ? "의뢰 취소·환불" : "의뢰 취소"}
+                  </SubmitButton>
+                </form>
               )}
             </div>
           );

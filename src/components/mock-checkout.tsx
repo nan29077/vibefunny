@@ -13,11 +13,25 @@ export function MockCheckout({
   paymentId,
   amount,
   orderName,
+  ready = true,
 }: {
   paymentId: string;
   amount: number;
   orderName: string;
+  /** 결제 수단 준비 여부 (운영 환경에서 PG 미연동이면 false) */
+  ready?: boolean;
 }) {
+  if (!ready) {
+    return (
+      <Card>
+        <h2 className="text-lg font-bold text-gray-900">{orderName}</h2>
+        <p className="mt-1 text-3xl font-extrabold text-brand-purple">{formatKRW(amount)}</p>
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+          온라인 결제를 준비 중입니다. 결제가 필요하시면 관리자(고객센터 문의)에게 연락해 주세요.
+        </div>
+      </Card>
+    );
+  }
   return (
     <Card className="border-dashed">
       <div className="mb-1 inline-flex rounded-full bg-brand-yellow/30 px-2 py-0.5 text-xs font-semibold text-yellow-800">

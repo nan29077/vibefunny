@@ -13,6 +13,8 @@ import {
 } from "@/lib/schema";
 import { IconHeartHandshake } from "@/components/icons";
 import { safeHref } from "@/lib/url";
+import { VibeOnlyNotice } from "@/components/membership/vibe-only-notice";
+import { isVibeMember } from "@/lib/membership";
 
 export const dynamic = "force-dynamic";
 
@@ -183,7 +185,16 @@ export default function CreatorCommunityPage({
   const threshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   // 모든 크리에이터 (활성)
-  const allCreators = db.profiles.filter((p) => p.role === "creator" && p.status === "active");
+  // 맞구독 목록에는 바이브회원(가입비 결제 완료)만 보인다
+  const allCreators = db.profiles.filter((p) => p.role === "creator" && p.status === "active" && isVibeMember(db, p));
+  if (!isVibeMember(db, me)) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="SNS 맞구독" description="크리에이터들의 SNS 채널을 맞구독하며 함께 성장하세요." />
+        <VibeOnlyNotice feature="SNS 맞구독" signupFee={db.settings.fees.creator.signup_fee_amount} />
+      </div>
+    );
+  }
 
   // 플랫폼 필터
   const activePlatform = (searchParams?.platform ?? "") as SocialPlatform | "";

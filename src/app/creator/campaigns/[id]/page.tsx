@@ -13,6 +13,10 @@ import {
 } from "@/lib/actions/campaign-actions";
 import { safeHref } from "@/lib/url";
 import { canCreatorViewCampaign, isCampaignActive } from "@/lib/campaign-workflow";
+import { formatDate } from "@/lib/date";
+import { VibeOnlyNotice } from "@/components/membership/vibe-only-notice";
+import { isVibeMember } from "@/lib/membership";
+import { blocksReapply, cancelledByReviewer } from "@/lib/participation-rules";
 
 // 서버 액션 결과(성공/실패 메시지)를 화면 상단에 보여주기 위해 쿼리로 전달한다.
 async function joinParticipationAction(fd: FormData): Promise<void> {
@@ -39,6 +43,7 @@ export default function CreatorCampaignDetailPage({
 }) {
   const user = requireRole("creator");
   const db = getDb();
+  const vibe = isVibeMember(db, user);
 
   const campaign = db.ad_campaigns.find((c) => c.id === params.id);
   // 승인 전(검토중)·반려·취소 캠페인은 참여 이력이 없는 크리에이터에게 노출하지 않는다
@@ -74,6 +79,9 @@ export default function CreatorCampaignDetailPage({
         title={campaign.title}
         description={`${CAMPAIGN_TYPE_LABELS[campaign.campaign_type]} · ${campaign.platforms.map((pl) => PLATFORM_LABELS[pl]).join(", ")}`}
       />
+      {!vibe && (
+        <VibeOnlyNotice feature="캠페인 참여" signupFee={db.settings.fees.creator.signup_fee_amount} compact />
+      )}
       {notice && (
         <div className={`rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {notice}
@@ -95,8 +103,8 @@ export default function CreatorCampaignDetailPage({
             <div className="text-lg font-bold text-brand-purple">
               {formatKRW(
                 (campaign.video_production_count ?? 0) > 0 && campaign.distribution_count === 0
-                  ? creatorVideoPayout(db, campaign.video_duration_tier)
-                  : creatorDeployPayout(db, campaign.platforms)
+                  ? creatorVideoPayout(db, campaign.video_duration_tier, campaign)
+                  : creatorDeployPayout(db, campaign.platforms, campaign)
               )}
             </div>
             <div className="text-xs text-gray-400">/ 건</div>
@@ -104,10 +112,10 @@ export default function CreatorCampaignDetailPage({
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
           <div><span className="text-gray-500">캠페인 유형</span><div className="font-medium">{CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}</div></div>
-          <div><span className="text-gray-500">플랫폼</span><div className="font-medium">{campaign.platforms.map((pl) => PLATFORM_LABELS[pl]).join(", ")}</div></div>
-          <div><span className="text-gray-500">배포 건수</span><div className="font-medium">{campaign.distribution_count}건</div></div>
-          {campaign.start_date && <div><span className="text-gray-500">시작 희망일</span><div className="font-medium">{campaign.start_date}</div></div>}
-          {campaign.end_date && <div><span className="text-gray-500">종료 희망일</span><div className="font-medium">{campaign.end_date}</div></div>}
+          {campaign.platforms.length > 0 && <div><span className="text-gray-500">플랫폼</span><div className="font-medium">{campaign.platforms.map((pl) => PLATFORM_LABELS[pl]).join(", ")}</div></div>}
+          {campaign.distribution_count > 0 && <div><span className="text-gray-500">배포 건수</span><div className="font-medium">{campaign.distribution_count}건</div></div>}
+          {campaign.start_date && <div><span className="text-gray-500">시작 희망일</span><div className="font-medium">{formatDate(campaign.start_date)}</div></div>}
+          {campaign.end_date && <div><span className="text-gray-500">종료 희망일</span><div className="font-medium">{formatDate(campaign.end_date)}</div></div>}
           {campaign.target_keywords && <div><span className="text-gray-500">타겟 키워드</span><div className="font-medium">{campaign.target_keywords}</div></div>}
         </div>
       </Card>
@@ -204,7 +212,7 @@ export default function CreatorCampaignDetailPage({
                     <div className="text-sm font-semibold text-blue-800">배포 참여</div>
                     <div className="text-xs text-blue-600 mt-0.5">배포 건수: {campaign.distribution_count}건</div>
                   </div>
-                  {(!myDeployPt || myDeployPt.status === "cancelled") && (
+                  {vibe && (!myDeployPt || !blocksReapply(myDeployPt)) && (
                     <form action={joinParticipationAction}>
                       <input type="hidden" name="campaign_id" value={campaign.id} />
                       <input type="hidden" name="participation_type" value="deploy" />
@@ -222,6 +230,7 @@ export default function CreatorCampaignDetailPage({
                     {myDeployPt.status === "deploy_submitted" && "제출 완료. 광고주 검토 중입니다."}
                     {myDeployPt.status === "deploy_approved" && "승인 완료!"}
                     {myDeployPt.status === "completed" && "완료! 수익이 지급되었습니다."}
+                    {cancelledByReviewer(myDeployPt) && `선발이 취소되었습니다${myDeployPt.rejection_reason ? ` — ${myDeployPt.rejection_reason}` : ""}. 이 캠페인에는 다시 신청할 수 없습니다.`}
                   </div>
                 )}
 
@@ -265,7 +274,7 @@ export default function CreatorCampaignDetailPage({
                     <div className="text-sm font-semibold text-purple-800">영상제작 참여</div>
                     <div className="text-xs text-purple-600 mt-0.5">영상제작 건수: {campaign.video_production_count}건</div>
                   </div>
-                  {(!myVideoPt || myVideoPt.status === "cancelled") && (
+                  {vibe && (!myVideoPt || !blocksReapply(myVideoPt)) && (
                     <form action={joinParticipationAction}>
                       <input type="hidden" name="campaign_id" value={campaign.id} />
                       <input type="hidden" name="participation_type" value="video_production" />
@@ -283,6 +292,7 @@ export default function CreatorCampaignDetailPage({
                     {myVideoPt.status === "video_submitted" && "제출 완료. 광고주 검토 중입니다."}
                     {myVideoPt.status === "video_approved" && "영상 승인 완료!"}
                     {myVideoPt.status === "completed" && "완료! 수익이 지급되었습니다."}
+                    {cancelledByReviewer(myVideoPt) && `선발이 취소되었습니다${myVideoPt.rejection_reason ? ` — ${myVideoPt.rejection_reason}` : ""}. 이 캠페인에는 다시 신청할 수 없습니다.`}
                   </div>
                 )}
 

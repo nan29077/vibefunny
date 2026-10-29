@@ -4,6 +4,7 @@ import { useFormState } from "react-dom";
 import { Field, Input, Select, Textarea } from "@/components/ui";
 import { FormMessage, SubmitButton, initialActionState, type ActionState } from "@/components/form";
 import {
+  adminCancelJobAction,
   addModelAction,
   addProviderAction,
   adjustFunnyAction,
@@ -85,7 +86,7 @@ export function AiShortsSettingsForm({
 
       <section>
         <h3 className="mb-2 text-sm font-bold text-gray-800">퍼니 충전 상품</h3>
-        <p className="mb-2 text-xs text-gray-500">결제 금액(원) ÷ 10 = 충전 퍼니. 보너스 퍼니는 추가로 지급됩니다(관리자 지급분과 같이 '보너스'로 관리, 먼저 사용).</p>
+        <p className="mb-2 text-xs text-gray-500">결제 금액(원) ÷ 10 = 충전 퍼니. 보너스 퍼니는 추가로 지급됩니다(관리자 지급분과 같이 &apos;보너스&apos;로 관리, 먼저 사용).</p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((p, i) => (
             <div key={i} className="flex items-center gap-2 rounded-xl border border-gray-200 p-2">
@@ -263,6 +264,18 @@ export function AdjustFunnyForm() {
         <SubmitButton>처리</SubmitButton>
         <FormMessage state={state} />
       </div>
+    </form>
+  );
+}
+
+// --- 작업 강제 취소 (실패 이유를 화면에 표시) ----------------------------------------
+export function AdminCancelJobForm({ jobId }: { jobId: string }) {
+  const [state, action] = useFormState(adminCancelJobAction, initialActionState);
+  return (
+    <form action={action} className="space-y-1">
+      <input type="hidden" name="job_id" value={jobId} />
+      <SubmitButton size="sm" variant="outline">취소·환불</SubmitButton>
+      <FormMessage state={state} />
     </form>
   );
 }

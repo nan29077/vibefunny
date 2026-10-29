@@ -3,6 +3,7 @@ import Link from "next/link";
 export const metadata = {
   title: "유튜브 쇼츠 커머스 수익 | VIBEFUNNY",
   description: "내 유튜브 채널을 운영하며 숏폼에 상품을 연동해 판매 수수료를 버는 새로운 수익 구조. 카페24 연동 상품을 쇼츠에 연결하면 판매할 때마다 수익이 적립됩니다.",
+  alternates: { canonical: "/revenue/shorts-commerce" },
 };
 
 const BG = {
@@ -61,7 +62,7 @@ export default function ShortsCommerceRevenuePage() {
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/#income" className="hidden text-sm text-gray-400 transition hover:text-white md:block">← 수익 구조</Link>
-          <Link href="/signup" className="rounded-full px-5 py-2 text-sm font-bold text-black" style={{ background: "#f59e0b" }}>무료 시작하기</Link>
+          <Link href="/signup" className="rounded-full px-5 py-2 text-sm font-bold text-black" style={{ background: "#f59e0b" }}>추천 코드로 가입하기</Link>
         </div>
       </header>
 

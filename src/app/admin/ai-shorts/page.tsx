@@ -5,7 +5,7 @@ import { Card, PageHeader, StatCard, Badge } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
 import { toggleAiShortsAction } from "@/lib/actions/ai-admin-actions";
 import { AiShortsSettingsForm } from "@/components/ai-shorts/admin-forms";
-import { AI_CAPABILITIES, CAPABILITY_LABELS, getAiShortsSettings, kstMonthStartIso } from "@/lib/ai/settings";
+import { AI_CAPABILITIES, CAPABILITY_LABELS, getAiShortsSettings, kstMonthStartIso, missingRequiredCapabilities } from "@/lib/ai/settings";
 import { capabilityStatus, modelUsable, monthCostWon } from "@/lib/ai/engine";
 import { formatFunny } from "@/lib/funny";
 import { formatKRW } from "@/lib/money";
@@ -36,11 +36,23 @@ export default function AdminAiShortsPage() {
         .map((m) => ({ id: m.id, label: `${m.label} · ${(db.ai_providers ?? []).find((p) => p.id === m.provider_id)?.name ?? ""}`, usable: modelUsable(db, m).ok })),
     ])
   ) as Record<(typeof AI_CAPABILITIES)[number], Array<{ id: string; label: string; usable: boolean }>>;
-  const notReady = !caps.text.ready || !caps.image.ready || !caps.tts.ready;
+  const missing = missingRequiredCapabilities(db);
+  const notReady = missing.length > 0;
 
   return (
     <div className="space-y-6">
       <PageHeader title="AI 숏츠 설정" description="크리에이터가 퍼니를 충전해 AI로 숏츠를 만드는 기능을 켜고 끄고, 가격·한도·모델을 정합니다." />
+
+      {s.enabled && notReady && (
+        <div role="alert" className="rounded-2xl border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <p className="text-base font-extrabold text-red-700">⚠ 켜져 있지만 사용할 수 있는 모델이 없어 크리에이터가 이용할 수 없습니다 — AI 공급사·모델에서 등록하세요</p>
+          <p className="mt-1">
+            준비되지 않은 작업: <b>{missing.map((c) => CAPABILITY_LABELS[c]).join(", ")}</b>
+            {!caps.text.ready ? " · 대본 AI가 없어 크리에이터 메뉴와 퍼니 충전이 숨겨지거나 막힙니다." : " · 해당 단계는 크리에이터가 진행할 수 없습니다."}
+          </p>
+          <Link href="/admin/ai-shorts/providers" className="mt-2 inline-block font-semibold text-red-700 underline">AI 공급사·모델 설정으로 이동</Link>
+        </div>
+      )}
 
       {/* 메인 스위치 */}
       <Card className={s.enabled ? "border-green-200 bg-green-50" : "border-gray-200"}>
@@ -67,7 +79,7 @@ export default function AdminAiShortsPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="이번 달 퍼니 충전" value={formatKRW(chargeWon)} accent="purple" />
         <StatCard label="이번 달 사용 퍼니" value={formatFunny(spentFunny)} accent="pink" />
-        <StatCard label={`이번 달 AI 원가${s.monthly_budget_won ? ` / 한도 ${formatKRW(s.monthly_budget_won)}` : ""}`} value={formatKRW(cost)} accent={s.monthly_budget_won && cost > s.monthly_budget_won * 0.8 ? "yellow" : "gray"} />
+        <StatCard label={`이번 달 AI 원가(실패·취소 포함)${s.monthly_budget_won ? ` / 한도 ${formatKRW(s.monthly_budget_won)}` : ""}`} value={formatKRW(cost)} accent={s.monthly_budget_won && cost > s.monthly_budget_won * 0.8 ? "yellow" : "gray"} />
         <StatCard label="진행 중 작업 / 이번 달 실패" value={`${active} / ${failed}`} accent="gray" />
       </div>
       <p className="text-xs text-gray-500">이용 크리에이터 {creators}명 · 미사용 충전 퍼니 잔액(선수금) {formatFunny(outstanding)} = {formatKRW(outstanding * 10)}</p>

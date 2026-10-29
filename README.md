@@ -1,6 +1,6 @@
-# VIBEACTION 🎬
+# VIBEFUNNY (바이브퍼니) 🎬
 
-영상 제작 부업 · 숏폼 배포 광고 · 영상 판매 마켓플레이스 · 추천인 수당 · 광고주 포인트 결제 · 관리자 정산을 포함한 한국어 반응형 웹앱 MVP.
+영상 제작 부업 · 숏폼 배포 광고 · AI 숏츠 제작 · 쇼츠 커머스 · 추천인 수당 · 광고주 포인트 결제 · 관리자 정산을 포함한 한국어 반응형 웹앱 MVP.
 
 ---
 
@@ -24,7 +24,7 @@
 ```bash
 npm install
 npm run dev
-# http://localhost:3000
+# http://localhost:3001  (package.json: next dev -p 3001)
 ```
 
 최초 실행 시 `/data/db.json` 이 자동 생성됩니다.
@@ -67,21 +67,21 @@ PAYMENT_PROVIDER=mock         # mock | toss (현재 mock 구현)
 | 역할 | 코드 | 핵심 기능 |
 |---|---|---|
 | 최고관리자 | `admin` | 전 회원/정책/단가/수수료/승인/정산 관리 |
-| VIBEACTION 회원 | `creator` | 영상 제작·판매, 제작 의뢰 참여, 캠페인 배포, 수익 출금 |
-| 영상 구매 회원 | `buyer` | 영상 구매·다운로드, 제작 의뢰, 결과물 검수 |
-| 광고주 회원 | `advertiser` | 포인트 충전, 캠페인 집행. **실행사**(상위) / **대행사**(하위)로 구분 |
+| 크리에이터 회원 | `creator` | **일반회원**(가입 직후: 로그인·대시보드·프로필/SNS 계정·문의) → 가입비 **990,000원** 결제 시 **바이브회원**(캠페인 참여·영상 제작 의뢰·쇼츠 커머스·AI 숏츠·출금·SNS 맞구독·내 추천 코드 공유) |
+| 광고주 회원 | `advertiser` | 포인트 충전, 캠페인 집행. 가입 시 **실행사**(직접 가입) / **대행사**(실행사 코드 입력 또는 '추천인 없음')를 선택 — 충전액에 따른 자동 전환 없음 |
+
+> 역할은 `admin` / `creator` / `advertiser` 세 가지입니다.
 
 ---
 
 ## 5. 주요 플로우 (직접 체험 순서)
 
-1. **회원가입/가입비** — `/signup` 에서 역할 선택 후 가입. 관리자 정책에서 가입비를 켜면 가입 후 Mock 결제→활성화, 추천인이 있으면 추천 수당(가입비의 %)이 pending 생성.
-2. **관리자 정책** — `admin` 로그인 → `정책 설정` 에서 가입비/구독료/제작단가/판매수수료/배포단가/실행사 수수료를 즉시 변경.
-3. **영상 마켓** — `creator` 가 `내 영상 → 등록`. 관리자 `영상 승인`(자동승인 옵션 가능) → `buyer` 가 `영상 마켓`에서 구매(Mock 결제) → **sold 처리(1회 한정)** → `구매 내역`에서 다운로드(서명 URL 모사). 판매자는 수수료 차감 후 정산.
-4. **제작 의뢰** — `buyer` 가 의뢰+예산 결제(escrow) → `creator` 참여 신청 → `buyer` 작업자 선정 → `creator` 결과물 제출 → `buyer`/admin 승인 → creator 정산.
-5. **광고 캠페인** — `advertiser` 가 `포인트` 충전 → `캠페인 만들기`(서버가 단가 기준 비용 계산, 포인트 차감) → admin `캠페인 승인/노출` → `creator` 참여→증빙 제출 → admin/advertiser 증빙 승인 → creator 수익 정산.
-6. **실행사–대행사** — 실행사 `대행사/수수료` 의 추천 코드로 대행사가 가입 → 대행사 광고 집행 시 실행사 수수료가 자동 생성(기준: 관리자 설정).
-7. **출금** — `creator` `수익/출금` 에서 출금 신청 → admin `정산/출금` 에서 승인→지급완료.
+1. **회원가입/가입비** — `/signup` 에서 역할 선택 후 가입. 크리에이터는 바이브회원(또는 관리자 회사 코드)의 **추천인 코드가 필수**이며, 가입 직후 **일반회원**입니다. 가입비(정책 기본 990,000원)를 Mock 결제하면 **바이브회원**으로 전환되고, 멘토(추천인)에게 **관리자 정책의 고정 금액 추천 수당이 1회** pending 생성됩니다(1단계만, 가입만으로는 미지급).
+2. **관리자 정책** — `admin` 로그인 → `정책 설정` 에서 가입비/제작단가/배포단가/실행사 수수료를 즉시 변경.
+3. **제작 의뢰** — 바이브회원 `creator` 가 참여 신청 → `admin` 이 작업자 배정 → `creator` 결과물 제출 → `admin` 검수/승인 → creator 정산. (현재 의뢰를 새로 생성하는 UI는 없음 — 데이터/시드로만 생성)
+4. **광고 캠페인** — `advertiser` 가 `포인트` 충전 → `캠페인 만들기`(서버가 단가 기준 비용 계산, 포인트 차감) → admin `캠페인 승인/노출` → `creator` 참여→증빙 제출 → admin/advertiser 증빙 승인 → creator 수익 정산.
+5. **실행사–대행사** — 실행사 `대행사/수수료` 의 추천 코드로 대행사가 가입(코드 없이 '추천인 없음'도 가능) → 연결된 대행사 광고 집행 시 실행사 수수료가 자동 생성(기준: 관리자 설정).
+6. **출금** — `creator` `수익/출금` 에서 출금 신청 → admin `정산/출금` 에서 승인→지급완료.
 
 ---
 
@@ -89,7 +89,7 @@ PAYMENT_PROVIDER=mock         # mock | toss (현재 mock 구현)
 
 ```
 src/
-  app/                 # 라우트 (admin / creator / buyer / advertiser / payment / 공통)
+  app/                 # 라우트 (admin / creator / advertiser / payment / 공통)
   components/          # UI 프리미티브, 레이아웃(사이드바+모바일 하단탭), 폼
   lib/
     schema.ts          # 21개 테이블 도메인 타입
@@ -111,7 +111,7 @@ supabase/
 ### 안전장치 (요구사항 15)
 - 모든 금액 계산은 **서버에서만** 수행하고 클라이언트 입력 금액을 신뢰하지 않습니다.
 - 포인트/수익은 **직접 수정 금지**, 반드시 `point_transactions` / `wallet_transactions` ledger 를 통해서만 변경.
-- `db.tx()` 안에서 최신 상태를 재확인하여 **중복 결제/중복 구매**(특히 영상 1회 판매)를 방지합니다.
+- `db.tx()` 안에서 최신 상태를 재확인하여 **중복 결제·중복 지급**을 방지합니다.
 - 결제 효과(`applyPaymentEffects`)는 `status==='paid'` 전환 직후 **1회만** 적용(멱등).
 - **SNS 비밀번호는 절대 저장하지 않음** — 플랫폼/계정명/채널 URL/인증 상태만 보관.
 - 모든 관리자/주요 작업은 `audit_logs` 에 기록.
@@ -124,13 +124,10 @@ supabase/
 |---|---|---|
 | 1 | 역할별 회원가입 | `/signup`, `auth-actions.signupAction` |
 | 2 | 관리자 정책 수정 | `/admin/settings`, `admin-actions` |
-| 3 | 가입비 없음→무료 가입 | `signupAction` (needsSignupFee 분기) |
-| 4 | 가입비 있음→결제 후 활성 | `/payment/activate`, `effects.signup_fee` |
-| 5 | 추천인 코드→추천 수당 | `services.createSignupReferralReward` |
-| 6 | 영상 업로드 | `/creator/videos/new`, `createVideoAction` |
-| 7 | 구매 후 다운로드 | `effects.video_purchase`, `downloadVideoAction` |
-| 8 | sold 재구매 불가 | `effects.video_purchase` (sold 가드) |
-| 9~10 | 제작 의뢰/참여/제출 | `request-actions` |
+| 3 | 크리에이터 가입 → 일반회원 (추천인 코드 필수) | `signupAction` |
+| 4 | 가입비 990,000원 결제 → 바이브회원 | `/payment/activate`, `effects.signup_fee` |
+| 5 | 멘티 가입비 결제 → 멘토 고정 추천 수당(1회) | `services.createSignupReferralReward` |
+| 9~10 | 제작 의뢰 참여/배정/제출/검수 | `request-actions` |
 | 11~13 | 포인트 충전/캠페인/차감 | `point-actions`, `campaign-actions` |
 | 14~17 | 캠페인 승인/참여/증빙/정산 | `campaign-actions`, `/admin/campaigns` |
 | 18~19 | 실행사-대행사/수수료 | `services.createAdvertiserCommission` |

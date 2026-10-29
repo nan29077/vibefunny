@@ -48,6 +48,9 @@ const nextConfig = {
           // 브라우저가 항상 https 로 접속하도록 (http 로컬 개발에서는 브라우저가 무시함)
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // 콘텐츠 보안 정책(최소 범위): 플러그인 객체·base 태그 변조·외부 사이트 프레임 삽입·외부로의 폼 전송 차단.
+          // 스크립트/이미지 출처는 Next.js 인라인 스크립트와 외부 썸네일 때문에 제한하지 않는다.
+          { key: "Content-Security-Policy", value: "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" },
         ],
       },
       {

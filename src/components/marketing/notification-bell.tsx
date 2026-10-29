@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconBell } from "@/components/icons";
+import { formatDate } from "@/lib/date";
 import { markAllNotificationsReadAction, openNotificationAction } from "@/lib/actions/notification-actions";
 
 export type NotificationPreview = {
@@ -128,7 +129,7 @@ export function NotificationBell({
                   <button type="submit" className={`vf-notification-item ${item.read_at ? "" : "is-unread"}`}>
                     <span className="vf-notification-item-title">{item.title}</span>
                     <span className="vf-notification-item-message">{item.message}</span>
-                    <time dateTime={item.created_at}>{item.created_at.slice(0, 10)}</time>
+                    <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
                   </button>
                 </form>
               ))}

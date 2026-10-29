@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/form";
 import { formatPoint } from "@/lib/money";
 import { POINT_TX_TYPE_LABELS } from "@/lib/labels";
 import { chargePointsAction } from "@/lib/actions/point-actions";
+import { formatDateTime } from "@/lib/date";
 
 const PRESETS = [100000, 300000, 500000, 1000000];
 
@@ -25,6 +26,11 @@ export default function AdvertiserPointsPage({
     <div className="space-y-6">
       <PageHeader title="포인트" description="1P = 1원. 충전 후 캠페인 집행 시 차감됩니다." />
 
+      {searchParams.error === "amount" && (
+        <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          충전 금액이 올바르지 않습니다. 허용된 범위의 금액을 선택하거나 입력하세요.
+        </div>
+      )}
       {searchParams.error === "insufficient" && (
         <div className="rounded-xl bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
           포인트가 부족합니다. 충전 후 다시 시도하세요.
@@ -71,7 +77,7 @@ export default function AdvertiserPointsPage({
                   </Td>
                   <Td>{formatPoint(t.balance_after)}</Td>
                   <Td className="text-gray-500">{t.memo ?? "-"}</Td>
-                  <Td className="text-xs text-gray-400">{t.created_at.slice(0, 16).replace("T", " ")}</Td>
+                  <Td className="text-xs text-gray-400">{formatDateTime(t.created_at)}</Td>
                 </tr>
               ))}
             </tbody>

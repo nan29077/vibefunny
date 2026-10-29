@@ -5,6 +5,8 @@ import { getDb, tx } from "@/lib/db";
 import { getSupportBotReply } from "@/lib/support";
 import { getSupportAvailability } from "@/lib/support-hours";
 import type { SupportMessage, SupportThread } from "@/lib/schema";
+import { rateLimit } from "@/lib/rate-limit";
+import { notifyUser } from "@/lib/services";
 
 const now = () => new Date().toISOString();
 
@@ -68,10 +70,25 @@ export async function POST(req: NextRequest) {
       db.support_messages.push(message);
       thread.status = "open";
       thread.updated_at = message.created_at;
+      // 회원에게 답변 알림 (문의 창은 회원 대시보드 화면에서 열 수 있다)
+      const member = db.profiles.find((p) => p.id === thread.user_id);
+      if (member) {
+        notifyUser(db, {
+          recipientId: member.id,
+          title: "문의에 답변이 도착했습니다",
+          message: content.length > 60 ? `${content.slice(0, 60)}…` : content,
+          link: member.role === "advertiser" ? "/advertiser" : "/creator",
+        });
+      }
       return message;
     });
     if (!result) return NextResponse.json({ error: "문의 대화를 찾을 수 없습니다." }, { status: 404 });
     return NextResponse.json(result);
+  }
+
+  // 회원 문의는 10분에 20건까지 (DB 부풀리기·도배 방지)
+  if (rateLimit(`support:${user.id}`, 20, 10 * 60 * 1000) > 0) {
+    return NextResponse.json({ error: "문의를 너무 자주 보내고 있습니다. 잠시 후 다시 시도해 주세요." }, { status: 429 });
   }
 
   const availability = getSupportAvailability(getDb().settings);

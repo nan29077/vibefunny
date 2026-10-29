@@ -19,6 +19,7 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
       return { status: 409, body: { error: "작업 제출 이후에는 직접 취소할 수 없습니다. 관리자에게 문의하세요." } };
     }
     participation.status = "cancelled";
+    participation.cancelled_by = "creator";
     participation.updated_at = new Date().toISOString();
     releaseVideo(db, participation.id); // 배정 영상을 풀에 반납
     const campaign = db.ad_campaigns.find((item) => item.id === participation.campaign_id);

@@ -4,7 +4,7 @@ import { formatKRW, formatPoint } from "@/lib/money";
 import { getDb } from "@/lib/db";
 import { statusLabel, statusTone, CAMPAIGN_TYPE_LABELS, POINT_TX_TYPE_LABELS } from "@/lib/labels";
 import {
-  IconUsers, IconFilm, IconMegaphone, IconBarChart,
+  IconUsers, IconMegaphone, IconBarChart,
   IconShield, IconCheckCircle, IconTrendingUp, IconDollarSign,
   IconCreditCard, IconClipboard, IconBuilding, IconZap,
 } from "@/components/icons";
@@ -31,10 +31,9 @@ export default function AdminDashboard() {
     .slice(0, 5);
 
   // 처리 대기 항목
-  const pendingVideos    = db.videos.filter((v) => v.status === "pending_review");
   const pendingCampaigns = db.ad_campaigns.filter((c) => c.status === "admin_review");
   const pendingPayouts   = db.payout_requests.filter((r) => ["requested","approved"].includes(r.status));
-  const pendingPayoutAmt = pendingPayouts.filter((r) => r.status === "requested").reduce((sum, r) => sum + r.amount, 0);
+  const pendingPayoutAmt = pendingPayouts.reduce((sum, r) => sum + r.amount, 0); // 신청+승인(지급 대기) 건 합계 — 건수와 같은 기준
 
   // 최근 캠페인 5건
   const recentCampaigns = [...db.ad_campaigns]
@@ -72,18 +71,8 @@ export default function AdminDashboard() {
       <PageHeader title="관리자 대시보드" description="플랫폼 전체 현황을 한눈에 확인하세요." />
 
       {/* 처리 대기 알림 */}
-      {(pendingVideos.length > 0 || pendingCampaigns.length > 0 || pendingPayouts.length > 0) && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {pendingVideos.length > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-              <IconFilm size={18} className="shrink-0 text-yellow-600" />
-              <div className="flex-1">
-                <div className="text-sm font-bold text-yellow-800">영상 승인 대기</div>
-                <div className="text-xs text-yellow-600">{pendingVideos.length}건 처리 필요</div>
-              </div>
-              <LinkButton href="/admin/videos" size="sm" variant="outline">처리</LinkButton>
-            </div>
-          )}
+      {(pendingCampaigns.length > 0 || pendingPayouts.length > 0) && (
+        <div className="grid gap-3 sm:grid-cols-2">
           {pendingCampaigns.length > 0 && (
             <div className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
               <IconMegaphone size={18} className="shrink-0 text-purple-600" />
@@ -123,12 +112,12 @@ export default function AdminDashboard() {
       {/* 콘텐츠 & 광고 통계 */}
       <div>
         <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-gray-800">
-          <IconFilm size={16} className="text-brand-pink" />
-          콘텐츠 & 광고
+          <IconMegaphone size={16} className="text-brand-pink" />
+          광고 캠페인
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="판매중 영상" value={`${s.videosForSale}개`} accent="purple" />
-          <StatCard label="승인대기 영상" value={`${pendingVideos.length}개`} accent="yellow" />
+          <StatCard label="전체 캠페인" value={`${db.ad_campaigns.length}개`} accent="purple" />
+          <StatCard label="완료 캠페인" value={`${db.ad_campaigns.filter((c) => c.status === "completed").length}개`} accent="yellow" />
           <StatCard label="진행중 캠페인" value={`${s.activeCampaigns}개`} accent="pink" />
           <StatCard label="검토대기 캠페인" value={`${pendingCampaigns.length}개`} accent="gray" />
         </div>
@@ -273,7 +262,6 @@ export default function AdminDashboard() {
           </h3>
           <div className="space-y-2">
             {[
-              { href: "/admin/videos",   label: "영상 승인 관리",  Icon: IconFilm,      badge: pendingVideos.length },
               { href: "/admin/campaigns",label: "캠페인 심사",      Icon: IconMegaphone, badge: pendingCampaigns.length },
               { href: "/admin/payouts",  label: "출금 정산 처리",  Icon: IconCreditCard,badge: pendingPayouts.length },
               { href: "/admin/members",  label: "회원 관리",        Icon: IconUsers,     badge: 0 },

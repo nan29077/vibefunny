@@ -3,7 +3,8 @@ import { nanoid } from "nanoid";
 import { authorizeApi } from "@/lib/auth";
 import { tx } from "@/lib/db";
 import { notifyUser } from "@/lib/services";
-import { isOwnPrivateFileOrExternal } from "@/lib/campaign-workflow";
+import { isOwnPrivateFileOrExternal, notifyAdmins } from "@/lib/campaign-workflow";
+import { vibeOnlyError } from "@/lib/membership";
 
 function isHttpUrl(value: string): boolean {
   if (/^\/api\/files\/[0-9a-f-]{36}$/.test(value)) return true;
@@ -30,6 +31,8 @@ export async function POST(
   if (!isHttpUrl(videoUrl)) return NextResponse.json({ error: "유효한 http(s) 영상 URL이 필요합니다." }, { status: 400 });
 
   const result = tx<{ status: number; body: unknown }>((db) => {
+    const vibeBlock = vibeOnlyError(db, user);
+    if (vibeBlock) return { status: 403, body: { error: vibeBlock } };
     const request = db.custom_video_requests.find((item) => item.id === params.id);
     if (!request) return { status: 404, body: { error: "제작 의뢰를 찾을 수 없습니다." } };
     if (!request.assigned_creator_id || request.assigned_creator_id !== user.id) {
@@ -51,7 +54,11 @@ export async function POST(
       message: input.message?.trim().slice(0, 3000) || null, status: "submitted",
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
-    notifyUser(db, { recipientId: request.buyer_id, title: "제작 의뢰 작업물이 제출되었습니다", message: request.title, link: "/creator/requests" });
+    // 검수는 관리자 화면(/admin/requests)에서 하므로 관리자에게 알린다 (의뢰자에게도 안내)
+    notifyAdmins(db, { title: "제작 의뢰 결과물이 제출되었습니다", message: request.title, link: "/admin/requests" });
+    if (db.profiles.some((p) => p.id === request.buyer_id && p.role !== "admin")) {
+      notifyUser(db, { recipientId: request.buyer_id, title: "제작 의뢰 작업물이 제출되었습니다", message: `${request.title} · 관리자 검수 후 결과를 알려드립니다.`, link: "/creator/requests" });
+    }
     return { status: 200, body: { ok: true } };
   });
   return NextResponse.json(result.body, { status: result.status });

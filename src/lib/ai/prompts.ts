@@ -104,9 +104,16 @@ export function parseScript(text: string, targetSeconds: number): ParsedScript {
   return out;
 }
 
+/** 장면 묘사에 한글이 있으면 모델이 영어로 이해해 그리도록 안내한다 (크리에이터는 한국어로 써도 된다) */
+const hasKorean = (text: string) => /[\u3131-\u318E\uAC00-\uD7A3]/.test(text);
+const koreanNote = (visual: string) =>
+  hasKorean(visual)
+    ? " (The scene description above may be written in Korean: understand it as if translated into English and depict it faithfully. Do not render any Korean or other text in the image.)"
+    : "";
+
 /** 이미지 프롬프트: 세로 구도 + 글자 없음 */
 export function imagePrompt(visual: string): string {
-  return `${visual}. Vertical 9:16 composition, high quality, vivid, no text, no letters, no watermark, no logo.`;
+  return `${visual.trim()}.${koreanNote(visual)} Vertical 9:16 composition, high quality, vivid, no text, no letters, no watermark, no logo.`;
 }
 
 /** 영상 프롬프트: 컷 이미지에서 시작하는 짧은 움직임 */
@@ -121,5 +128,5 @@ export function videoPrompt(visual: string, move: string): string {
     고정: "static camera, subtle natural motion",
     핸드헬드: "handheld camera, slight shake",
   };
-  return `${visual}. ${motion[move] ?? "slow push-in camera"}, natural motion, vertical video, no text.`;
+  return `${visual.trim()}.${koreanNote(visual)} ${motion[move] ?? "slow push-in camera"}, natural motion, vertical video, no text.`;
 }

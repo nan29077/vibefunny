@@ -14,6 +14,8 @@ import {
 import { clientIp, formatWait, rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({ email: z.string().email() });
+// 서비스 전체 시간당 발송 한도 (메일 업체 한도 보호). 운영 규모에 맞게 EMAIL_SEND_HOURLY_LIMIT 로 조정
+const GLOBAL_SEND_LIMIT = Math.max(50, Math.floor(Number(process.env.EMAIL_SEND_HOURLY_LIMIT || 300)));
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +27,9 @@ export async function POST(request: Request) {
     const wait =
       rateLimit(`email-send-ip10m:${ip}`, 5, 10 * 60 * 1000, false) ||
       rateLimit(`email-send-ipday:${ip}`, 20, 24 * 60 * 60 * 1000, false) ||
-      rateLimit("email-send-global", 300, 60 * 60 * 1000, false);
+      // 같은 받는 주소로는 하루 10회까지 (IP 를 바꿔도 한 사람에게 메일 폭탄을 보낼 수 없게)
+      rateLimit(`email-send-to:${email}`, 10, 24 * 60 * 60 * 1000, false) ||
+      rateLimit("email-send-global", GLOBAL_SEND_LIMIT, 60 * 60 * 1000, false);
     if (wait > 0) {
       return NextResponse.json({ error: `인증번호 요청이 너무 많습니다. ${formatWait(wait)} 후 다시 시도하세요.` }, { status: 429 });
     }
@@ -46,7 +50,8 @@ export async function POST(request: Request) {
 
     rateLimit(`email-send-ip10m:${ip}`, 5, 10 * 60 * 1000);
     rateLimit(`email-send-ipday:${ip}`, 20, 24 * 60 * 60 * 1000);
-    rateLimit("email-send-global", 300, 60 * 60 * 1000);
+    rateLimit(`email-send-to:${email}`, 10, 24 * 60 * 60 * 1000);
+    rateLimit("email-send-global", GLOBAL_SEND_LIMIT, 60 * 60 * 1000);
     const id = genId();
     const code = generateEmailCode();
     await sendVerificationEmail({ to: email, senderEmail, code, idempotencyKey: `signup-${id}` });

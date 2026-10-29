@@ -50,7 +50,7 @@ const { result, backup } = withDb((db) => {
       db.profiles.push({
         id: randomUUID(), email, password_hash: hashPassword(password), email_verified_at: now, name,
         phone: null, role: "admin", advertiser_type: null, parent_advertiser_id: null, referral_code: code(),
-        referred_by_user_id: null, status: "active", avatar_url: null, subscription_active_until: null,
+        referred_by_user_id: null, status: "active", avatar_url: null, vibe_member_at: null,
         session_version: 0, created_at: now, updated_at: now,
       });
       out.push(`최고관리자 계정을 만들었습니다: ${email}`);

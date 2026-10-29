@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { copyFile, mkdir, readFile, rm, writeFile } from "fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
@@ -11,6 +11,34 @@ import { fontDir, probeMedia, runFfmpeg, MediaError } from "./media";
 //   → 이어 붙이기 → 한글 자막을 영상에 직접 새김(번인) → 배경음악(내레이션 나올 때 자동으로 줄임)
 //   출력: 720×1280 세로 H.264/AAC MP4
 // ===========================================================================
+
+/**
+ * 서버가 합성 도중 멈춰 남은 임시 파일 정리 (서버 시작 시 1회 호출 — instrumentation)
+ * - <tmp>/vibefunny-compose/<작업폴더>, <tmp>/vibefunny-mock/*, <tmp>/vf-tts-* 중 1시간 넘게 지난 것
+ * - 실패해도 서버 시작을 막지 않는다
+ */
+export async function cleanupStaleAiTemp(maxAgeMs = 60 * 60_000): Promise<void> {
+  const cutoff = Date.now() - maxAgeMs;
+  const removeOld = async (target: string) => {
+    try {
+      const st = await stat(target);
+      if (st.mtimeMs < cutoff) await rm(target, { recursive: true, force: true });
+    } catch {
+      /* 이미 지워졌거나 접근 불가 */
+    }
+  };
+  const list = async (dir: string) => readdir(dir).catch(() => [] as string[]);
+  try {
+    const root = tmpdir();
+    for (const sub of ["vibefunny-compose", "vibefunny-mock"]) {
+      const dir = path.join(root, sub);
+      for (const name of await list(dir)) await removeOld(path.join(dir, name));
+    }
+    for (const name of await list(root)) if (name.startsWith("vf-tts-")) await removeOld(path.join(root, name));
+  } catch (error) {
+    console.error("[ai-shorts] temp cleanup failed", error);
+  }
+}
 
 export const OUT_W = 720;
 export const OUT_H = 1280;

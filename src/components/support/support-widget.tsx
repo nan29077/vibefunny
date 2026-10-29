@@ -2,7 +2,22 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { IconMessageSquare, IconSend, IconX } from "@/components/icons";
+import {
+  IconBuilding,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFilm,
+  IconFileText,
+  IconInfo,
+  IconMegaphone,
+  IconMessageSquare,
+  IconSettings,
+  IconShield,
+  IconUser,
+  IconWallet,
+  IconSend,
+  IconX,
+} from "@/components/icons";
 import { getFaqAnswer, getSupportBotReply, FAQ_CATEGORIES } from "@/lib/support";
 import type { SupportAvailability } from "@/lib/support-hours";
 
@@ -23,6 +38,16 @@ const greeting: Message = {
 // ─── 2단계 FAQ 탐색기 ─────────────────────────────────────────────────────────
 
 type FaqStep = "categories" | "subcategories" | "questions";
+
+const FAQ_CATEGORY_ICONS = [
+  IconWallet,
+  IconMegaphone,
+  IconFilm,
+  IconBuilding,
+  IconUser,
+  IconSettings,
+  IconShield,
+] as const;
 
 function FaqNavigator({
   onSelect,
@@ -71,7 +96,7 @@ function FaqNavigator({
       <div className="vf-support-faq-header">
         {step !== "categories" && (
           <button type="button" onClick={goBack} className="vf-support-faq-back" aria-label="뒤로">
-            ‹
+            <IconChevronLeft size={15} />
           </button>
         )}
         <span className="vf-support-faq-title">
@@ -84,17 +109,23 @@ function FaqNavigator({
       {/* 항목 목록 */}
       <div className="vf-support-faq-list">
         {step === "categories" &&
-          FAQ_CATEGORIES.map((cat, idx) => (
-            <button
-              key={cat.category}
-              type="button"
-              onClick={() => handleCategory(idx)}
-              className="vf-support-faq-item is-category"
-            >
-              {cat.category}
-              <span className="vf-support-faq-arrow">›</span>
-            </button>
-          ))}
+          FAQ_CATEGORIES.map((cat, idx) => {
+            const CategoryIcon = FAQ_CATEGORY_ICONS[idx] ?? IconInfo;
+            return (
+              <button
+                key={cat.category}
+                type="button"
+                onClick={() => handleCategory(idx)}
+                className="vf-support-faq-item is-category"
+              >
+                <span className="vf-support-faq-item-main">
+                  <span className="vf-support-faq-icon"><CategoryIcon size={14} /></span>
+                  {cat.category}
+                </span>
+                <IconChevronRight size={14} className="vf-support-faq-arrow" />
+              </button>
+            );
+          })}
 
         {step === "subcategories" &&
           selectedCat?.subcategories.map((sub, idx) => (
@@ -105,7 +136,7 @@ function FaqNavigator({
               className="vf-support-faq-item is-sub"
             >
               {sub.name}
-              <span className="vf-support-faq-arrow">›</span>
+              <IconChevronRight size={14} className="vf-support-faq-arrow" />
             </button>
           ))}
 
@@ -161,10 +192,13 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
     return () => window.clearInterval(timer);
   }, [open]);
 
+  // 최신 loadMessages 를 ref 로 들고 있어 의존성 경고 없이 주기 호출한다
+  const loadMessagesRef = useRef(loadMessages);
+  loadMessagesRef.current = loadMessages;
   useEffect(() => {
     if (!open || !isAuthenticated) return;
-    void loadMessages();
-    const timer = window.setInterval(() => void loadMessages(), 5000);
+    void loadMessagesRef.current();
+    const timer = window.setInterval(() => void loadMessagesRef.current(), 5000);
     return () => window.clearInterval(timer);
   }, [open, isAuthenticated]);
 

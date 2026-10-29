@@ -147,17 +147,8 @@ export function getStorage(): StorageProvider {
 export const storage = getStorage();
 
 // ---------------------------------------------------------------------------
-// TODO: base64 DB 필드 마이그레이션 (MVP 이후 작업)
+// 업로드 파일 저장 방식
 // ---------------------------------------------------------------------------
-// 현재 db.json 에는 일부 파일 데이터가 Base64 형태로 저장되어 있다:
-//   - AdCampaign.attachment_file_data   (캠페인 첨부파일)
-//   - AdCampaign.pool_video_*_file_data (배포용 영상풀)
-//   - CampaignParticipation.video_file_data
-//   - CampaignSubmission.file_data
-//
-// 마이그레이션 계획:
-//   1. src/components/forms/file-upload.tsx 에서 base64 인코딩 대신
-//      /api/files/upload 로 즉시 업로드하도록 변경
-//   2. campaign-actions.ts 에서 file_data 수신 시 storage.save() 후
-//      db.json 에는 storage key 만 저장
-//   3. 기존 base64 데이터는 마이그레이션 스크립트로 일괄 변환
+// 캠페인 첨부·배포 영상·결과물 제출 파일은 브라우저에서 /api/uploads 로 바로 올리고
+// (src/lib/uploads.ts), DB 에는 /api/files/<id> 주소만 저장한다.
+// 예전에 Base64 로 저장된 값(data: URL)은 그대로 표시만 되며 새로 저장되지 않는다.

@@ -1,16 +1,16 @@
 import { requireRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { SiteHowto } from "@/components/site/site-content";
 import { PageHeader, StatCard, Card, LinkButton } from "@/components/ui";
-import { SubmitButton } from "@/components/form";
 import { formatKRW } from "@/lib/money";
-import { statusLabel, statusTone, WALLET_TX_TYPE_LABELS } from "@/lib/labels";
+import { statusLabel, statusTone, CREATOR_WALLET_TX_TYPE_LABELS } from "@/lib/labels";
 import { displayName } from "@/lib/schema";
-import { startSubscriptionAction } from "@/lib/actions/video-actions";
+import { isVibeMember, GENERAL_MEMBER_LABEL, VIBE_MEMBER_LABEL } from "@/lib/membership";
 import { ReferralCard } from "@/components/referral-card";
-import { aiShortsAccess } from "@/lib/ai/settings";
+import { aiShortsAccess, aiShortsUsable } from "@/lib/ai/settings";
 import { formatFunny, funnyBalance } from "@/lib/funny";
 import {
-  IconFilm, IconMegaphone, IconDollarSign, IconTrendingUp,
+  IconMegaphone, IconDollarSign, IconTrendingUp,
   IconCheckCircle, IconBarChart, IconUsers, IconGlobe,
 } from "@/components/icons";
 
@@ -27,13 +27,13 @@ export default function CreatorDashboard() {
   const user = requireRole("creator");
   const db = getDb();
 
-  const aiShortsOpen = aiShortsAccess(db, user).open;
+  // 스위치가 켜져 있어도 대본 AI 모델이 준비되지 않았으면 대시보드 카드를 숨긴다
+  const aiShortsOpen = aiShortsAccess(db, user).open && aiShortsUsable(db) && isVibeMember(db, user);
   const funny = funnyBalance(db, user.id);
   const w = db.wallets.find((x) => x.user_id === user.id) ?? {
     pending_balance: 0, available_balance: 0, paid_balance: 0,
   };
 
-  const myVideos      = db.videos.filter((v) => v.creator_id === user.id);
   const myApplications = db.campaign_applications.filter((a) => a.creator_id === user.id);
   const mySocials     = db.social_accounts.filter((s) => s.creator_id === user.id);
   const myPayouts     = db.payout_requests.filter((r) => r.user_id === user.id);
@@ -43,14 +43,6 @@ export default function CreatorDashboard() {
     .filter((t) => t.user_id === user.id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
-
-  // 영상 상태 분류
-  const videoStats = {
-    available:      myVideos.filter((v) => v.status === "available").length,
-    pending_review: myVideos.filter((v) => v.status === "pending_review").length,
-    sold:           myVideos.filter((v) => v.status === "sold").length,
-    rejected:       myVideos.filter((v) => v.status === "rejected").length,
-  };
 
   // 캠페인 상태 분류
   const campaignStats = {
@@ -63,7 +55,6 @@ export default function CreatorDashboard() {
   const deliveryEarnings = deliveries.reduce((sum, d) => sum + d.reward_amount, 0);
 
   // 추천인 제도
-  const referralEnabled = db.settings.referral_system_enabled;
   const referredCount   = db.referral_relations.filter(
     (r) => r.referrer_id === user.id && r.referral_type === "signup"
   ).length;
@@ -71,9 +62,9 @@ export default function CreatorDashboard() {
     .filter((t) => t.user_id === user.id && t.type === "signup_referral")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const subEnabled = db.settings.fees.creator.subscription_enabled;
-  const subActive  = user.subscription_active_until
-    && new Date(user.subscription_active_until) > new Date();
+  // 회원 등급: 가입비 결제 전 일반회원 / 결제 후 바이브회원
+  const vibe = isVibeMember(db, user);
+  const signupFee = db.settings.fees.creator.signup_fee_amount;
 
   const now = new Date();
   function daysAgo(iso: string) {
@@ -93,18 +84,20 @@ export default function CreatorDashboard() {
         description={`오늘도 신나는 부업 시작! · 누적 수익 ${formatKRW(totalEarnings)}`}
       />
 
-      {subEnabled && !subActive && (
-        <Card className="border-brand-pink/40 bg-brand-pink/5">
+      {vibe ? (
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+          <IconCheckCircle size={13} /> {VIBE_MEMBER_LABEL}
+        </div>
+      ) : (
+        <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="font-semibold text-gray-800">구독이 필요합니다</div>
-              <div className="text-sm text-gray-500">
-                영상 등록·캠페인 참여를 위해 월 구독({formatKRW(db.settings.fees.creator.subscription_amount)})이 필요합니다.
+              <div className="font-bold text-amber-900">지금은 {GENERAL_MEMBER_LABEL}입니다</div>
+              <div className="text-sm text-amber-800">
+                가입비({formatKRW(signupFee)})를 결제하면 {VIBE_MEMBER_LABEL}으로 전환되어 캠페인 참여·영상 제작 의뢰·쇼츠 커머스·AI 숏츠·출금·SNS 맞구독을 이용하고, 내 추천 코드로 멘티를 받을 수 있습니다.
               </div>
             </div>
-            <form action={startSubscriptionAction}>
-              <SubmitButton>구독하기</SubmitButton>
-            </form>
+            <LinkButton href="/payment/activate">가입비 결제하고 {VIBE_MEMBER_LABEL} 되기</LinkButton>
           </div>
         </Card>
       )}
@@ -130,38 +123,13 @@ export default function CreatorDashboard() {
         <StatCard label="지급 대기 수익" value={formatKRW(w.pending_balance)} accent="yellow" />
         <StatCard label="지급 가능 수익" value={formatKRW(w.available_balance)} accent="purple" />
         <StatCard label="지급 완료" value={formatKRW(w.paid_balance)} accent="gray" />
-        <StatCard label="등록 영상" value={`${myVideos.length}개`} accent="pink" />
+        <StatCard label="참여 캠페인" value={`${myApplications.length}건`} accent="pink" />
       </div>
 
-      {/* 2열 섹션: 영상 현황 + 캠페인 현황 */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {/* 영상 상태별 */}
-        <Card className="lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-bold text-gray-900">
-              <IconFilm size={15} className="text-brand-purple" />
-              내 영상 현황
-            </h3>
-            <LinkButton href="/creator/videos" size="sm" variant="ghost">전체 보기</LinkButton>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "판매 중",     count: videoStats.available,      bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },
-              { label: "승인 대기",   count: videoStats.pending_review, bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200" },
-              { label: "판매 완료",   count: videoStats.sold,           bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200" },
-              { label: "반려됨",      count: videoStats.rejected,       bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200" },
-            ].map(({ label, count, bg, text, border }) => (
-              <div key={label} className={`rounded-xl border ${border} ${bg} p-3 text-center`}>
-                <div className={`text-2xl font-extrabold ${text}`}>{count}</div>
-                <div className={`mt-0.5 text-xs font-semibold ${text}`}>{label}</div>
-              </div>
-            ))}
-          </div>
-          <LinkButton href="/creator/videos/new" size="sm" className="mt-4 w-full">+ 영상 등록하기</LinkButton>
-        </Card>
-
+      {/* 캠페인 현황 */}
+      <div>
         {/* 캠페인 & 배포 */}
-        <Card className="lg:col-span-2">
+        <Card>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="flex items-center gap-2 font-bold text-gray-900">
               <IconMegaphone size={15} className="text-brand-pink" />
@@ -208,7 +176,7 @@ export default function CreatorDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="truncate text-sm text-gray-700">
-                      {WALLET_TX_TYPE_LABELS[t.type] ?? t.type}
+                      {CREATOR_WALLET_TX_TYPE_LABELS[t.type] ?? t.type}
                     </div>
                     <div className="text-xs text-gray-400">{daysAgo(t.created_at)}</div>
                   </div>
@@ -239,9 +207,10 @@ export default function CreatorDashboard() {
                   youtube: "bg-red-50 text-red-600 border-red-100",
                   instagram: "bg-pink-50 text-pink-600 border-pink-100",
                   tiktok: "bg-gray-50 text-gray-700 border-gray-200",
+                  facebook: "bg-blue-50 text-blue-700 border-blue-200",
                 };
                 const platformLabels: Record<string, string> = {
-                  youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok",
+                  youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook",
                 };
                 return (
                   <div key={s.id} className="flex items-center gap-3">
@@ -303,14 +272,15 @@ export default function CreatorDashboard() {
         </Card>
       )}
 
-      {/* 추천인 카드 */}
-      {referralEnabled && (
+      {/* 추천인 카드: 멘티를 받을 수 있는 바이브회원에게만 (추천 코드는 크리에이터 가입에 항상 필요) */}
+      {vibe && (
         <ReferralCard
           referralCode={user.referral_code}
           referredCount={referredCount}
           referralEarnings={referralEarnings}
         />
       )}
+      <SiteHowto blocks={db.settings.site_howto_blocks} role="creator" />
     </div>
   );
 }

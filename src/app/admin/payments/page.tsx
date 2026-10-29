@@ -4,6 +4,7 @@ import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
 import { PAYMENT_TYPE_LABELS } from "@/lib/labels";
 import { requireAdmin } from "@/lib/auth";
+import { formatDateTime } from "@/lib/date";
 
 export default function AdminPaymentsPage() {
   requireAdmin();
@@ -25,9 +26,16 @@ export default function AdminPaymentsPage() {
                 <Td>{nameOf(db, p.user_id)}</Td>
                 <Td>{PAYMENT_TYPE_LABELS[p.payment_type] ?? p.payment_type}</Td>
                 <Td>{formatKRW(p.amount)}</Td>
-                <Td><StatusBadge status={p.status} /></Td>
+                <Td>
+                  <StatusBadge status={p.status} />
+                  {typeof p.metadata_json?.partial_refund_amount === "number" && (
+                    <div className="mt-1 whitespace-nowrap text-[11px] font-semibold text-orange-600">
+                      부분 환불 {Number(p.metadata_json.partial_refund_amount).toLocaleString("ko-KR")}원
+                    </div>
+                  )}
+                </Td>
                 <Td className="text-gray-500">{p.provider}</Td>
-                <Td className="text-xs text-gray-400">{p.created_at.slice(0, 16).replace("T", " ")}</Td>
+                <Td className="text-xs text-gray-400">{formatDateTime(p.created_at)}</Td>
               </tr>
             ))}
           </tbody>

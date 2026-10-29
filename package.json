@@ -14,7 +14,8 @@
     "test": "node --test ./scripts/tests/security-regression.test.mjs",
     "seed:reset": "node ./scripts/reset-db.mjs",
     "admin:create": "node ./scripts/admin-create.mjs",
-    "migrate:security": "node ./scripts/migrate-2026-10-security.mjs"
+    "migrate:security": "node ./scripts/migrate-2026-10-security.mjs",
+    "migrate:remove-legacy": "node ./scripts/migrate-2026-10-remove-legacy.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

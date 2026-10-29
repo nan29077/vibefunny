@@ -85,7 +85,7 @@ export default function AdminPayoutsPage({
                           {decryptSensitive(p.resident_id_number).slice(0, 6)}-*******
                         </span>
                         <form action={clearSsnAction.bind(null, p.id)}>
-                          <SubmitButton size="sm" variant="danger">주민번호 삭제</SubmitButton>
+                          <SubmitButton size="sm" variant="danger" confirmMessage="저장된 주민등록번호를 삭제할까요? 삭제 후에는 복구할 수 없습니다.">주민번호 삭제</SubmitButton>
                         </form>
                       </div>
                     ) : (

@@ -5,8 +5,9 @@
 // 모든 함수는 db 스냅샷을 직접 수정하므로 반드시 tx() 내부에서 호출한다.
 // ===========================================================================
 
+import { cancelledByReviewer } from "./participation-rules";
 import { genId } from "./crypto";
-import { campaignEligibility, participationCapacity } from "./campaign-eligibility";
+import { campaignEligibility, deployablePlatforms, participationCapacity, platformCapacity, platformTargets } from "./campaign-eligibility";
 import {
   allocateVideoForParticipation,
   hasVideoPool,
@@ -17,14 +18,17 @@ import {
 } from "./distribution";
 import { statusLabel } from "./labels";
 import { computeCampaignCost, creatorDeployPayout, creatorVideoPayout } from "./queries";
-import { addPointTx, addPointTxOnce, addWalletTxOnce, audit, notifyUser } from "./services";
+import { addPointTx, addPointTxOnce, addWalletTxOnce, audit, ensurePointWallet, notifyUser } from "./services";
 import type {
   AdCampaign,
   CampaignParticipation,
   Database,
   NotificationCategory,
   Profile,
+  SocialPlatform,
 } from "./schema";
+import { PLATFORM_LABELS } from "./schema";
+import { vibeOnlyError } from "./membership";
 
 const now = () => new Date().toISOString();
 
@@ -79,8 +83,8 @@ export function campaignAcceptsType(campaign: AdCampaign, type: ParticipationTyp
   if (type === "deploy") {
     return campaign.campaign_type !== "create_only" && (campaign.distribution_count ?? 0) > 0;
   }
-  // 영상(동화) 제작 참여: 제작+배포 / 단순 제작 / 동화 제작 의뢰
-  if (!["create_and_distribute", "create_only", "story_creation"].includes(campaign.campaign_type)) return false;
+  // 영상 제작 참여: 제작+배포 / 단순 제작
+  if (!["create_and_distribute", "create_only"].includes(campaign.campaign_type)) return false;
   return (campaign.video_production_count ?? 0) > 0;
 }
 
@@ -116,7 +120,7 @@ export function campaignLinkFor(db: Database, recipientId: string, campaignId: s
   return "/creator/campaigns";
 }
 
-/** 알림 수신자가 실제 존재하는 프로필인지 (vibeporter_system 같은 가상 계정이면 관리자에게 전달) */
+/** 캠페인 소유 광고주에게 알림 (계정이 없으면 관리자에게 전달) */
 function notifyCampaignOwner(
   db: Database,
   campaign: AdCampaign,
@@ -159,9 +163,13 @@ export function joinParticipation(
   db: Database,
   user: Profile,
   campaignId: string,
-  type: ParticipationType
+  type: ParticipationType,
+  requestedPlatform?: string | null
 ): WorkflowResult<CampaignParticipation & { assigned_video?: unknown }> {
   if (type !== "deploy" && type !== "video_production") return fail(400, "참여 유형이 올바르지 않습니다.");
+  // 캠페인 참여는 가입비를 결제한 바이브회원만
+  const vibeBlock = vibeOnlyError(db, user);
+  if (vibeBlock) return fail(403, vibeBlock);
   const campaign = db.ad_campaigns.find((c) => c.id === campaignId);
   if (!campaign) return fail(404, "캠페인을 찾을 수 없습니다.");
   if (!isCampaignActive(campaign)) return fail(409, "현재 참여할 수 없는 캠페인입니다.");
@@ -173,13 +181,6 @@ export function joinParticipation(
     return fail(409, "이 캠페인은 이미 이전 방식으로 납품(증빙)을 제출하셨습니다.");
   }
 
-  // 구독료 제도가 켜져 있으면 활성 구독자만 참여 가능 (영상 등록과 동일한 규칙, 대시보드 안내 문구와 일치)
-  const sub = db.settings.fees.creator;
-  if (sub?.subscription_enabled && sub.subscription_amount > 0) {
-    const active = user.subscription_active_until && new Date(user.subscription_active_until) > new Date();
-    if (!active) return fail(403, "구독이 활성화된 회원만 캠페인에 참여할 수 있습니다. 대시보드에서 구독을 먼저 진행하세요.");
-  }
-
   const eligibility = campaignEligibility(db, user, campaign);
   if (!eligibility.eligible) return fail(403, eligibility.reasons.join(" "));
 
@@ -187,11 +188,39 @@ export function joinParticipation(
   const existing = db.campaign_participations.find(
     (p) => p.campaign_id === campaign.id && p.creator_id === user.id && participationTypeOf(p) === type
   );
-  // 본인이 취소한 참여는 다시 신청 가능 (선발 반려·완료 등은 재신청 불가)
+  // 본인이 취소한 참여만 다시 신청 가능 (선발 취소·선발 반려·완료 등은 재신청 불가)
+  if (existing && existing.status === "cancelled" && existing.cancelled_by && existing.cancelled_by !== "creator") {
+    if (!cancelledByReviewer(existing)) return fail(409, "종료된 캠페인 참여입니다. 다시 신청할 수 없습니다.");
+    return fail(409, "선발이 취소된 캠페인에는 다시 신청할 수 없습니다.");
+  }
   if (existing && existing.status !== "cancelled") return fail(400, "이미 해당 유형으로 참여 중입니다.");
 
   const capacity = participationCapacity(db, campaign, type);
   if (capacity.full) return fail(409, `${type === "deploy" ? "배포" : "영상 제작"} 모집이 마감되었습니다.`);
+
+  // 배포 참여: 인증된 채널이 있고 플랫폼별 정원이 남은 플랫폼을 배정한다
+  let deployPlatform: SocialPlatform | undefined;
+  if (type === "deploy" && campaign.platforms.length > 0) {
+    const options = deployablePlatforms(db, user.id, campaign);
+    if (requestedPlatform) {
+      const wanted = requestedPlatform as SocialPlatform;
+      if (!campaign.platforms.includes(wanted)) return fail(400, "이 캠페인의 배포 대상 플랫폼이 아닙니다.");
+      if (!options.includes(wanted)) {
+        return fail(
+          409,
+          platformCapacity(db, campaign, wanted).full
+            ? `${PLATFORM_LABELS[wanted as keyof typeof PLATFORM_LABELS] ?? wanted} 배포 모집이 마감되었습니다.`
+            : "선택한 플랫폼의 인증된 채널이 필요합니다."
+        );
+      }
+      deployPlatform = wanted;
+    } else {
+      if (options.length === 0) {
+        return fail(409, platformTargets(campaign) ? "인증된 채널의 플랫폼 배포 모집이 모두 마감되었습니다." : "캠페인 대상 플랫폼의 인증된 채널이 필요합니다.");
+      }
+      deployPlatform = options[0];
+    }
+  }
 
   const isDeployPool = type === "deploy" && hasVideoPool(campaign);
   if (isDeployPool && !isDistributionUnlocked(db, campaign)) {
@@ -207,6 +236,7 @@ export function joinParticipation(
     applied_at: now(),
     updated_at: now(),
   };
+  if (deployPlatform) participation.platform = deployPlatform;
 
   let assignedVideo: unknown;
   if (isDeployPool) {
@@ -230,6 +260,7 @@ export function joinParticipation(
   participation.updated_at = now();
   participation.rejection_reason = undefined;
   participation.dispute_previous_status = undefined;
+  participation.cancelled_by = undefined;
   if (existing) {
     participation.video_url = undefined;
     participation.video_note = undefined;
@@ -241,7 +272,7 @@ export function joinParticipation(
 
   notifyCampaignOwner(db, campaign, {
     title: isDeployPool ? "새 배포 참여자가 배정되었습니다" : "새 캠페인 참여 신청",
-    message: `${campaign.title} · ${type === "deploy" ? "배포" : "영상 제작"}`,
+    message: `${campaign.title} · ${type === "deploy" ? `배포${deployPlatform ? `(${PLATFORM_LABELS[deployPlatform as keyof typeof PLATFORM_LABELS] ?? deployPlatform})` : ""}` : "영상 제작"}`,
     category: "participation",
   });
   audit(db, { actorId: user.id, action: "join_participation", targetTable: "campaign_participations", targetId: participation.id });
@@ -262,6 +293,8 @@ export function submitParticipationWork(
   input: { url: string; note?: string }
 ): WorkflowResult<CampaignParticipation> {
   if (participation.creator_id !== user.id) return fail(403, "본인 참여 건만 제출할 수 있습니다.");
+  const vibeBlock = vibeOnlyError(db, user);
+  if (vibeBlock) return fail(403, vibeBlock);
   const campaign = db.ad_campaigns.find((c) => c.id === participation.campaign_id);
   if (!campaign) return fail(404, "캠페인을 찾을 수 없습니다.");
   if (!isCampaignActive(campaign)) return fail(409, "진행 중인 캠페인만 제출할 수 있습니다.");
@@ -317,7 +350,11 @@ function payParticipationReward(db: Database, campaign: AdCampaign, p: CampaignP
   addWalletTxOnce(db, {
     userId: p.creator_id,
     type: "campaign_reward",
-    amount: isVideo ? creatorVideoPayout(db, campaign.video_duration_tier) : creatorDeployPayout(db, campaign.platforms),
+    // 배포: 플랫폼별 건수로 결제된 캠페인은 배정 플랫폼 단가로 지급.
+    // 그 외(플랫폼 평균 단가로 결제된 캠페인·플랫폼 정보 없는 구버전 참여)는 대상 플랫폼 평균 단가 — 광고주 청구 기준과 일치
+    amount: isVideo
+      ? creatorVideoPayout(db, campaign.video_duration_tier, campaign)
+      : creatorDeployPayout(db, p.platform && platformTargets(campaign) && campaign.platforms.includes(p.platform) ? [p.platform] : campaign.platforms, campaign),
     status: "available",
     relatedTable: "campaign_participations",
     relatedId: p.id,
@@ -330,6 +367,7 @@ function payParticipationReward(db: Database, campaign: AdCampaign, p: CampaignP
  * - applied → accepted | application_rejected
  * - video_submitted/video_approved → completed(지급) | video_rejected
  * - deploy_submitted → completed(지급) | deploy_rejected
+ * - accepted/video_rejected/deploy_rejected → cancelled (reject = 선발 취소)
  */
 export function reviewParticipation(
   db: Database,
@@ -350,6 +388,8 @@ export function reviewParticipation(
   if (participation.status === "applied") {
     if (decision === "approve") {
       if (!isCampaignActive(campaign)) return fail(409, "진행 중인 캠페인이 아닙니다.");
+      // 마감 후 선발하면 다음 자동 정산에서 곧바로 종료되므로 막는다
+      if (isPastDeadline(campaign.end_date)) return fail(409, "캠페인 마감일이 지나 선발할 수 없습니다.");
       const cap = participationCapacity(db, campaign, type);
       // 자신(applied)도 active 에 포함되므로, 선발 확정(accepted/진행) 인원 기준으로 다시 계산
       const committed = (db.campaign_participations ?? []).filter(
@@ -389,6 +429,12 @@ export function reviewParticipation(
       participation.status = "deploy_rejected";
       participation.rejection_reason = trimmedReason || "배포가 반려되었습니다.";
     }
+  } else if (["accepted", "video_rejected", "deploy_rejected"].includes(participation.status) && decision === "reject") {
+    // 선발 취소: 선발 후 작업하지 않는(또는 반려 뒤 재제출하지 않는) 크리에이터를 내보내 자리를 비운다
+    participation.status = "cancelled";
+    participation.cancelled_by = "reviewer";
+    participation.rejection_reason = trimmedReason || "광고주가 선발을 취소했습니다.";
+    releaseVideo(db, participation.id); // 배정 영상을 풀에 반납
   } else {
     return fail(409, `현재 상태(${statusLabel(participation.status)})에서는 처리할 수 없습니다.`);
   }
@@ -435,6 +481,10 @@ export function openDispute(
     (user.role === "advertiser" && campaign.advertiser_id === user.id);
   if (!allowed) return fail(403, "분쟁 신청 권한이 없습니다.");
   if (!DISPUTABLE_STATUSES.includes(participation.status)) return fail(409, "현재 상태에서는 분쟁을 신청할 수 없습니다.");
+  // 이미 정산·환불·취소된 캠페인은 분쟁으로 되돌릴 수 없다 (관리자 문의로 처리)
+  if (["completed", "refunded", "cancelled", "rejected"].includes(campaign.status)) {
+    return fail(409, "이미 종료·정산된 캠페인입니다. 이의가 있으면 고객센터로 문의해 주세요.");
+  }
 
   participation.dispute_previous_status = participation.status;
   participation.status = "disputed";
@@ -478,6 +528,7 @@ export function resolveDispute(
     );
     if (paidReward) return fail(409, "이미 지급된 수익이 있어 취소 전 관리자 정산 조정이 필요합니다.");
     participation.status = "cancelled";
+    participation.cancelled_by = "admin";
     releaseVideo(db, participation.id); // 배정 영상을 풀에 반납
   } else {
     if (participationTypeOf(participation) === "deploy" && hasLegacyDelivery(db, campaign.id, participation.creator_id)) {
@@ -586,8 +637,11 @@ function reverseCampaignCommissions(db: Database, campaign: AdCampaign, ratio: n
     byRecipient.set(t.advertiser_id, (byRecipient.get(t.advertiser_id) ?? 0) + t.amount);
   }
   for (const [recipientId, net] of byRecipient) {
-    const amount = r >= 1 ? net : Math.floor(net * r);
-    if (amount > 0) addPointTx(db, { advertiserId: recipientId, type: "commission", amount: -amount, campaignId: campaign.id, memo });
+    const want = r >= 1 ? net : Math.floor(net * r);
+    // 이미 사용해 잔액이 부족하면 남은 잔액까지만 회수한다 (음수 잔액 방지)
+    const balance = ensurePointWallet(db, recipientId).point_balance;
+    const amount = Math.min(want, Math.max(0, balance));
+    if (amount > 0) addPointTx(db, { advertiserId: recipientId, type: "commission", amount: -amount, campaignId: campaign.id, memo: amount < want ? `${memo} (잔액 부족으로 ${want - amount}P 미회수)` : memo });
   }
   if (r >= 1) {
     cancelLegacyWalletCommissions(db, campaign.id);
@@ -631,6 +685,7 @@ function closeOpenParticipations(db: Database, campaign: AdCampaign, message: st
   for (const p of db.campaign_participations ?? []) {
     if (p.campaign_id !== campaign.id || !OPEN_PARTICIPATION_STATUSES.includes(p.status)) continue;
     p.status = "cancelled";
+    p.cancelled_by = "system";
     p.updated_at = now();
     releaseVideo(db, p.id);
     notifyUser(db, { recipientId: p.creator_id, title: message, message: campaign.title, link: "/creator/campaigns" });
@@ -681,9 +736,27 @@ export function consumedCampaignPoints(db: Database, campaign: AdCampaign): numb
   const ratio = paid / computedTotal;
   const unitVideo = prog.videoTarget > 0 ? (cost.creationCost * ratio) / prog.videoTarget : 0;
   const unitDeploy = prog.deployTarget > 0 ? (cost.distributionCost * ratio) / prog.deployTarget : 0;
-  const consumed =
-    unitVideo * Math.min(prog.completedVideos, prog.videoTarget) +
-    unitDeploy * Math.min(prog.completedDeploys, prog.deployTarget);
+  let deployConsumed = unitDeploy * Math.min(prog.completedDeploys, prog.deployTarget);
+  // 플랫폼별 배포 건수가 지정된 캠페인: 플랫폼이 기록된 완료 건은 그 플랫폼 청구단가로 소진 처리
+  const targets = platformTargets(campaign);
+  if (targets && prog.deployTarget > 0) {
+    const done: Partial<Record<SocialPlatform, number>> = {};
+    for (const p of db.campaign_participations ?? []) {
+      if (p.campaign_id !== campaign.id || participationTypeOf(p) !== "deploy" || p.status !== "completed" || !p.platform) continue;
+      done[p.platform] = (done[p.platform] ?? 0) + 1;
+    }
+    let attributed = 0;
+    let byPlatform = 0;
+    for (const [platform, target] of Object.entries(targets) as [SocialPlatform, number][]) {
+      const n = Math.min(done[platform] ?? 0, target);
+      attributed += n;
+      const rate = db.settings.distribution_rates.find((r) => r.platform === platform);
+      byPlatform += n * (rate?.advertiser_charge ?? 0) * ratio;
+    }
+    const legacy = Math.max(0, Math.min(prog.completedDeploys, prog.deployTarget) - attributed);
+    deployConsumed = Math.min(cost.distributionCost * ratio, byPlatform + legacy * unitDeploy);
+  }
+  const consumed = unitVideo * Math.min(prog.completedVideos, prog.videoTarget) + deployConsumed;
   return Math.min(paid, Math.round(consumed));
 }
 
@@ -748,7 +821,7 @@ export function settleCampaign(
   db: Database,
   actorId: string | null,
   campaignId: string,
-  opts: { auto?: boolean } = {}
+  opts: { auto?: boolean; reason?: string } = {}
 ): WorkflowResult<AdCampaign & { refund_amount: number }> {
   const campaign = db.ad_campaigns.find((c) => c.id === campaignId);
   if (!campaign) return fail(404, "캠페인을 찾을 수 없습니다.");
@@ -793,7 +866,7 @@ export function settleCampaign(
 
   notifyCampaignOwner(db, campaign, {
     title: "캠페인이 완료되었습니다",
-    message: `${campaign.title} · 집행 ${consumed.toLocaleString()}P${refund > 0 ? ` · 미집행분 ${refund.toLocaleString()}P 환불` : ""}`,
+    message: `${campaign.title}${opts.reason ? ` · ${opts.reason}` : ""} · 집행 ${consumed.toLocaleString()}P${refund > 0 ? ` · 미집행분 ${refund.toLocaleString()}P 환불` : ""}`,
     category: "campaign_status",
   });
   audit(db, {
@@ -801,7 +874,7 @@ export function settleCampaign(
     action: opts.auto ? "auto_complete_campaign" : "complete_campaign",
     targetTable: "ad_campaigns",
     targetId: campaign.id,
-    after: { consumed, refund },
+    after: { consumed, refund, reason: opts.reason ?? null },
   });
   return { ok: true, status: 200, body: { ...campaign, refund_amount: refund }, message: refund > 0 ? `완료 처리되었습니다. 미집행분 ${refund.toLocaleString()}P가 환불되었습니다.` : "완료 처리되었습니다." };
 }
@@ -815,4 +888,43 @@ export function maybeAutoCompleteCampaign(db: Database, campaign: AdCampaign, ac
   if (prog.completedVideos >= prog.videoTarget && prog.completedDeploys >= prog.deployTarget) {
     settleCampaign(db, actorId, campaign.id, { auto: true });
   }
+}
+
+/**
+ * 마감일이 지난 진행 중 캠페인을 자동 정산한다 (완료분만 소진, 미집행분 환불, 남은 참여 종료, 알림).
+ * - 검토 대기(제출됨·분쟁) 건이 있는 캠페인은 건너뛰고, 관리자에게 "마감 후 검토 대기" 알림을 1회 보낸다.
+ * - 서버 시작 시와 주기적으로(instrumentation) 호출된다. 반드시 tx() 안에서 호출할 것.
+ * @returns 정산된 캠페인 수
+ */
+/** 마감일이 지났는데 아직 진행 상태인 캠페인 id 목록 */
+export function expiredActiveCampaignIds(db: Database, at: number = Date.now()): string[] {
+  return db.ad_campaigns.filter((c) => isCampaignActive(c) && isPastDeadline(c.end_date, at)).map((c) => c.id);
+}
+
+export function sweepExpiredCampaigns(db: Database, at: number = Date.now(), onlyId?: string): number {
+  let settled = 0;
+  for (const campaign of db.ad_campaigns) {
+    if (onlyId && campaign.id !== onlyId) continue;
+    if (!isCampaignActive(campaign) || !isPastDeadline(campaign.end_date, at)) continue;
+    const prog = campaignProgress(db, campaign);
+    if (prog.pendingReview > 0) {
+      if (!campaign.expired_review_notified_at) {
+        campaign.expired_review_notified_at = now();
+        notifyAdmins(db, {
+          title: "마감된 캠페인에 검토 대기 건이 있습니다",
+          message: `${campaign.title} · 검토 대기 ${prog.pendingReview}건을 처리하면 자동 정산됩니다.`,
+          link: "/admin/campaigns",
+        });
+        notifyCampaignOwner(db, campaign, {
+          title: "마감된 캠페인의 제출물을 검토해 주세요",
+          message: `${campaign.title} · 검토 대기 ${prog.pendingReview}건. 검토가 끝나면 미집행분이 자동 환불됩니다.`,
+          category: "submission",
+        });
+      }
+      continue;
+    }
+    const result = settleCampaign(db, null, campaign.id, { auto: true, reason: "마감일 경과로 자동 정산" });
+    if (result.ok) settled += 1;
+  }
+  return settled;
 }

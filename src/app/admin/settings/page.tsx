@@ -8,19 +8,27 @@ import {
   updateDistributionAction,
   updateAdvertiserCommissionAction,
   updateReferralSystemAction,
+  updatePayoutPolicyAction,
 } from "@/lib/actions/admin-actions";
+import { DEFAULT_MIN_PAYOUT } from "@/lib/schema";
 import { IconUsers, IconZap, IconCheckCircle } from "@/components/icons";
 import { requireAdmin } from "@/lib/auth";
 
-export default function AdminSettingsPage() {
+export default function AdminSettingsPage({ searchParams }: { searchParams?: { notice?: string; tone?: string } }) {
   requireAdmin();
   const db = getDb();
   const s = db.settings;
-  const roles: Role[] = ["creator", "advertiser"];
+  // 광고주 추천 수당은 지급 경로가 없어(광고주 가입비 없음) 입력칸을 두지 않는다
+  const roles: Role[] = ["creator"];
+  const notice = searchParams?.notice;
+  const tone = searchParams?.tone;
 
   return (
     <div className="space-y-6">
       <PageHeader title="정책 설정" description="가입비, 추천 수당, 단가, 수수료를 관리합니다. (모든 금액은 원 단위)" />
+      {notice && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${tone === "error" ? "bg-red-50 text-red-700" : tone === "warn" ? "bg-yellow-50 text-yellow-800" : "bg-green-50 text-green-700"}`} role={tone === "error" ? "alert" : "status"}>{notice}</div>
+      )}
 
       {/* 추천인 제도 + 유료 부업 통합 설정 */}
       <Card>
@@ -31,7 +39,7 @@ export default function AdminSettingsPage() {
           <div>
             <h2 className="text-lg font-bold text-gray-900">추천인 제도 설정</h2>
             <p className="text-sm text-gray-500">
-              추천인 제도 및 유료 부업 활성화 여부와 수당 금액을 설정합니다.
+              멘티가 가입비를 결제할 때 멘토에게 추천 수당을 적립할지 설정합니다.
             </p>
           </div>
           {s.referral_system_enabled ? (
@@ -58,7 +66,7 @@ export default function AdminSettingsPage() {
               <div>
                 <div className="font-semibold text-gray-800">추천인 제도 사용</div>
                 <div className="mt-0.5 text-sm text-gray-500">
-                  바이브회원 크리에이터에게 추천 코드가 표시되고, 멘티가 가입비를 결제하면 멘토에게 역할별 고정 수당을 1회 적립합니다. 수당 금액은 아래 역할별 설정에서 변경하세요. (끄면 추천 관계는 계속 등록되지만 수당은 적립되지 않습니다)
+                  멘티가 가입비를 결제하면 멘토(바이브회원)에게 아래 &lsquo;추천 수당&rsquo; 금액을 1회 적립합니다(지급 대기 → 추천 수당 메뉴에서 지급). 끄면 추천 관계는 계속 등록되지만 수당은 적립되지 않으며, 그 사이 결제한 멘티의 수당은 추천 수당 메뉴에서 직접 생성할 수 있습니다. (추천 코드 표시는 이 설정과 관계없이 바이브회원에게 항상 보입니다)
                 </div>
               </div>
             </label>
@@ -78,7 +86,7 @@ export default function AdminSettingsPage() {
       {/* 크리에이터 가입비 · 추천 수당 */}
       <Card>
         <h2 className="text-lg font-bold text-gray-900">가입비 · 추천 수당</h2>
-        <p className="mt-1 mb-4 text-sm text-gray-500">크리에이터 가입비와 역할별 추천인 고정 수당을 설정합니다. (광고주는 가입비 없음)</p>
+        <p className="mt-1 mb-4 text-sm text-gray-500">크리에이터 가입비와 멘토 추천 수당(고정 금액)을 설정합니다. (광고주는 가입비·추천 수당 없음)</p>
         <form action={updateFeesAction} className="space-y-5">
           {roles.map((role) => {
             const f = s.fees[role];
@@ -97,7 +105,7 @@ export default function AdminSettingsPage() {
                       </Field>
                     </>
                   )}
-                  <Field label="추천 수당(원)" hint="이 역할로 가입 시 추천인에게 지급">
+                  <Field label="추천 수당(원)" hint="멘티가 가입비를 결제하면 멘토에게 1회 적립">
                     <Input type="number" name={`${role}_referral_amount`} defaultValue={f.referral_reward_amount} min={0} />
                   </Field>
                 </div>
@@ -178,13 +186,13 @@ export default function AdminSettingsPage() {
       <Card>
         <h2 className="text-lg font-bold text-gray-900">실행사 / 대행사 수수료</h2>
         <p className="mt-1 mb-4 text-sm text-gray-500">
-          대행사는 실행사의 추천인 코드로만 가입할 수 있습니다.
-          대행사가 결제하는 금액의 일정 비율을 실행사 수익으로 자동 적립합니다.
+          실행사 추천 코드로 가입한 대행사(소속 대행사)가 결제하는 금액의 일정 비율을 실행사 포인트로 적립합니다. (추천인 없이 가입한 대행사는 수수료 없음)
+          캠페인이 취소·환불되면 적립된 수수료도 같은 비율로 회수되며, 이미 사용했다면 실행사 잔액이 마이너스가 될 수 있습니다.
         </p>
         <form action={updateAdvertiserCommissionAction} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="실행사 수수료율(%)">
-              <Input type="number" name="commission_rate" defaultValue={s.advertiser_commission_rate} min={0} max={100} />
+              <Input type="number" name="commission_rate" defaultValue={s.advertiser_commission_rate} min={0} max={100} step={1} />
             </Field>
             <Field label="수수료 적립 기준">
               <Select name="commission_basis" defaultValue={s.advertiser_commission_basis}>
@@ -192,6 +200,20 @@ export default function AdminSettingsPage() {
                 <option value="agency_spend">대행사 광고 주문 차감액 기준 (기본)</option>
                 <option value="campaign_completed">캠페인 완료 금액 기준</option>
               </Select>
+            </Field>
+          </div>
+          <SubmitButton successMessage="저장되었습니다">저장</SubmitButton>
+        </form>
+      </Card>
+
+      {/* 출금 정책 */}
+      <Card>
+        <h2 className="text-lg font-bold text-gray-900">출금 정책</h2>
+        <p className="mt-1 mb-4 text-sm text-gray-500">크리에이터가 한 번에 신청할 수 있는 최소 출금 금액입니다. (소액 반복 신청·이체 수수료 부담 방지)</p>
+        <form action={updatePayoutPolicyAction} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="최소 출금액(원)">
+              <Input type="number" name="min_payout_amount" defaultValue={s.min_payout_amount ?? DEFAULT_MIN_PAYOUT} min={1} />
             </Field>
           </div>
           <SubmitButton successMessage="저장되었습니다">저장</SubmitButton>

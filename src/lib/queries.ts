@@ -162,3 +162,32 @@ export function priceForDuration(db: Database, seconds: number): number {
   }
   return tiers[tiers.length - 1]?.amount ?? 0;
 }
+
+/** 캠페인 등록 시점의 광고주 청구 단가 스냅샷 */
+export function advertiserRateSnapshot(db: Database, videoDurationTier?: string | null): NonNullable<AdCampaign["advertiser_rate_snapshot"]> {
+  const deploy_charges: Partial<Record<SocialPlatform, number>> = {};
+  for (const r of db.settings.distribution_rates) deploy_charges[r.platform] = r.advertiser_charge;
+  return { video_charge: advertiserVideoCharge(db, videoDurationTier), deploy_charges, captured_at: new Date().toISOString() };
+}
+
+/**
+ * 캠페인의 광고주 단가 스냅샷을 현재 설정 위에 덮어쓴 "가격 계산용" DB 보기.
+ * 스냅샷이 없는 구버전 캠페인은 현재 설정을 그대로 쓴다.
+ */
+export function pricingDbForCampaign(db: Database, campaign: Pick<AdCampaign, "advertiser_rate_snapshot" | "video_duration_tier">): Database {
+  const snap = campaign.advertiser_rate_snapshot;
+  if (!snap) return db;
+  return {
+    ...db,
+    settings: {
+      ...db.settings,
+      distribution_rates: db.settings.distribution_rates.map((r) =>
+        typeof snap.deploy_charges?.[r.platform] === "number" ? { ...r, advertiser_charge: snap.deploy_charges[r.platform] as number } : r
+      ),
+      video_pricing_tiers: (db.settings.video_pricing_tiers ?? []).map((t) =>
+        t.key === campaign.video_duration_tier ? { ...t, advertiser_charge: snap.video_charge } : t
+      ),
+      extra_creation_advertiser_charge: snap.video_charge,
+    },
+  };
+}

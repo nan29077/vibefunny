@@ -8,6 +8,7 @@ import { getPaymentProvider, paymentProviderReady } from "../payment/provider";
 import { applyPaymentEffects } from "../payment/effects";
 import { audit, createPayment } from "../services";
 import { funnyChargeAllowed } from "../ai/settings";
+import { notifyAdmins } from "../campaign-workflow";
 
 const now = () => new Date().toISOString();
 
@@ -78,8 +79,10 @@ export async function confirmPaymentAction(formData: FormData): Promise<void> {
   // 프로바이더 승인 시도 (Mock)
   const provider = getPaymentProvider();
   let result: Awaited<ReturnType<typeof provider.confirm>>;
+  // 이전 시도에서 PG 승인은 됐지만 반영(tx)이 실패한 건: 승인을 다시 부르지 않고 반영만 다시 한다 (이중 승인·실패 처리 방지)
+  const approvedBefore = typeof payment0.metadata_json?.provider_payment_id_pending === "string" ? String(payment0.metadata_json.provider_payment_id_pending) : "";
   try {
-    result = await provider.confirm(
+    result = approvedBefore ? { providerPaymentId: approvedBefore, success: true } : await provider.confirm(
       { paymentId, amount: payment0.amount, orderName: payment0.payment_type },
       { forceFail }
     );
@@ -95,12 +98,13 @@ export async function confirmPaymentAction(formData: FormData): Promise<void> {
     throw error;
   }
 
+  try {
   tx((db) => {
     const payment = db.payments.find((p) => p.id === paymentId);
     if (!payment || payment.status !== "pending") return; // 멱등성 보장
     if (payment.metadata_json?.confirm_lock !== lockToken) return; // 다른 요청이 승인 표시를 가져감
-    const { confirm_lock: _lock, confirm_lock_at: _lockAt, ...restMeta } = payment.metadata_json ?? {};
-    void _lock; void _lockAt;
+    const { confirm_lock: _lock, confirm_lock_at: _lockAt, provider_payment_id_pending: _pending, ...restMeta } = payment.metadata_json ?? {};
+    void _lock; void _lockAt; void _pending;
     payment.metadata_json = restMeta;
 
     payment.provider_payment_id = result.providerPaymentId;
@@ -127,12 +131,29 @@ export async function confirmPaymentAction(formData: FormData): Promise<void> {
     applyPaymentEffects(db, payment);
     audit(db, {
       actorId: user.id,
-      action: "payment_paid",
+      // 결제 효과 적용 중 취소된 경우(이미 바이브회원·충전 불가 등)는 '결제 완료'로 기록하지 않는다
+      action: payment.status === "paid" ? "payment_paid" : "payment_confirmed_but_cancelled",
       targetTable: "payments",
       targetId: payment.id,
-      after: { type: payment.payment_type, amount: payment.amount },
+      after: { type: payment.payment_type, amount: payment.amount, status: payment.status },
     });
   });
+  } catch (error) {
+    // 승인 후 반영(tx)이 실패하면 저장된 것이 없으므로 승인 중 표시를 풀고 관리자에게 알린다
+    // (실 PG 연동 시: 승인은 됐는데 반영이 안 된 상태 → 관리자 확인·승인취소 필요)
+    try {
+      tx((db) => {
+        const payment = db.payments.find((p) => p.id === paymentId);
+        if (payment && payment.metadata_json?.confirm_lock === lockToken) {
+          const { confirm_lock: _l, confirm_lock_at: _a, ...rest } = payment.metadata_json ?? {};
+          void _l; void _a;
+          payment.metadata_json = { ...rest, last_apply_error_at: new Date().toISOString(), ...(result.success ? { provider_payment_id_pending: result.providerPaymentId } : {}) };
+        }
+        notifyAdmins(db, { title: "결제 승인 후 반영에 실패했습니다", message: `결제 ${paymentId} · ${result.success ? "PG 승인됨 — 확인 필요" : "승인 실패 건"}`, link: "/admin/payments" });
+      });
+    } catch { /* 저장 자체가 안 되는 상황 — 원래 오류를 그대로 던진다 */ }
+    throw error;
+  }
 
   revalidatePath("/", "layout");
 }

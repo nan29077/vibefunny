@@ -1,3 +1,4 @@
+import { daysUntilDeadline, deadlineEndMs } from "@/lib/date";
 import { getDb } from "@/lib/db";
 import { PageHeader, EmptyState, Badge } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
@@ -35,10 +36,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DeadlineCountdown({ deadline }: { deadline: string }) {
-  const now = new Date();
-  const end = new Date(deadline);
-  const diffMs = end.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const end = new Date(deadlineEndMs(deadline) ?? deadline);
+  const diffDays = daysUntilDeadline(deadline) ?? 0;
   if (diffDays < 0) return <span className="text-xs text-red-500 font-semibold">마감됨</span>;
   if (diffDays <= 7) {
     return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">D-{diffDays} 임박</span>;
@@ -46,14 +45,19 @@ function DeadlineCountdown({ deadline }: { deadline: string }) {
   return <span className="text-xs text-gray-500">{end.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })} 마감</span>;
 }
 
-export default function AdminRequestsPage() {
+export default function AdminRequestsPage({ searchParams }: { searchParams?: { notice?: string; tone?: string } }) {
   requireAdmin();
   const db = getDb();
   const requests = [...db.custom_video_requests].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const notice = searchParams?.notice;
+  const noticeIsError = searchParams?.tone === "error";
 
   return (
     <div className="space-y-4">
       <PageHeader title="제작 의뢰 관리" description="영상 제작 의뢰 진행 현황, 크리에이터 제출물 검수" />
+      {notice && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${noticeIsError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`} role={noticeIsError ? "alert" : "status"}>{notice}</div>
+      )}
       {requests.length === 0 ? (
         <EmptyState title="제작 의뢰가 없습니다" />
       ) : (

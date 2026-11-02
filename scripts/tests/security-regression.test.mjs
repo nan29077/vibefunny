@@ -122,8 +122,8 @@ test("session tokens carry a version and server-side expiry", () => {
 });
 
 test("login and verification email are rate limited", () => {
-  assert.match(read("src/lib/actions/auth-actions.ts"), /rateLimit\(`login-ip:/);
-  assert.match(read("src/app/api/auth/email-verification/send/route.ts"), /rateLimit\(`email-send-ip10m:/);
+  assert.match(read("src/lib/actions/auth-actions.ts"), /rateLimitIp\("login-ip"/);
+  assert.match(read("src/app/api/auth/email-verification/send/route.ts"), /rateLimitIp\("email-send-ip10m"/);
 });
 
 test("pending accounts cannot use upload / file APIs", () => {
@@ -163,9 +163,17 @@ test("expired campaigns are swept and auto-settled in the background", () => {
   assert.match(read("src/lib/background.ts"), /CAMPAIGN_SWEEP === "off"/);
 });
 
-test("point ledger never goes negative and commission clawback is clamped", () => {
-  assert.match(read("src/lib/services.ts"), /params\.amount < 0 && pw\.point_balance \+ params\.amount < 0/);
-  assert.match(read("src/lib/campaign-workflow.ts"), /Math\.min\(want, Math\.max\(0, balance\)\)/);
+test("point ledger never goes negative except a full commission clawback (negative balance offsets later)", () => {
+  // 일반 차감은 잔액 부족 시 거부, 수수료 회수만 마이너스 허용 (2026-10-31: 잔액 한도 회수 → 플랫폼 손실 방지)
+  assert.match(read("src/lib/services.ts"), /!params\.allowNegative && params\.amount < 0 && pw\.point_balance \+ params\.amount < 0/);
+  const wf = read("src/lib/campaign-workflow.ts");
+  assert.match(wf, /amount: -want, campaignId: campaign\.id, memo, allowNegative: true/);
+  assert.doesNotMatch(wf, /Math\.min\(want, Math\.max\(0, balance\)\)/);
+  // allowNegative 는 수수료 회수에서만 쓴다
+  const uses = fs.readdirSync(path.join(root, "src/lib"), { recursive: true })
+    .filter((f) => String(f).endsWith(".ts"))
+    .filter((f) => read(path.join("src/lib", String(f))).includes("allowNegative: true"));
+  assert.deepEqual(uses.map(String), ["campaign-workflow.ts"]);
 });
 
 test("deploy participations are assigned a platform and paid at that platform's rate", () => {
@@ -338,7 +346,7 @@ test("signup requires the verification cookie of the browser that verified the e
   assert.match(verify, /httpOnly: true/);
   const signup = read("src/lib/actions/auth-actions.ts");
   assert.match(signup, /verifyTokenMatches\(verifyCookie, item\)/);
-  assert.match(signup, /signup-ip:/);
+  assert.match(signup, /rateLimitIp\("signup-ip"/);
   assert.match(signup, /EMAIL_VERIFIED_TTL_MS/);
 });
 
@@ -368,4 +376,84 @@ test("legacy reviewer cancellations are backfilled and pending creators without 
   assert.match(src, /function migrateCancelledBy/);
   assert.match(src, /!wasPending && p\.status === "active"/);
   assert.match(read("src/components/forms/new-campaign-form.tsx"), /<form action=\{formAction\} noValidate/);
+});
+
+// ---------------------------------------------------------------------------
+// 2026-10-31 역할별 시뮬레이션 점검 수정분
+// ---------------------------------------------------------------------------
+test("new DBs pay mentor referral rewards by default and admins can create missed rewards", () => {
+  assert.match(read("src/lib/seed.ts"), /referral_system_enabled: true/);
+  const admin = read("src/lib/actions/admin-actions.ts");
+  assert.match(admin, /export async function createMissingReferralRewardAction/);
+  assert.match(admin, /payment_type === "signup_fee" && p\.status === "paid"/);
+  assert.doesNotMatch(admin, /updatePolicyAction/);
+  assert.match(read("src/app/admin/referrals/page.tsx"), /!referralOn/);
+});
+
+test("campaign end date is required on the form and the server", () => {
+  assert.match(read("src/lib/actions/campaign-actions.ts"), /if \(!d\.end_date\) \{\s*return \{ ok: false, message: "모집 종료일을 선택하세요\."/);
+  assert.match(read("src/components/forms/new-campaign-form.tsx"), /!endDate \|\|/);
+});
+
+test("settlement uses the advertiser price snapshot captured at creation", () => {
+  assert.match(read("src/lib/actions/campaign-actions.ts"), /advertiser_rate_snapshot: advertiserRateSnapshot\(db/);
+  assert.match(read("src/lib/campaign-workflow.ts"), /const priceDb = pricingDbForCampaign\(db, campaign\)/);
+});
+
+test("advertisers cannot cancel after a creator downloaded the assigned video, and member disputes are once per role", () => {
+  const wf = read("src/lib/campaign-workflow.ts");
+  assert.match(wf, /actor\.role !== "admin" && hasDownloadedVideo\(db, participation\.id\)/);
+  assert.match(wf, /OPEN_PARTICIPATION_STATUSES\.includes\(p\.status\) && hasDownloadedVideo\(db, p\.id\)/);
+  assert.match(wf, /if \(hasDisputed\(db, participation, role\)\)/);
+  assert.match(wf, /user\.role === "creator" && participation\.status === "completed"/);
+  // 크리에이터 화면으로 광고주 청구 단가를 보내지 않는다
+  assert.match(read("src/app/creator/campaigns/page.tsx"), /advertiser_rate_snapshot: undefined/);
+});
+
+test("signup fee payment never lifts a suspension", () => {
+  const eff = read("src/lib/payment/effects.ts");
+  assert.match(eff, /if \(user\.status === "pending"\) user\.status = "active"/);
+  assert.doesNotMatch(eff, /\n\s*user\.status = "active";/);
+});
+
+test("policy amounts are validated instead of silently clamped", () => {
+  const admin = read("src/lib/actions/admin-actions.ts");
+  assert.match(admin, /function readAmount\(/);
+  assert.match(admin, /v < 0 \|\| v < min \|\| v > max/);
+  assert.match(admin, /readAmount\(fd, "commission_rate", "실행사 수수료율\(%\)", errors, 100\)/);
+});
+
+test("payout minimum, 1,000-won point charges and IP-unknown rate limits", () => {
+  assert.match(read("src/lib/actions/payout-actions.ts"), /d\.amount < minPayout/);
+  assert.match(read("src/lib/actions/point-actions.ts"), /amount % 1000 !== 0/);
+  const rl = read("src/lib/rate-limit.ts");
+  assert.match(rl, /export function rateLimitIp\(/);
+  assert.match(rl, /if \(!isKnownIp\(ip\)\) return 0/);
+  // 로그인 IP 제한은 실패만 기록
+  assert.match(read("src/lib/actions/auth-actions.ts"), /rateLimitIp\("login-ip", LOGIN_IP_LIMIT, LOGIN_WINDOW_MS, false, ip\)/);
+});
+
+test("member inquiries notify admins and chatbot needs a specific keyword", () => {
+  assert.match(read("src/app/api/support/route.ts"), /notifyAdmins\(db, \{\s*title: "새 회원 문의가 접수되었습니다"/);
+  assert.match(read("src/lib/support.ts"), /GENERIC_KEYWORDS/);
+  assert.match(read("src/lib/support-hours.ts"), /config\.weekdaysOnly && isWeekend/);
+});
+
+test("request applications respect the KST deadline and losing applicants are notified", () => {
+  const req = read("src/lib/actions/request-actions.ts");
+  assert.match(req, /isPastDeadline\(req\.deadline \?\? req\.due_date\)/);
+  assert.match(req, /제작 의뢰에 선정되지 않았습니다/);
+  assert.match(read("src/lib/date.ts"), /T23:59:59\.999\+09:00/);
+});
+
+test("cafe24 mall id is restricted to the cafe24 host format", () => {
+  assert.match(read("src/lib/actions/commerce-actions.ts"), /\^\[a-z0-9\]\[a-z0-9-\]\{0,63\}\$/);
+  assert.match(read("src/lib/cafe24.ts"), /\^\[a-z0-9\]\[a-z0-9-\]\{0,63\}\$/);
+});
+
+test("settings saves clear previous error notices and blocked members get no referral reward", () => {
+  const admin = read("src/lib/actions/admin-actions.ts");
+  assert.equal((admin.match(/settingsSaved\(\);/g) ?? []).length, 6);
+  assert.match(read("src/lib/payment/effects.ts"), /if \(!blocked\) createSignupReferralReward/);
+  assert.match(read("src/lib/actions/payment-actions.ts"), /approvedBefore \? \{ providerPaymentId: approvedBefore, success: true \}/);
 });

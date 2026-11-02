@@ -21,7 +21,7 @@ import {
 } from "@/components/icons";
 import { safeHref } from "@/lib/url";
 import { formatDate } from "@/lib/date";
-import { isCampaignActive, isPastDeadline } from "@/lib/campaign-workflow";
+import { hasDisputed, hasDownloadedVideo, isCampaignActive, isPastDeadline } from "@/lib/campaign-workflow";
 
 export const dynamic = "force-dynamic";
 
@@ -301,10 +301,12 @@ export default function AdvertiserCampaignDetailPage({
                       <RejectForm participationId={pt.id} expectedStatus={pt.status} />
                     </div>
                   )}
-                  {pt.status === "accepted" && (
+                  {(pt.status === "accepted" || pt.status === "deploy_rejected") && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-gray-500">배포 링크 제출 대기 중</span>
-                      <RejectForm participationId={pt.id} expectedStatus={pt.status} label="선발 취소" />
+                      <span className="text-xs text-gray-500">{pt.status === "accepted" ? "배포 링크 제출 대기 중" : "재제출 대기 중"}</span>
+                      {hasDownloadedVideo(db, pt.id)
+                        ? <span className="text-xs text-gray-400">영상 다운로드됨 · 선발 취소는 관리자에게 요청</span>
+                        : <RejectForm participationId={pt.id} expectedStatus={pt.status} label="선발 취소" />}
                     </div>
                   )}
                 </div>
@@ -336,7 +338,7 @@ export default function AdvertiserCampaignDetailPage({
                   <a href={safeHref(pt.deploy_link)} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand-purple underline">게시물 확인하기</a>
                 )}
                 {pt.status === "disputed" && <p className="mt-1 text-xs text-red-600">분쟁 처리 중 · 관리자 확인 대기</p>}
-                {DISPUTABLE.includes(pt.status) && <DisputeForm participationId={pt.id} />}
+                {DISPUTABLE.includes(pt.status) && !hasDisputed(db, pt, "advertiser") && <DisputeForm participationId={pt.id} />}
               </div>
             ))}
           </div>
@@ -368,6 +370,12 @@ export default function AdvertiserCampaignDetailPage({
                   {pt.status === "accepted" && (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs text-gray-500">영상 제출 대기 중</span>
+                      <RejectForm participationId={pt.id} expectedStatus={pt.status} label="선발 취소" />
+                    </div>
+                  )}
+                  {pt.status === "video_rejected" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-gray-500">재제출 대기 중</span>
                       <RejectForm participationId={pt.id} expectedStatus={pt.status} label="선발 취소" />
                     </div>
                   )}
@@ -410,7 +418,7 @@ export default function AdvertiserCampaignDetailPage({
                   <a href={safeHref(pt.video_url)} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand-purple underline">완료 영상 확인하기</a>
                 )}
                 {pt.status === "disputed" && <p className="mt-1 text-xs text-red-600">분쟁 처리 중 · 관리자 확인 대기</p>}
-                {DISPUTABLE.includes(pt.status) && <DisputeForm participationId={pt.id} />}
+                {DISPUTABLE.includes(pt.status) && !hasDisputed(db, pt, "advertiser") && <DisputeForm participationId={pt.id} />}
               </div>
             ))}
           </div>

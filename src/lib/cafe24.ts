@@ -84,6 +84,9 @@ export async function cafe24CreateProduct(
 
   // ── 실제 연동 모드 ───────────────────────────────────────────────────
   const s = settings as Cafe24Settings;
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(s.mall_id ?? "")) {
+    return { ok: false, mode: "real", cafe24_product_no: null, error: "카페24 쇼핑몰 ID 형식이 올바르지 않습니다.", raw: null };
+  }
   const base = `https://${s.mall_id}.cafe24api.com/api/v2/admin/products`;
   try {
     const res = await fetch(base, {

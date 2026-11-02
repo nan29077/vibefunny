@@ -34,6 +34,7 @@ export default function AdminDashboard() {
   const pendingCampaigns = db.ad_campaigns.filter((c) => c.status === "admin_review");
   const pendingPayouts   = db.payout_requests.filter((r) => ["requested","approved"].includes(r.status));
   const pendingPayoutAmt = pendingPayouts.reduce((sum, r) => sum + r.amount, 0); // 신청+승인(지급 대기) 건 합계 — 건수와 같은 기준
+  const waitingInquiries = (db.support_threads ?? []).filter((t) => t.status === "waiting").length;
 
   // 최근 캠페인 5건
   const recentCampaigns = [...db.ad_campaigns]
@@ -41,12 +42,12 @@ export default function AdminDashboard() {
     .slice(0, 5);
 
   // 플랫폼별 캠페인 수
-  const platformCount: Record<string, number> = { youtube: 0, instagram: 0, tiktok: 0 };
+  const platformCount: Record<string, number> = { youtube: 0, instagram: 0, tiktok: 0, facebook: 0 };
   db.ad_campaigns.forEach((c) => c.platforms.forEach((p) => { platformCount[p] = (platformCount[p] ?? 0) + 1; }));
 
   // 수익 요약
   const totalCreatorEarnings = db.wallet_transactions
-    .filter((t) => t.amount > 0)
+    .filter((t) => t.amount > 0 && t.status !== "cancelled")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalPointCharged = db.point_transactions
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
       <PageHeader title="관리자 대시보드" description="플랫폼 전체 현황을 한눈에 확인하세요." />
 
       {/* 처리 대기 알림 */}
-      {(pendingCampaigns.length > 0 || pendingPayouts.length > 0) && (
+      {(pendingCampaigns.length > 0 || pendingPayouts.length > 0 || waitingInquiries > 0) && (
         <div className="grid gap-3 sm:grid-cols-2">
           {pendingCampaigns.length > 0 && (
             <div className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
@@ -91,6 +92,16 @@ export default function AdminDashboard() {
                 <div className="text-xs text-green-600">{pendingPayouts.length}건 · {formatKRW(pendingPayoutAmt)}</div>
               </div>
               <LinkButton href="/admin/payouts" size="sm" variant="outline">처리</LinkButton>
+            </div>
+          )}
+          {waitingInquiries > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <IconUsers size={18} className="shrink-0 text-amber-600" />
+              <div className="flex-1">
+                <div className="text-sm font-bold text-amber-800">회원 문의 답변 대기</div>
+                <div className="text-xs text-amber-600">{waitingInquiries}건</div>
+              </div>
+              <LinkButton href="/admin/inquiries" size="sm" variant="outline">처리</LinkButton>
             </div>
           )}
         </div>

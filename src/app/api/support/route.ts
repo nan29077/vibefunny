@@ -7,6 +7,8 @@ import { getSupportAvailability } from "@/lib/support-hours";
 import type { SupportMessage, SupportThread } from "@/lib/schema";
 import { rateLimit } from "@/lib/rate-limit";
 import { notifyUser } from "@/lib/services";
+import { notifyAdmins } from "@/lib/campaign-workflow";
+import { displayName } from "@/lib/schema";
 
 const now = () => new Date().toISOString();
 
@@ -101,6 +103,8 @@ export async function POST(req: NextRequest) {
 
   const result = tx((db) => {
     let thread = db.support_threads.find((item) => item.user_id === user.id);
+    // 새 문의이거나, 답변·완료 처리된 대화에 회원이 다시 문의하면 관리자에게 알린다 (대기 중 연속 메시지는 한 번만)
+    const shouldNotify = !thread || thread.status !== "waiting";
     if (!thread) {
       thread = { id: nanoid(), user_id: user.id, status: "waiting", created_at: now(), updated_at: now() } satisfies SupportThread;
       db.support_threads.push(thread);
@@ -114,6 +118,14 @@ export async function POST(req: NextRequest) {
     db.support_messages.push(message, botMessage);
     thread.status = "waiting";
     thread.updated_at = botMessage.created_at;
+    if (shouldNotify) {
+      const member = db.profiles.find((p) => p.id === user.id);
+      notifyAdmins(db, {
+        title: "새 회원 문의가 접수되었습니다",
+        message: `${member ? displayName(member) : "회원"} · ${content.length > 50 ? `${content.slice(0, 50)}…` : content}`,
+        link: "/admin/inquiries",
+      });
+    }
     return { thread, messages: [message, botMessage] };
   });
   return NextResponse.json(result);

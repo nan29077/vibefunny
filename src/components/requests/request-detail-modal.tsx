@@ -1,5 +1,6 @@
 "use client";
 
+import { daysUntilDeadline, deadlineEndMs } from "@/lib/date";
 import { useNow } from "@/lib/use-now";
 import { ModalShell } from "@/components/modal-shell";
 import { useState, useRef, useTransition } from "react";
@@ -37,10 +38,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 function DeadlineCountdown({ deadline }: { deadline: string }) {
   const now = useNow();
-  const end = new Date(deadline);
+  const end = new Date(deadlineEndMs(deadline) ?? deadline);
   if (!now) return <span className="text-gray-700">{end.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</span>;
-  const diffMs = end.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = daysUntilDeadline(deadline, now.getTime()) ?? 0;
 
   if (diffDays < 0) return <span className="text-red-600 font-semibold">마감됨</span>;
   if (diffDays <= 7) {
@@ -98,7 +98,9 @@ export function RequestDetailModal({
   const progress = maxC ? Math.min(100, Math.round((curS / maxC) * 100)) : 0;
 
   const canSubmit = canAct && isAssignedCreator && ["in_progress", "revision_requested"].includes(status);
-  const canApply = canAct && status === "open" && !hasApplied && request.buyer_id !== userId;
+  const nowTs = useNow();
+  const pastDeadline = nowTs !== null && (daysUntilDeadline(deadline, nowTs.getTime()) ?? 0) < 0;
+  const canApply = canAct && status === "open" && !hasApplied && request.buyer_id !== userId && !pastDeadline;
 
   async function handleApply() {
     const price = proposedPrice.trim() ? Math.floor(Number(proposedPrice)) : null;

@@ -35,7 +35,8 @@ export function notifyUser(
   }
   if (!db.notifications) db.notifications = [];
   const recentCutoff = Date.now() - 60_000;
-  const existing = db.notifications.find((item) => item.recipient_id === params.recipientId && item.title === params.title && item.message === params.message && new Date(item.created_at).getTime() >= recentCutoff);
+  // 같은 사건의 중복 호출만 합친다 (제목·내용·링크가 모두 같고 1분 이내)
+  const existing = db.notifications.find((item) => item.recipient_id === params.recipientId && item.title === params.title && item.message === params.message && (item.link ?? null) === (params.link ?? null) && new Date(item.created_at).getTime() >= recentCutoff);
   if (existing) return existing;
   const notification: Notification = {
     id: genId(), recipient_id: params.recipientId, title: params.title, message: params.message,
@@ -165,11 +166,13 @@ export function addPointTx(
     paymentId?: string;
     campaignId?: string;
     memo?: string;
+    /** 수수료 회수(clawback) 전용: 잔액이 마이너스가 되어도 허용 — 다음 충전·적립에서 자연히 상계된다 */
+    allowNegative?: boolean;
   }
 ): PointTransaction {
   const pw = ensurePointWallet(db, params.advertiserId);
-  // 잔액이 음수가 되는 차감은 허용하지 않는다 (예외 → tx 전체가 저장되지 않음)
-  if (params.amount < 0 && pw.point_balance + params.amount < 0) {
+  // 잔액이 음수가 되는 차감은 허용하지 않는다 (예외 → tx 전체가 저장되지 않음). 수수료 회수만 예외
+  if (!params.allowNegative && params.amount < 0 && pw.point_balance + params.amount < 0) {
     throw new Error(`포인트 잔액 부족: 잔액 ${pw.point_balance}, 차감 ${-params.amount}`);
   }
   pw.point_balance += params.amount;
@@ -250,29 +253,6 @@ export function audit(
   db.audit_logs.push(log);
 }
 
-// --- 실행사 수직 수수료 생성 (대행사 광고 집행 시) ----------------------
-export function createAdvertiserCommission(
-  db: Database,
-  params: { agencyId: string; baseAmount: number; campaignId?: string; memo?: string }
-): void {
-  const agency = db.profiles.find((p) => p.id === params.agencyId);
-  if (!agency || !agency.parent_advertiser_id) return; // 상위 실행사 없음
-  const rate = db.settings.advertiser_commission_rate;
-  if (rate <= 0 || params.baseAmount <= 0) return;
-  const commission = Math.floor((params.baseAmount * rate) / 100);
-  if (commission <= 0) return;
-  // 실행사 수수료는 조건 충족 후 생성 -> pending (관리자 확인 후 지급가능)
-  addWalletTx(db, {
-    userId: agency.parent_advertiser_id,
-    type: "advertiser_commission",
-    amount: commission,
-    status: "pending",
-    relatedTable: "ad_campaigns",
-    relatedId: params.campaignId,
-    memo: params.memo ?? `${agency.name} 광고 집행 ${rate}% 수수료`,
-  });
-}
-
 // --- 추천 수당: 가입비 결제 완료 후 생성 ---------------------------------
 export function createSignupReferralReward(
   db: Database,
@@ -334,55 +314,4 @@ export function createReferralRewardRecord(
   return reward;
 }
 
-// --- 대행사 → 실행사 수수료 적립 (대행사 결제 시 호출) ------------------
-/**
- * 대행사가 포인트 충전 또는 광고 주문 결제 시 실행사에게 수수료를 적립한다.
- * - 수수료율: db.settings.advertiser_commission_rate
- * - 적립 기준: db.settings.advertiser_commission_basis (호출 시점에 이미 필터링)
- */
-export function createAgencyCommission(
-  db: Database,
-  agencyId: string,
-  amount: number,
-  memo?: string
-): void {
-  createAdvertiserCommission(db, {
-    agencyId,
-    baseAmount: amount,
-    memo: memo ?? `대행사 결제액 ${amount.toLocaleString()}원 기준 실행사 수수료`,
-  });
-}
-
-// --- 대행사 포인트 충전 시 실행사 포인트 수수료 적립 --------------------
-/**
- * 대행사가 포인트를 충전할 때 실행사(referral_relations 기준)의 포인트 지갑에
- * admin 설정 commission rate% 를 적립한다.
- */
-export function createAgencyPointCommission(
-  db: Database,
-  agencyId: string,
-  chargeAmount: number,
-  paymentId?: string
-): void {
-  // referral_relations에서 이 대행사를 추천한 실행사 찾기
-  const relation = db.referral_relations.find(
-    (r) => r.referee_id === agencyId && r.referral_type === "advertiser_hierarchy"
-  );
-  if (!relation) return; // 연결된 실행사 없음
-
-  const executionCompanyId = relation.referrer_id;
-  const rate = db.settings.advertiser_commission_rate;
-  if (rate <= 0 || chargeAmount <= 0) return;
-
-  const commission = Math.floor((chargeAmount * rate) / 100);
-  if (commission <= 0) return;
-
-  const agency = db.profiles.find((p) => p.id === agencyId);
-  addPointTx(db, {
-    advertiserId: executionCompanyId,
-    type: "charge",
-    amount: commission,
-    paymentId, // 대행사 결제 ID → 어느 대행사에서 발생했는지 역추적 가능
-    memo: `${agency?.name ?? agencyId} 포인트 충전 ${rate}% 수수료 적립 (충전액 ${chargeAmount.toLocaleString()}원)`,
-  });
-}
+// 실행사 수수료는 campaign-workflow.ts 의 applyAgencyCommission(포인트 지갑, type=commission) 한 곳에서만 처리한다.

@@ -11,7 +11,7 @@ import {
   sendVerificationEmail,
 } from "@/lib/email-verification";
 
-import { clientIp, formatWait, rateLimit } from "@/lib/rate-limit";
+import { clientIp, formatWait, rateLimit, rateLimitIp } from "@/lib/rate-limit";
 
 const schema = z.object({ email: z.string().email() });
 // 서비스 전체 시간당 발송 한도 (메일 업체 한도 보호). 운영 규모에 맞게 EMAIL_SEND_HOURLY_LIMIT 로 조정
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     // 발송 횟수 제한: 같은 IP 10분 5회 · 하루 20회, 서비스 전체 1시간 300회 (메일 발송 한도 소진 방지)
     const ip = clientIp();
     const wait =
-      rateLimit(`email-send-ip10m:${ip}`, 5, 10 * 60 * 1000, false) ||
-      rateLimit(`email-send-ipday:${ip}`, 20, 24 * 60 * 60 * 1000, false) ||
+      rateLimitIp("email-send-ip10m", 5, 10 * 60 * 1000, false, ip) ||
+      rateLimitIp("email-send-ipday", 20, 24 * 60 * 60 * 1000, false, ip) ||
       // 같은 받는 주소로는 하루 10회까지 (IP 를 바꿔도 한 사람에게 메일 폭탄을 보낼 수 없게)
       rateLimit(`email-send-to:${email}`, 10, 24 * 60 * 60 * 1000, false) ||
       rateLimit("email-send-global", GLOBAL_SEND_LIMIT, 60 * 60 * 1000, false);
@@ -48,8 +48,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "회원인증 발신 이메일이 아직 설정되지 않았습니다. 관리자에게 문의하세요." }, { status: 503 });
     }
 
-    rateLimit(`email-send-ip10m:${ip}`, 5, 10 * 60 * 1000);
-    rateLimit(`email-send-ipday:${ip}`, 20, 24 * 60 * 60 * 1000);
+    rateLimitIp("email-send-ip10m", 5, 10 * 60 * 1000, true, ip);
+    rateLimitIp("email-send-ipday", 20, 24 * 60 * 60 * 1000, true, ip);
     rateLimit(`email-send-to:${email}`, 10, 24 * 60 * 60 * 1000);
     rateLimit("email-send-global", GLOBAL_SEND_LIMIT, 60 * 60 * 1000);
     const id = genId();

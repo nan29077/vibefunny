@@ -28,12 +28,18 @@ export default function AdvertiserPointsPage({
 
       {searchParams.error === "amount" && (
         <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          충전 금액이 올바르지 않습니다. 허용된 범위의 금액을 선택하거나 입력하세요.
+          충전 금액이 올바르지 않습니다. 1,000원 단위로 1,000원 ~ 1억 원 사이 금액을 선택하거나 입력하세요.
         </div>
       )}
       {searchParams.error === "insufficient" && (
         <div className="rounded-xl bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
           포인트가 부족합니다. 충전 후 다시 시도하세요.
+        </div>
+      )}
+
+      {balance < 0 && (
+        <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          소속 대행사 캠페인 취소·환불로 이미 사용한 수수료가 회수되어 잔액이 마이너스입니다. 다음 충전·수수료 적립에서 먼저 차감되며, 잔액이 0P 이상이 되어야 캠페인을 등록할 수 있습니다.
         </div>
       )}
 

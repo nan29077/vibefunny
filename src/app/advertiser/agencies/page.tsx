@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { Card, PageHeader, Table, Th, Td, StatusBadge, EmptyState, Badge } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
 import { nameOf } from "@/lib/queries";
+import { maskEmail } from "@/lib/schema";
+import { config } from "@/lib/config";
 
 export default function AgenciesPage() {
   const user = requireRole("advertiser");
@@ -97,6 +99,9 @@ export default function AgenciesPage() {
         <div className="mt-1 font-mono text-2xl font-extrabold tracking-widest text-brand-purple">
           {user.referral_code}
         </div>
+        <div className="mt-2 break-all rounded-lg bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600">
+          대행사 가입 링크: {`${config.app.url}/signup?role=advertiser&ref=${user.referral_code}`}
+        </div>
         <div className="mt-2 text-xs text-gray-400">
           수수료율: <span className="font-semibold text-brand-purple">{rate}%</span>
           {" "}· {basisText}의 해당 비율이 내 포인트 지갑에 자동 적립됩니다. (캠페인 취소·미집행 환불 시 해당분은 회수)
@@ -125,7 +130,7 @@ export default function AgenciesPage() {
                 {agencies.map((a) => (
                   <tr key={a.id}>
                     <Td>{a.name}</Td>
-                    <Td className="text-gray-500">{a.email}</Td>
+                    <Td className="text-gray-500">{maskEmail(a.email)}</Td>
                     <Td><StatusBadge status={a.status} /></Td>
                     <Td className="text-xs text-gray-400">{formatDate(a.created_at)}</Td>
                   </tr>

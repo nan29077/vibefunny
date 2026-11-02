@@ -3,7 +3,8 @@ import { getDb } from "@/lib/db";
 import { PageHeader, Card, StatCard, Badge, Table, Th, Td, EmptyState } from "@/components/ui";
 import { formatKRW } from "@/lib/money";
 import { IconUsers, IconZap, IconClock } from "@/components/icons";
-import { displayName } from "@/lib/schema";
+import { displayName, maskEmail } from "@/lib/schema";
+import { config } from "@/lib/config";
 import { canBeMentor, isVibeMember, GENERAL_MEMBER_LABEL, VIBE_MEMBER_LABEL } from "@/lib/membership";
 import { LinkButton } from "@/components/ui";
 
@@ -67,7 +68,7 @@ export default function CreatorReferralsPage() {
         new Date(b.rel.created_at).getTime() - new Date(a.rel.created_at).getTime()
     );
 
-  const referralUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/signup?role=creator&ref=${user.referral_code}`;
+  const referralUrl = `${config.app.url}/signup?role=creator&ref=${user.referral_code}`;
   // 멘토 자격: 바이브회원(가입비 결제 완료)만 추천 코드로 멘티를 받을 수 있다
   const mentor = canBeMentor(db, user);
   // 가입비를 실제로 결제한 멘티 (관리자 면제로 바이브회원이 된 멘티와 구분)
@@ -157,7 +158,7 @@ export default function CreatorReferralsPage() {
                     <div className="font-semibold text-gray-800">
                       {referee ? displayName(referee) : "알 수 없음"}
                     </div>
-                    <div className="text-xs text-gray-400">{referee?.email ?? ""}</div>
+                    <div className="text-xs text-gray-400">{maskEmail(referee?.email)}</div>
                   </Td>
                   <Td>
                     {referee && isVibeMember(db, referee) ? (

@@ -85,7 +85,7 @@ export function defaultSettings(): AppSettings {
         advertiser_charge: 15000,
       },
     ],
-    referral_system_enabled: false,
+    referral_system_enabled: true, // 크리에이터는 추천인 코드가 필수이므로 기본으로 수당 지급
     is_paid_model: false,
     referral_bonus: 5000,
     advertiser_commission_rate: 5,
@@ -459,7 +459,8 @@ export function seedDatabase(): Database {
 
   const profiles = [admin, creatorTest, advertiserTest, agencyTest, creator2, creator3, suspendedUser];
   // 데모 크리에이터는 바이브회원(가입비 결제 완료)으로 시작 — 결제 전 흐름은 새로 가입해 확인
-  for (const p of profiles) if (p.role === "creator") p.vibe_member_at = p.created_at;
+  // 데모 크리에이터는 바이브회원 (정지 계정은 마이그레이션 규칙과 같게 일반회원)
+  for (const p of profiles) if (p.role === "creator") p.vibe_member_at = p.status === "suspended" ? null : p.created_at;
 
   // ── 카테고리 ──────────────────────────────────────────────────────────────
   const ytCat = categories.find((c) => c.platform === "youtube" && c.name === "유머")!;

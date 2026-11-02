@@ -1227,3 +1227,82 @@ body[data-vf-modal] .vf-support { display:none !important; }
     padding-bottom:3.5rem !important;
   }
 }
+
+/* Restore original home right menu visibility. */
+@media (min-width:768px) {
+  .vf-home > header.vf-home-side-menu {
+    position:fixed;
+    z-index:70;
+    display:flex;
+    visibility:visible;
+    opacity:1;
+    left:auto !important;
+    flex-direction:column;
+    align-items:stretch;
+    max-height:calc(100dvh - 120px);
+    overflow-x:hidden;
+    overflow-y:auto;
+  }
+  .vf-home > header.vf-home-side-menu nav {
+    display:flex !important;
+    flex:none;
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .vf-home > header.vf-home-side-menu > a,
+  .vf-home > header.vf-home-side-menu > div { flex-shrink:0; }
+}
+@media (min-width:768px) and (max-height:720px) {
+  .vf-home > header.vf-home-side-menu {
+    top:12px !important;
+    bottom:92px;
+    transform:none;
+    gap:.35rem;
+  }
+  .vf-home > header.vf-home-side-menu .vf-side-link {
+    min-height:40px;
+    padding:.35rem .3rem !important;
+  }
+}
+
+/* Centered home navigation and continuous generated widescreen studio. */
+@media (min-width:768px) {
+  .vf-home > header.vf-home-side-menu {
+    top:50% !important;
+    bottom:auto !important;
+    height:max-content;
+    max-height:calc(100dvh - 160px);
+    transform:translateY(-50%);
+  }
+  body:has(.vf-home) {
+    background-color:#b2946d;
+    background-image:url('/images/marketing/creator-studio-wide-v2.webp');
+    background-repeat:no-repeat;
+    background-position:center center;
+    background-size:cover;
+    background-attachment:fixed;
+  }
+  body:has(.vf-home)::before,
+  body:has(.vf-home)::after {
+    content:none;
+    display:none;
+  }
+}
+
+/* ── 메인 페이지 여백 정리 (2026-10-31) ─────────────────────────────
+   좁은 메인 틀(PC 560px·모바일)에서 카드가 모두 1열로 늘어서고 섹션이 화면 높이를
+   강제로 채우면서 빈 공간이 많았던 부분을 정리한다.
+   vf-grid-2  : 짧은 카드(숫자·지표·도구·플랫폼)는 PC·모바일 모두 2열
+   vf-grid-2d : 글이 긴 카드(단계·후기·배포 플랫폼)는 PC 메인 틀에서만 2열 */
+.vf-home section .vf-grid-2 { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+@media (min-width:768px) {
+  .vf-home section .vf-grid-2d { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+/* 섹션 마지막 블록의 아래 여백 제거 → 위·아래 여백이 같아지도록 */
+.vf-home section > .relative.z-10 > div > :last-child,
+.vf-home section > .relative.z-10 > :last-child { margin-bottom:0 !important; }
+/* 홀수 개 카드의 마지막 칸은 한 줄 전체를 쓰게 해 빈 칸을 남기지 않는다 */
+.vf-home section .vf-grid-2 > :last-child:nth-child(odd) { grid-column:1 / -1; }
+@media (min-width:768px) {
+  .vf-home section .vf-grid-2d > :last-child:nth-child(odd) { grid-column:1 / -1; }
+}

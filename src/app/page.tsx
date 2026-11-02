@@ -268,7 +268,7 @@ function FullBg({
   return (
     <section
       id={id}
-      className={`vf-fixed-photo-section relative flex min-h-screen items-center overflow-hidden ${className}`}
+      className={`vf-fixed-photo-section relative flex items-center overflow-hidden ${className}`}
       style={{ backgroundImage: `url('${src}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}
     >
       <MobileFixedBackground />
@@ -330,13 +330,13 @@ export default function HomePage() {
         </div>
       </div>
       <header
-        className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
+        className="vf-home-side-menu fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
         style={{ background: "rgba(6,6,6,0.88)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
       >
         <Link href="/" className="vf-site-logo vf-side-brand text-xl font-black tracking-tight">
           <span className="text-white">VIBE</span><span style={{ color: "#f59e0b" }}>FUNNY</span>
         </Link>
-        <nav className="hidden items-center gap-8 text-sm font-medium text-gray-400 md:flex">
+        <nav aria-label="메인 페이지 우측 메뉴" className="hidden items-center gap-8 text-sm font-medium text-gray-400 md:flex">
           <Link href="/" className="vf-side-link"><IconHome size={18} /><span>홈</span></Link>
           <Link href="#income" className="vf-side-link"><IconBarChart size={18} /><span>수익구조</span></Link>
           <Link href="#roadmap" className="vf-side-link"><IconCalendar size={18} /><span>로드맵</span></Link>
@@ -458,8 +458,8 @@ export default function HomePage() {
       >
         <MobileFixedBackground />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(2,2,8,0.90)" }} />
-        <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-16">
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-16 md:px-16">
+          <div className="mb-10">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.35)" }}>Roadmap</p>
             <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.25]">
               가입 후 수익이<br /><span style={{ color: "#f59e0b" }}>쌓이는 과정</span>
@@ -497,8 +497,8 @@ export default function HomePage() {
       </section>
 
       <FullBg src={BG.aiExpert} overlay="linear-gradient(160deg, rgba(5,0,20,0.88) 0%, rgba(0,0,0,0.83) 100%)">
-        <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-16 text-center">
+        <div className="mx-auto max-w-6xl px-6 py-16 md:px-16">
+          <div className="mb-10 text-center">
             <SectionLabel text="AI Creator Growth" />
             <h2 className="text-4xl font-black text-white md:text-[72px] leading-[1.15]">
               AI 영상 제작<br />
@@ -508,7 +508,7 @@ export default function HomePage() {
               경험이 없어도 괜찮습니다. VIBEFUNNY와 함께라면 누구든 AI 영상 전문 크리에이터로 성장할 수 있습니다.
             </p>
           </div>
-          <div className="mb-16 grid gap-4 md:grid-cols-4">
+          <div className="vf-grid-2d mb-10 grid gap-4 md:grid-cols-4">
             {EXPERT_STEPS.map(({ Icon, step, title, desc }) => (
               <div key={step} className="rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <div className="mb-3" style={{ color: "#f59e0b" }}>
@@ -520,9 +520,9 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="mb-16">
-            <p className="mb-8 text-center text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>AI 크리에이터 성장 로드맵</p>
-            <div className="grid gap-4 md:grid-cols-4">
+          <div className="mb-10">
+            <p className="mb-5 text-center text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>AI 크리에이터 성장 로드맵</p>
+            <div className="vf-grid-2d grid gap-4 md:grid-cols-4">
               {[
                 { StageIcon: IcoSprout,     stage: "입문 단계", period: "1~4주", color: "#3b82f6", items: ["AI 도구 기초 습득 (ChatGPT, Runway/Pika 영상 생성)", "첫 숏폼 영상 제작 완료", "플랫폼 계정 개설 및 첫 업로드"] },
                 { StageIcon: IcoTrendingUp, stage: "성장 단계", period: "2~3개월", color: "#10b981", items: ["AI 편집 툴 활용 (CapCut AI, Descript, HeyGen)", "월 20~50개 영상 생산 루틴 완성", "첫 수익 발생 (배포 수당 + 제작 수당)"] },
@@ -544,9 +544,9 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="mb-12">
-            <p className="mb-6 text-center text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>AI 크리에이터 필수 도구 매트릭스</p>
-            <div className="grid gap-3 md:grid-cols-5">
+          <div className="mb-10">
+            <p className="mb-5 text-center text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>AI 크리에이터 필수 도구 매트릭스</p>
+            <div className="vf-grid-2 grid gap-3 md:grid-cols-5">
               {[
                 { cat: "스크립트", tools: ["ChatGPT", "Claude"], color: "#8b5cf6" },
                 { cat: "영상 생성", tools: ["Runway Gen-3", "Pika 2.0", "Kling AI"], color: "#ef4444" },
@@ -789,7 +789,7 @@ export default function HomePage() {
       >
         <MobileFixedBackground />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(2,2,12,0.88)" }} />
-        <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-16 md:px-16">
           <div className="mb-14 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.35)" }}>Distribution Strategy</p>
             <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.25]">
@@ -801,7 +801,7 @@ export default function HomePage() {
               알고리즘 노출이 4배, 수익 채널이 4배가 됩니다.
             </p>
           </div>
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 mb-14">
+          <div className="vf-grid-2d grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-10">
             {[
               { platform: "YouTube Shorts", color: "#FF0000", Brand: BrandYouTube, headline: "채널당 추가 수익원", tips: ["배포 1건당 고정 단가 즉시 지급", "조회수가 오를수록 누적 수익 증가", "구독자 0명도 바로 수익화 가능", "한 번 올린 영상이 계속 수익 발생"] },
               { platform: "Instagram Reels", color: "#C13584", Brand: BrandInstagram, headline: "수익 채널 2배 확대", tips: ["같은 영상으로 추가 배포 단가 획득", "팔로워가 늘수록 제휴·협찬 수익 기회", "스토리 연동으로 노출·수익 동시 확대", "브랜드 캠페인 우선 매칭 기회"] },
@@ -822,7 +822,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="grid gap-6 md:grid-cols-2 mb-14">
+          <div className="grid gap-5 md:grid-cols-2 mb-10">
             <div className="rounded-2xl p-8" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
               <h3 className="text-xl font-black text-white mb-5">배포 효율화 전략</h3>
               <div className="space-y-4">
@@ -894,8 +894,8 @@ export default function HomePage() {
       >
         <MobileFixedBackground />
         <div className="absolute inset-0 z-0" style={{ background: "rgba(0,0,0,0.88)" }} />
-        <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-16 text-center">
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-16 md:px-16">
+          <div className="mb-10 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.35)" }}>Income Simulation</p>
             <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.25]">월 수익 시뮬레이션</h2>
             <p className="mx-auto mt-4 max-w-xl text-base" style={{ color: "rgba(255,255,255,0.45)" }}>
@@ -939,14 +939,14 @@ export default function HomePage() {
       </section>
 
       <FullBg src={BG.stats} overlay="rgba(0,0,0,0.82)">
-        <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-14">
+        <div className="mx-auto max-w-6xl px-6 py-16 md:px-16">
+          <div className="mb-10">
             <SectionLabel text="Numbers" />
             <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.25]">
               숫자로 보는<br /><span style={{ color: "#f59e0b" }}>VIBEFUNNY</span>
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          <div className="vf-grid-2 grid grid-cols-2 gap-6 md:grid-cols-4">
             {stats.map((s) => (
               <div key={s.key} className="border-t pt-6" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
                 <div className="text-4xl font-black text-white md:text-5xl">{s.value}<span className="text-2xl">{s.suffix}</span></div>
@@ -956,9 +956,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="mt-14 pb-24">
+        <div className="mx-auto max-w-6xl px-6 pb-20 md:px-16">
           <p className="mb-6 text-center text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>글로벌 AI 영상 시장 핵심 지표</p>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-14">
+          <div className="vf-grid-2 grid grid-cols-2 gap-3 md:grid-cols-4 mb-10">
             {[
               { Icon: IcoTrendingUp, label: "AI 영상 시장 2030년 전망", value: "21조원+", sub: "2023년 2.8조원 CAGR 35%+" },
               { Icon: IcoLnPhone, label: "숏폼 동영상 시장 (2024)", value: "120조원", sub: "연간 25% 성장 지속 중" },
@@ -1004,18 +1004,18 @@ export default function HomePage() {
       </FullBg>
 
       <FullBg id="platforms" src={BG.platforms} overlay="rgba(0,0,0,0.78)">
-        <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-14">
+        <div className="mx-auto max-w-6xl px-6 py-16 md:px-16">
+          <div className="mb-10">
             <SectionLabel text="Platform" />
             <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.25]">4개 플랫폼에<br />동시 배포</h2>
           </div>
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <div className="vf-grid-2 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {PLATFORMS.map((p) => (
-              <div key={p.name} className="vf-hover rounded-2xl p-8"
+              <div key={p.name} className="vf-hover rounded-2xl p-5"
                 style={{ background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <div className="mb-4"><p.Brand size={52} /></div>
-                <h3 className="text-xl font-black text-white">{p.name}</h3>
-                <p className="mt-1 text-3xl font-black text-white">{p.users}</p>
+                <div className="mb-3"><p.Brand size={40} /></div>
+                <h3 className="text-base font-black text-white">{p.name}</h3>
+                <p className="mt-1 text-2xl font-black text-white">{p.users}</p>
                 <p className="mt-2 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>{p.desc}</p>
                 <p className="mt-3 rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>{p.earn}</p>
               </div>
@@ -1025,23 +1025,22 @@ export default function HomePage() {
       </FullBg>
 
       <FullBg src={BG.testimonials} overlay="rgba(0,0,0,0.80)">
-        <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-14">
+        <div className="mx-auto max-w-6xl px-6 py-16 md:px-16">
+          <div className="mb-10">
             <SectionLabel text="Voice" />
             <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.25]">실제 크리에이터<br />수익 후기</h2>
           </div>
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="vf-grid-2d grid gap-4 md:grid-cols-3">
             {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="vf-hover rounded-2xl p-8"
+              <div key={i} className="vf-hover flex flex-col rounded-2xl p-5"
                 style={{ background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5"
+                <div className="mb-3 inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5"
                   style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
                   <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>현재 수익</span>
                   <span className="text-sm font-black" style={{ color: "#f59e0b" }}>{t.income}</span>
                 </div>
-                <p className="mb-4 text-5xl font-serif leading-none" style={{ color: "rgba(245,158,11,0.5)" }}>&#8220;</p>
-                <p className="mb-8 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{t.quote}</p>
-                <div className="border-t pt-5" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+                <p className="mb-4 flex-1 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}><span className="mr-1 font-serif text-2xl leading-none align-[-0.35em]" style={{ color: "rgba(245,158,11,0.6)" }}>&#8220;</span>{t.quote}</p>
+                <div className="border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
                   <p className="font-bold text-white">{t.name}</p>
                   <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{t.role}</p>
                 </div>
@@ -1052,13 +1051,13 @@ export default function HomePage() {
       </FullBg>
 
       <FullBg src={BG.advertiser} overlay="linear-gradient(135deg, rgba(15,5,40,0.88) 0%, rgba(0,0,0,0.85) 100%)">
-        <div className="mx-auto max-w-4xl px-6 py-24 text-center md:px-16">
+        <div className="mx-auto max-w-4xl px-6 py-14 text-center md:px-16">
           <SectionLabel text="For Advertisers" />
-          <h2 className="text-5xl font-black text-white md:text-[72px] leading-[1.2]">광고주이신가요?</h2>
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+          <h2 className="text-4xl font-black text-white md:text-5xl leading-[1.2]">광고주이신가요?</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
             실행사 · 대행사 전용 페이지에서 숏폼 광고 캠페인을 시작하세요.
           </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
             <Link href={advertiserCtaHref} className="rounded-full px-8 py-4 text-base font-black text-black transition-all hover:opacity-90 hover:scale-105" style={{ background: "#f59e0b" }}>
               광고주 전용 페이지 →
             </Link>
@@ -1067,8 +1066,8 @@ export default function HomePage() {
       </FullBg>
 
       <FullBg id="faq" src={BG.faq} overlay="rgba(250,250,250,0.94)">
-        <div className="mx-auto max-w-3xl px-6 py-24 md:px-16">
-          <div className="mb-14">
+        <div className="mx-auto max-w-3xl px-6 py-16 md:px-16">
+          <div className="mb-8">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-gray-400">FAQ</p>
             <h2 className="text-4xl font-black text-gray-900 md:text-5xl">자주 묻는 질문</h2>
           </div>
@@ -1083,7 +1082,7 @@ export default function HomePage() {
               </details>
             ))}
           </div>
-          <div className="mt-12 rounded-2xl p-6 text-center" style={{ background: "#fefce8", border: "1px solid #fde68a" }}>
+          <div className="mt-8 rounded-2xl p-6 text-center" style={{ background: "#fefce8", border: "1px solid #fde68a" }}>
             <p className="font-black text-gray-900 text-lg">아직 궁금한 게 있으신가요?</p>
             <Link href={creatorCtaHref} className="mt-4 inline-block rounded-full px-6 py-3 text-sm font-black text-black transition hover:opacity-80" style={{ background: "#f59e0b" }}>
               지금 가입하고 문의하기 →
@@ -1092,7 +1091,7 @@ export default function HomePage() {
         </div>
       </FullBg>
 
-      <section className="relative overflow-hidden py-28 text-center" style={{
+      <section className="relative overflow-hidden py-20 text-center" style={{
         backgroundImage: `url('${BG.cta}')`,
         backgroundSize: "cover",
         backgroundPosition: "center",

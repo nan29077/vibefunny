@@ -1,0 +1,44 @@
+/* Surface-only home theme: existing geometry, content, hero and managed banners stay intact. */
+html:has(.vf-home-clean),body:has(.vf-home-clean){background:#f8f7f9!important;background-image:none!important;background-attachment:scroll!important;color:#17161a}
+body:has(.vf-home-clean)::before,body:has(.vf-home-clean)::after{content:none!important;display:none!important;background-image:none!important}
+.vf-home.vf-home-clean{background:#fff;color:#17161a;box-shadow:0 0 0 1px #eeedf0}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]){background:#fff!important;background-image:none!important;background-attachment:scroll!important;border-bottom:1px solid #f0eff2;color:#4f4e54}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]):nth-of-type(even){background-color:#fafafa!important}
+.vf-home.vf-home-clean .vf-mobile-fixed-section-bg{display:none!important;background-image:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"])>.absolute.inset-0.z-0{display:none!important;background:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) :is(h1,h2,h3,strong,.text-white,.text-black){color:#17161a!important;text-shadow:none}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) [style*="color"]{color:#4f4e54!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) [style*="#f59e0b"]{color:#a06a00!important}
+/* The older photo theme used an ID-qualified white-text rule. */
+.vf-home.vf-home-clean .vf-fixed-photo-section:not(#faq) p[style*="rgba(255"]{color:#67666d!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) :is(div,span,details)[style*="background"]{background:#f8f7f9!important;backdrop-filter:none!important;box-shadow:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) [style*="border"]{border-color:#e2e0e6!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-hover{background:#fff!important;border:1px solid #e2e0e6!important;box-shadow:0 2px 6px rgba(23,22,26,.025)!important;backdrop-filter:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-hover:hover{box-shadow:0 5px 15px rgba(23,22,26,.065)!important}
+.vf-home.vf-home-clean #roadmap .rounded-2xl{background:#fff!important;border-color:#e2e0e6!important;backdrop-filter:none!important;box-shadow:0 2px 6px rgba(23,22,26,.025)}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .rounded-full[style*="background"]{background:#fff9e8!important;color:#7a5100!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) a{color:#37363b!important;border-color:#e2e0e6!important;text-shadow:none;box-shadow:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) a[style*="background"]{background:#fbb914!important;color:#17161a!important;border-color:#fbb914!important;box-shadow:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) a:hover{filter:brightness(.97)}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-faq{background:#fff!important;border-color:#e2e0e6!important;box-shadow:none!important;backdrop-filter:none!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-faq summary{color:#27262b!important;background:#fff!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-faq summary:hover,.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-faq[open] summary{background:#f8f7f9!important}
+.vf-home.vf-home-clean > section:not(.vf-honey-hero):not([aria-label="안내 배너"]) .vf-faq>div{border-color:#f0eff2!important;color:#67666d!important}
+.vf-home.vf-home-clean>.vf-site-topbar{background:#fff;color:#17161a;border-bottom:1px solid #eeedf0;box-shadow:none}
+.vf-home.vf-home-clean>header.vf-home-side-menu{background:#fff!important;border-color:#e2e0e6!important;box-shadow:0 4px 16px rgba(23,22,26,.055)!important;backdrop-filter:none!important}
+.vf-home.vf-home-clean>header nav .vf-side-link{color:#67666d!important}
+.vf-home.vf-home-clean>header nav .vf-side-link svg{color:#a06a00}
+.vf-home.vf-home-clean>header nav .vf-side-link:hover{background:#fff9e8!important;color:#17161a!important}
+.vf-home.vf-home-clean .vf-topbar-action{background:#fff;border-color:#e2e0e6;color:#4f4e54;box-shadow:none}
+.vf-home.vf-home-clean .vf-topbar-action:hover{background:#fff9e8}
+.vf-home.vf-home-clean>footer{background:#fff!important;border-color:#e2e0e6!important;color:#67666d}
+.vf-home.vf-home-clean>footer .text-white{color:#17161a!important}
+.vf-home.vf-home-clean>footer [style*="border"]{border-color:#eeedf0!important}
+.vf-home.vf-home-clean>footer a:hover{color:#17161a!important}
+.vf-home.vf-home-clean .vf-mobile-main-nav{background:rgba(255,255,255,.98);border-color:#e2e0e6;box-shadow:0 -2px 10px rgba(23,22,26,.035)}
+.vf-home.vf-home-clean .vf-hamburger{background:#fff;border-color:#e2e0e6;color:#4f4e54}
+.vf-home.vf-home-clean .vf-mobile-drawer{background:#fff}
+.vf-home.vf-home-clean .vf-notification-trigger{background:#fff;border-color:#e2e0e6;color:#67666d}
+.vf-home.vf-home-clean .vf-notification-panel{background:#fff;border-color:#e2e0e6;box-shadow:0 8px 24px rgba(23,22,26,.08)}
+.vf-home.vf-home-clean .vf-notification-item.is-unread{background:#fff9e8;border-left-color:#fbb914}
+.vf-home.vf-home-clean .vf-support-launcher{background:#fbb914;color:#17161a;border-color:#eda600;box-shadow:0 3px 12px rgba(23,22,26,.08)}

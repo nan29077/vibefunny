@@ -16,7 +16,7 @@ import {
   ensurePointWallet,
   notifyUser,
 } from "../services";
-import { computeCampaignCost, creatorRateSnapshot } from "../queries";
+import { advertiserRateSnapshot, computeCampaignCost, creatorRateSnapshot } from "../queries";
 import {
   cancelCampaign,
   cancelLegacyWalletCommissions,
@@ -194,6 +194,10 @@ export async function createCampaignAction(
       return { ok: false, message: "날짜 형식이 올바르지 않습니다.", fieldErrors: { [key]: "YYYY-MM-DD 형식으로 입력하세요." } };
     }
   }
+  // 모집 종료일은 필수 — 종료일이 없으면 마감 자동 정산이 되지 않아 포인트가 무기한 묶인다
+  if (!d.end_date) {
+    return { ok: false, message: "모집 종료일을 선택하세요.", fieldErrors: { end_date: "모집 종료일을 선택하세요." } };
+  }
   if (d.end_date) {
     const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     if (d.end_date < todayKst) {
@@ -326,6 +330,7 @@ export async function createCampaignAction(
       platform_distributions: Object.keys(platformDistributions).length > 0 ? platformDistributions : undefined,
       brand_name: d.brand_name ?? null,
       creator_rate_snapshot: creatorRateSnapshot(db, d.video_duration_tier ?? null),
+      advertiser_rate_snapshot: advertiserRateSnapshot(db, d.video_duration_tier ?? null),
       industry: d.industry ?? null,
       website_url: d.website_url ?? null,
       creator_min_followers: d.creator_min_followers ?? null,

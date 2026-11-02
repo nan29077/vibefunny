@@ -318,15 +318,19 @@ export default function AdminCampaignsPage({
                       진행 현황 · 영상 제작 {prog.completedVideos}/{prog.videoTarget} · 배포 {prog.completedDeploys}/{prog.deployTarget}
                       {prog.pendingReview > 0 && <span className="ml-2 text-yellow-700">검토 대기 {prog.pendingReview}건</span>}
                     </div>
-                    {c.point_spent > 0 ? (
+                    {(() => {
+                      // 완료 처리 시 종료되는 진행 중 참여(선발·재제출 대기) — 보상 없이 종료되므로 확인 문구에 알린다
+                      const openParts = (db.campaign_participations ?? []).filter((p) => p.campaign_id === c.id && ["applied", "accepted", "video_rejected", "deploy_rejected", "revision_requested"].includes(p.status)).length;
+                      const openNote = openParts > 0 ? `\n진행 중인 참여 ${openParts}건은 보상 없이 종료됩니다.` : "";
+                      return c.point_spent > 0 ? (
                     <>
                     <div className="mt-1 text-xs text-gray-500">
-                      지금 완료 처리 시: 집행 {formatKRW(consumed)} · 미집행분 {formatKRW(Math.max(0, c.point_spent - consumed))} 환불
+                      지금 완료 처리 시: 집행 {formatKRW(consumed)} · 미집행분 {formatKRW(Math.max(0, c.point_spent - consumed))} 환불{openParts > 0 ? ` · 진행 중 참여 ${openParts}건 종료` : ""}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <form action={completeCampaignAction}>
                         <input type="hidden" name="id" value={c.id} />
-                        <SubmitButton size="sm" variant="secondary" confirmMessage={`캠페인을 완료 처리할까요?\n집행 ${formatKRW(consumed)} · 미집행분 ${formatKRW(Math.max(0, c.point_spent - consumed))}은 광고주에게 환불됩니다.`}>캠페인 완료(정산) 처리</SubmitButton>
+                        <SubmitButton size="sm" variant="secondary" confirmMessage={`캠페인을 완료 처리할까요?\n집행 ${formatKRW(consumed)} · 미집행분 ${formatKRW(Math.max(0, c.point_spent - consumed))}은 광고주에게 환불됩니다.${openNote}`}>캠페인 완료(정산) 처리</SubmitButton>
                       </form>
                       {prog.completedVideos + prog.completedDeploys === 0 && prog.pendingReview === 0 && (
                         <form action={adminCancelCampaignAction}>
@@ -337,8 +341,15 @@ export default function AdminCampaignsPage({
                     </div>
                     </>
                     ) : (
-                      <div className="mt-1 text-xs text-gray-500">포인트 결제가 없는 캠페인이라 정산·환불할 금액이 없습니다.</div>
-                    )}
+                      <>
+                        <div className="mt-1 text-xs text-gray-500">포인트 결제가 없는 캠페인이라 정산·환불할 금액이 없습니다.{c.end_date ? "" : " 모집 종료일이 없어 자동 종료되지 않으니 필요하면 직접 종료하세요."}</div>
+                        <form action={completeCampaignAction} className="mt-2">
+                          <input type="hidden" name="id" value={c.id} />
+                          <SubmitButton size="sm" variant="outline" confirmMessage={`캠페인을 종료할까요?${openNote}`}>캠페인 종료</SubmitButton>
+                        </form>
+                      </>
+                    );
+                    })()}
                   </div>
                 );
               })()}

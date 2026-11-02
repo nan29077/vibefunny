@@ -1,5 +1,6 @@
 "use client";
 
+import { daysUntilDeadline, deadlineEndMs } from "@/lib/date";
 import { useNow } from "@/lib/use-now";
 import { useState } from "react";
 import type { CustomVideoRequest, CustomVideoApplication } from "@/lib/schema";
@@ -40,10 +41,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 function DeadlineCountdown({ deadline }: { deadline: string }) {
   const now = useNow();
-  const end = new Date(deadline);
+  const end = new Date(deadlineEndMs(deadline) ?? deadline);
   if (!now) return <span className="text-[10px] text-gray-400">{end.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })} 마감</span>;
-  const diffMs = end.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = daysUntilDeadline(deadline, now.getTime()) ?? 0;
 
   if (diffDays < 0) {
     return <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-gray-500">마감</span>;
@@ -189,6 +189,9 @@ function RequestCard({
   const statusLabel = STATUS_LABELS[r.status] ?? r.status;
   const statusColor = STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600";
   const hasApplied = myApplied.some((a) => a.request_id === r.id);
+  const nowTs = useNow();
+  // 마감일이 지난 모집 의뢰는 신청 버튼 대신 "마감" 표시 (서버에서도 신청을 막는다)
+  const pastDeadline = r.status === "open" && nowTs !== null && (daysUntilDeadline(deadline, nowTs.getTime()) ?? 0) < 0;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -256,7 +259,12 @@ function RequestCard({
             바이브회원 전용
           </span>
         )}
-        {!isMyWork && (canAct || hasApplied) && (hasApplied ? (
+        {!isMyWork && pastDeadline && !hasApplied && (
+          <span className="flex-1 cursor-default rounded-xl bg-gray-100 py-2 text-center text-sm font-semibold text-gray-500">
+            모집 마감
+          </span>
+        )}
+        {!isMyWork && !(pastDeadline && !hasApplied) && (canAct || hasApplied) && (hasApplied ? (
           <span className="flex-1 cursor-default rounded-xl bg-gray-100 py-2 text-center text-sm font-semibold text-gray-500">
             신청 완료 · 선정 대기
           </span>

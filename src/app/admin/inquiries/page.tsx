@@ -23,13 +23,17 @@ export default function AdminInquiriesPage() {
             <p className="mt-1 text-sm text-gray-500">설정 시간 밖에는 회원이 새 문의를 보낼 수 없습니다. 시간 기준은 대한민국 표준시입니다.</p>
           </div>
           <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${hours.enabled ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-700"}`}>
-            {hours.enabled ? `현재 ${hours.start}~${hours.end}` : "현재 24시간 문의 가능"}
+            {hours.enabled ? `현재 ${hours.weekdaysOnly ? "평일 " : ""}${hours.start}~${hours.end}` : "현재 24시간 문의 가능"}
           </span>
         </div>
         <form action={updateSupportHoursAction} className="mt-5 space-y-4">
           <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
             <input type="checkbox" name="support_hours_enabled" defaultChecked={hours.enabled} className="mt-0.5 h-4 w-4 rounded" />
             <span><b className="block text-sm text-gray-900">문의 가능 시간 제한 사용</b><span className="mt-1 block text-xs text-gray-500">체크를 해제하면 회원 문의를 24시간 받을 수 있습니다.</span></span>
+          </label>
+          <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-white p-4">
+            <input type="checkbox" name="support_weekdays_only" defaultChecked={hours.weekdaysOnly} className="mt-0.5 h-4 w-4 rounded" />
+            <span><b className="block text-sm text-gray-900">평일에만 운영 (토·일 휴무)</b><span className="mt-1 block text-xs text-gray-500">문의 가능 시간 제한을 사용할 때만 적용됩니다. 공휴일은 따로 구분하지 않습니다.</span></span>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="문의 시작 시간">

@@ -12,7 +12,7 @@ import { roleHome } from "../routes";
 import { randomProfileAvatar } from "../profile-avatars";
 import { EMAIL_VERIFIED_TTL_MS, EMAIL_VERIFY_COOKIE, normalizeEmail, verifyTokenMatches } from "../email-verification";
 import { cookies } from "next/headers";
-import { clientIp, formatWait, hitCount, rateLimit, recordHit, resetRateLimit } from "../rate-limit";
+import { clientIp, formatWait, hitCount, isKnownIp, rateLimit, rateLimitIp, recordHit, resetRateLimit } from "../rate-limit";
 import { canBeMentor } from "../membership";
 import { notifyUser } from "../services";
 
@@ -25,12 +25,21 @@ const LOGIN_SLOWDOWN_AFTER = 10; // 이메일 전체 기준 15분에 10회 실�
 
 const now = () => new Date().toISOString();
 
+/** 기존 회원과 겹치지 않는 추천 코드 (겹치면 다른 사람이 멘토로 잡히는 사고 방지) */
+function uniqueReferralCode(db: { profiles: Array<{ referral_code: string }> }): string {
+  for (let i = 0; i < 20; i++) {
+    const code = genReferralCode();
+    if (!db.profiles.some((p) => p.referral_code === code)) return code;
+  }
+  throw new Error("추천 코드 생성에 실패했습니다. 다시 시도해 주세요.");
+}
+
 // --- 회원가입 -----------------------------------------------------------
 const signupSchema = z.object({
   email: z.string().email("올바른 이메일을 입력하세요."),
   password: z.string().min(8, "비밀번호는 8자 이상이어야 합니다."),
   password_confirm: z.string().min(1, "비밀번호 확인을 입력하세요."),
-  name: z.string().min(1, "이름을 입력하세요."),
+  name: z.string().trim().min(1, "이름을 입력하세요.").max(30, "이름은 30자 이내로 입력하세요."),
   role: z.enum(["creator", "advertiser"]),
   advertiser_type: z.enum(["execution_company", "agency"]).optional(),
   referral_code: z.string().optional(),
@@ -74,7 +83,7 @@ export async function signupAction(
   }
 
   // 가입 시도 제한: 같은 IP 1시간 60회 (설명회 등 같은 와이파이에서 여러 명이 가입하는 경우 고려)
-  const signupWait = rateLimit(`signup-ip:${clientIp()}`, 60, 60 * 60 * 1000);
+  const signupWait = rateLimitIp("signup-ip", 60, 60 * 60 * 1000);
   if (signupWait > 0) return { ok: false, message: `가입 시도가 너무 많습니다. ${formatWait(signupWait)} 후 다시 시도하세요.` };
   const verifyCookie = cookies().get(EMAIL_VERIFY_COOKIE)?.value;
 
@@ -125,17 +134,9 @@ export async function signupAction(
         };
       }
       referredBy = mentor;
-    } else if (data.referral_code && db.settings.referral_system_enabled) {
-      // 광고주(실행사): 추천인 제도가 켜져 있을 때만 추천인 코드 확인 (대행사는 아래 실행사 코드 확인)
-      referredBy = db.profiles.find((p) => p.referral_code === data.referral_code) ?? null;
-      if (!referredBy && !(advertiserType === "agency")) {
-        return {
-          ok: false,
-          message: "유효하지 않은 추천인 코드입니다.",
-          fieldErrors: { referral_code: "존재하지 않는 코드" } as Record<string, string>,
-        };
-      }
     }
+    // 광고주: 추천인은 "대행사 → 실행사" 연결만 사용한다(아래). 실행사 가입에는 추천인 코드가 없다.
+    // (예전에는 추천인 제도 ON/OFF 에 따라 대행사의 추천인 기록이 들쭉날쭉했다)
 
     // 대행사의 실행사 코드는 추천인 제도 ON/OFF 와 무관하게 확인한다
     // (이전: 추천인 제도가 꺼져 있으면 실행사 코드가 무시되어 대행사 가입이 항상 실패함)
@@ -165,10 +166,11 @@ export async function signupAction(
       }
     }
 
-    // 대행사가 실행사 코드로 가입한 경우 상위 실행사 연결
+    // 대행사가 실행사 코드로 가입한 경우 상위 실행사 연결 (추천인 표시도 실행사로 통일)
     let parentAdvertiserId: string | null = null;
     if (executionCompany) {
       parentAdvertiserId = executionCompany.id;
+      referredBy = executionCompany;
     }
 
     // 가입비 설정 확인
@@ -188,7 +190,7 @@ export async function signupAction(
       role,
       advertiser_type: advertiserType,
       parent_advertiser_id: parentAdvertiserId,
-      referral_code: genReferralCode(),
+      referral_code: uniqueReferralCode(db),
       referred_by_user_id: referredBy?.id ?? null,
       // 크리에이터는 항상 active(결제 전 = 일반회원). 그 밖의 역할: 가입비 없음 -> active / 있음 -> pending
       status: isCreator || !needsSignupFee ? "active" : "pending",
@@ -201,7 +203,8 @@ export async function signupAction(
     db.profiles.push(user);
 
     // 추천 관계 저장 (수당은 가입비 결제가 완료된 뒤 한 번만 생성)
-    if (referredBy) {
+    // 멘토-멘티 추천 관계는 크리에이터만 (광고주 계층은 아래 advertiser_hierarchy 로 따로 저장)
+    if (referredBy && isCreator) {
       db.referral_relations.push({
         id: genId(),
         referrer_id: referredBy.id,
@@ -284,7 +287,8 @@ export async function loginAction(
 
   // 횟수 제한: IP 단위 시도 횟수 + 이메일 단위 실패 횟수
   const ip = clientIp();
-  const ipWait = rateLimit(`login-ip:${ip}`, LOGIN_IP_LIMIT, LOGIN_WINDOW_MS);
+  // IP 기준은 "실패한 시도"만 센다 — 같은 와이파이(설명회 등)에서 여러 명이 정상 로그인해도 잠기지 않도록
+  const ipWait = rateLimitIp("login-ip", LOGIN_IP_LIMIT, LOGIN_WINDOW_MS, false, ip);
   if (ipWait > 0) {
     return { ok: false, message: `로그인 시도가 너무 많습니다. ${formatWait(ipWait)} 후 다시 시도하세요.` };
   }
@@ -309,10 +313,13 @@ export async function loginAction(
   if (!user || !verifyPassword(password, user.password_hash)) {
     recordHit(failKey, LOGIN_WINDOW_MS);
     recordHit(failAllKey, LOGIN_WINDOW_MS);
+    if (isKnownIp(ip)) recordHit(`login-ip:${ip}`, LOGIN_WINDOW_MS);
     return { ok: false, message: "이메일 또는 비밀번호가 올바르지 않습니다." };
   }
   if (process.env.NODE_ENV === "production" && PUBLIC_DEMO_PASSWORDS.has(password)) {
-    return { ok: false, message: "공개된 예시 비밀번호는 사용할 수 없습니다. 관리자에게 비밀번호 재설정을 요청하세요." };
+    // 비밀번호가 맞았다는 사실을 외부에 알리지 않도록 일반 실패 메시지로 응답하고, 사유는 서버 로그에만 남긴다
+    console.warn(`[auth] 운영 환경에서 공개 예시 비밀번호 로그인 시도 차단: ${email}`);
+    return { ok: false, message: "이메일 또는 비밀번호가 올바르지 않습니다." };
   }
   resetRateLimit(failKey);
   if (user.status === "withdrawn") {

@@ -53,3 +53,21 @@ export function formatShortDateTime(value: DateInput): string {
     minute: "2-digit",
   });
 }
+
+/**
+ * 마감 시각(ms). "YYYY-MM-DD" 는 그날 한국 시간 23:59:59.999 까지로 본다
+ * (new Date("YYYY-MM-DD") 는 UTC 자정이라 한국 시간 오전 9시에 마감되는 문제 방지). 해석 불가면 null.
+ */
+export function deadlineEndMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T23:59:59.999+09:00` : value);
+  return Number.isNaN(t) ? null : t;
+}
+
+/** 마감일까지 남은 일수(오늘 마감이면 0, 지났으면 음수). 해석 불가면 null */
+export function daysUntilDeadline(value: string | null | undefined, now: number = Date.now()): number | null {
+  const end = deadlineEndMs(value);
+  if (end === null) return null;
+  if (end < now) return -1;
+  return Math.floor((end - now) / (1000 * 60 * 60 * 24));
+}

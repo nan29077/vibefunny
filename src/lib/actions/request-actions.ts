@@ -8,7 +8,8 @@ import { requireRole, getCurrentUser } from "../auth";
 import { genId } from "../crypto";
 import { addWalletTxOnce, audit, createPayment, notifyUser } from "../services";
 import { isHttpUrl } from "../url";
-import { isOwnPrivateFileOrExternal, notifyAdmins } from "../campaign-workflow";
+import { isOwnPrivateFileOrExternal, isPastDeadline, notifyAdmins } from "../campaign-workflow";
+import { displayName } from "../schema";
 import type { CustomVideoRequest, Platform } from "../schema";
 import type { ActionState } from "@/components/form";
 import { vibeOnlyError } from "../membership";
@@ -103,6 +104,7 @@ export async function applyRequestAction(fd: FormData): Promise<{ ok: boolean; m
     if (vibeBlock) return { ok: false, message: vibeBlock };
     const req = db.custom_video_requests.find((r) => r.id === requestId);
     if (!req || req.status !== "open") return { ok: false, message: "모집 중인 의뢰가 아닙니다." };
+    if (isPastDeadline(req.deadline ?? req.due_date)) return { ok: false, message: "마감일이 지난 의뢰입니다." };
     if (req.buyer_id === user.id) return { ok: false, message: "본인이 등록한 의뢰에는 신청할 수 없습니다." };
     if (db.custom_video_applications.some((a) => a.request_id === requestId && a.creator_id === user.id)) {
       return { ok: false, message: "이미 신청한 의뢰입니다." };
@@ -125,7 +127,7 @@ export async function applyRequestAction(fd: FormData): Promise<{ ok: boolean; m
       created_at: now(),
     });
     // 작업자 선정은 관리자 화면(/admin/requests)에서 처리하므로 관리자에게 알린다
-    notifyAdmins(db, { title: "제작 의뢰에 새 참여 신청이 있습니다", message: req.title, link: "/admin/requests" });
+    notifyAdmins(db, { title: "제작 의뢰에 새 참여 신청이 있습니다", message: `${req.title} · ${displayName(user)}${proposed !== null ? ` · 제안가 ${proposed.toLocaleString("ko-KR")}원` : ""}`, link: "/admin/requests" });
     return { ok: true, message: "참여 신청을 보냈습니다. 선정되면 알림으로 알려드려요." };
   });
   revalidatePath(`/creator/requests`);
@@ -139,6 +141,7 @@ export async function acceptApplicationAction(fd: FormData): Promise<void> {
   const user = getCurrentUser();
   if (!user || user.status !== "active" || (user.role !== "creator" && user.role !== "admin")) return;
   const appId = String(fd.get("application_id") || "");
+  let done = false;
   tx((db) => {
     const app = db.custom_video_applications.find((a) => a.id === appId);
     if (!app || app.status !== "applied") return;
@@ -147,16 +150,24 @@ export async function acceptApplicationAction(fd: FormData): Promise<void> {
     if (user.role !== "admin" && req.buyer_id !== user.id) return;
     app.status = "accepted";
     db.custom_video_applications
-      .filter((a) => a.request_id === req.id && a.id !== appId)
-      .forEach((a) => (a.status = "rejected"));
+      .filter((a) => a.request_id === req.id && a.id !== appId && a.status === "applied")
+      .forEach((a) => {
+        a.status = "rejected";
+        // 미선정 신청자에게도 결과를 알린다
+        notifyUser(db, { recipientId: a.creator_id, title: "제작 의뢰에 선정되지 않았습니다", message: `${req.title} · 다른 크리에이터가 선정되었습니다.`, link: "/creator/requests" });
+      });
     req.assigned_creator_id = app.creator_id;
     req.status = "in_progress";
     req.updated_at = now();
     audit(db, { actorId: user.id, action: "accept_application", targetTable: "custom_video_requests", targetId: req.id });
     notifyUser(db, { recipientId: app.creator_id, title: "제작 의뢰 작업자로 선정되었습니다", message: req.title, link: "/creator/requests" });
+    done = true;
   });
   revalidatePath(`/creator/requests`);
   revalidatePath(`/admin/requests`);
+  if (user.role === "admin") {
+    redirect(`/admin/requests?${new URLSearchParams(done ? { notice: "작업자를 선정했습니다." } : { notice: "현재 상태에서는 처리할 수 없습니다. 다른 관리자가 먼저 처리했을 수 있으니 화면을 확인해 주세요.", tone: "error" })}`);
+  }
 }
 
 // === ADMIN/BUYER: 의뢰 취소 + 환불 =====================================
@@ -166,6 +177,7 @@ export async function cancelRequestAction(fd: FormData): Promise<void> {
   if (!user || user.status !== "active" || (user.role !== "creator" && user.role !== "admin")) return;
   const requestId = String(fd.get("request_id") || "");
   const reason = String(fd.get("reason") || "").trim().slice(0, 300);
+  let done = false;
   tx((db) => {
     const req = db.custom_video_requests.find((r) => r.id === requestId);
     if (!req) return;
@@ -198,9 +210,13 @@ export async function cancelRequestAction(fd: FormData): Promise<void> {
     if (req.assigned_creator_id) {
       notifyUser(db, { recipientId: req.assigned_creator_id, title: "배정된 제작 의뢰가 취소되었습니다", message: req.title, link: "/creator/requests" });
     }
+    done = true;
   });
   revalidatePath(`/creator/requests`);
   revalidatePath(`/admin/requests`);
+  if (user.role === "admin") {
+    redirect(`/admin/requests?${new URLSearchParams(done ? { notice: "의뢰를 취소했습니다." } : { notice: "현재 상태에서는 처리할 수 없습니다. 다른 관리자가 먼저 처리했을 수 있으니 화면을 확인해 주세요.", tone: "error" })}`);
+  }
 }
 
 // === CREATOR: 결과물 제출 =============================================
@@ -244,6 +260,7 @@ export async function reviewDeliveryAction(fd: FormData): Promise<void> {
   if (!user || user.status !== "active" || (user.role !== "creator" && user.role !== "admin")) return;
   const deliveryId = String(fd.get("delivery_id") || "");
   const decision = String(fd.get("decision") || ""); // approve | revision
+  let done = false;
 
   tx((db) => {
     const del = db.custom_video_deliveries.find((d) => d.id === deliveryId);
@@ -287,13 +304,18 @@ export async function reviewDeliveryAction(fd: FormData): Promise<void> {
         notifyUser(db, { recipientId: req.buyer_id, title: "제작 의뢰 차액 환불 안내", message: `${req.title} · 선정 금액이 예산보다 낮아 차액 ${diff.toLocaleString("ko-KR")}원을 결제 부분 취소로 환불합니다.`, link: "/creator/requests" });
       }
       notifyUser(db, { recipientId: req.assigned_creator_id!, title: "제작 의뢰 결과물이 승인되었습니다", message: `${req.title} · 정산 ${payout.toLocaleString("ko-KR")}원`, link: "/creator/wallet" });
+      done = true;
     } else if (decision === "revision" && req.status === "submitted") {
       del.status = "revision_requested";
       req.status = "revision_requested";
       req.updated_at = now();
       if (req.assigned_creator_id) notifyUser(db, { recipientId: req.assigned_creator_id, title: "제작 의뢰 결과물 수정 요청", message: req.title, link: "/creator/requests" });
+      done = true;
     }
   });
   revalidatePath(`/creator/requests`);
   revalidatePath(`/admin/requests`);
+  if (user.role === "admin") {
+    redirect(`/admin/requests?${new URLSearchParams(done ? { notice: "검수 결과를 반영했습니다." } : { notice: "현재 상태에서는 처리할 수 없습니다. 다른 관리자가 먼저 처리했을 수 있으니 화면을 확인해 주세요.", tone: "error" })}`);
+  }
 }

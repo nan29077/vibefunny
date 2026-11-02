@@ -86,3 +86,23 @@ export function formatWait(seconds: number): string {
   if (seconds >= 60) return `${Math.ceil(seconds / 60)}분`;
   return `${seconds}초`;
 }
+
+let warnedUnknownIp = false;
+/** 접속 IP를 알 수 있는지 (프록시가 X-Forwarded-For/X-Real-IP 를 넣지 않으면 "unknown") */
+export function isKnownIp(ip: string): boolean {
+  if (ip && ip !== "unknown") return true;
+  if (!warnedUnknownIp) {
+    warnedUnknownIp = true;
+    console.warn("[rate-limit] 접속 IP를 알 수 없어 IP 기준 횟수 제한을 건너뜁니다. 프록시(nginx·ALB)가 X-Forwarded-For 를 넣는지, TRUSTED_PROXY_HOPS 설정을 확인하세요.");
+  }
+  return false;
+}
+
+/**
+ * IP 기준 횟수 제한. IP를 알 수 없으면 모든 사용자가 한 버킷("unknown")을 공유해
+ * 서비스 전체가 잠기므로 제한하지 않는다(계정·이메일 기준 제한은 별도로 유지).
+ */
+export function rateLimitIp(prefix: string, limit: number, windowMs: number, consume = true, ip: string = clientIp()): number {
+  if (!isKnownIp(ip)) return 0;
+  return rateLimit(`${prefix}:${ip}`, limit, windowMs, consume);
+}

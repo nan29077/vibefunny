@@ -17,7 +17,7 @@ import {
   syncCampaignVideos,
 } from "./distribution";
 import { statusLabel } from "./labels";
-import { computeCampaignCost, creatorDeployPayout, creatorVideoPayout } from "./queries";
+import { computeCampaignCost, creatorDeployPayout, creatorVideoPayout, pricingDbForCampaign } from "./queries";
 import { addPointTx, addPointTxOnce, addWalletTxOnce, audit, ensurePointWallet, notifyUser } from "./services";
 import type {
   AdCampaign,
@@ -27,7 +27,7 @@ import type {
   Profile,
   SocialPlatform,
 } from "./schema";
-import { PLATFORM_LABELS } from "./schema";
+import { PLATFORM_LABELS, displayName } from "./schema";
 import { vibeOnlyError } from "./membership";
 
 const now = () => new Date().toISOString();
@@ -97,6 +97,20 @@ export function hasLegacyDelivery(db: Database, campaignId: string, creatorId: s
   return db.campaign_deliveries.some(
     (d) => d.campaign_id === campaignId && d.creator_id === creatorId && d.status !== "rejected"
   );
+}
+
+/** 이 역할(크리에이터·광고주)이 이 참여에 이미 분쟁을 신청했는지 (예전 데이터는 감사 로그로 판정) */
+export function hasDisputed(db: Database, participation: CampaignParticipation, role: "creator" | "advertiser"): boolean {
+  if (participation.disputed_by?.includes(role)) return true;
+  return (db.audit_logs ?? []).some((l) => {
+    if (l.action !== "open_participation_dispute" || l.target_id !== participation.id) return false;
+    return db.profiles.find((p) => p.id === l.actor_id)?.role === role;
+  });
+}
+
+/** 이 참여에 배정된 배포 영상을 크리에이터가 이미 내려받았는지 */
+export function hasDownloadedVideo(db: Database, participationId: string): boolean {
+  return (db.campaign_videos ?? []).some((v) => v.assigned_participation_id === participationId && (v.status === "downloaded" || !!v.downloaded_at));
 }
 
 // --- 알림 헬퍼 ----------------------------------------------------------------
@@ -272,7 +286,7 @@ export function joinParticipation(
 
   notifyCampaignOwner(db, campaign, {
     title: isDeployPool ? "새 배포 참여자가 배정되었습니다" : "새 캠페인 참여 신청",
-    message: `${campaign.title} · ${type === "deploy" ? `배포${deployPlatform ? `(${PLATFORM_LABELS[deployPlatform as keyof typeof PLATFORM_LABELS] ?? deployPlatform})` : ""}` : "영상 제작"}`,
+    message: `${campaign.title} · ${type === "deploy" ? `배포${deployPlatform ? `(${PLATFORM_LABELS[deployPlatform as keyof typeof PLATFORM_LABELS] ?? deployPlatform})` : ""}` : "영상 제작"} · ${displayName(user)}`,
     category: "participation",
   });
   audit(db, { actorId: user.id, action: "join_participation", targetTable: "campaign_participations", targetId: participation.id });
@@ -336,7 +350,7 @@ export function submitParticipationWork(
   }
   notifyCampaignOwner(db, campaign, {
     title: "캠페인 작업물이 제출되었습니다",
-    message: `${campaign.title} · ${type === "deploy" ? "배포" : "영상 제작"}`,
+    message: `${campaign.title} · ${type === "deploy" ? "배포" : "영상 제작"} · ${displayName(user)}`,
     category: "submission",
   });
   audit(db, { actorId: user.id, action: "submit_work", targetTable: "campaign_participations", targetId: participation.id });
@@ -431,6 +445,10 @@ export function reviewParticipation(
     }
   } else if (["accepted", "video_rejected", "deploy_rejected"].includes(participation.status) && decision === "reject") {
     // 선발 취소: 선발 후 작업하지 않는(또는 반려 뒤 재제출하지 않는) 크리에이터를 내보내 자리를 비운다
+    // 배정 영상을 이미 내려받은(배포 작업을 시작했을 수 있는) 크리에이터는 광고주가 일방적으로 내보낼 수 없다 → 관리자 판단
+    if (actor.role !== "admin" && hasDownloadedVideo(db, participation.id)) {
+      return fail(409, "크리에이터가 배정 영상을 이미 내려받아 선발을 취소할 수 없습니다. 작업이 진행되지 않으면 관리자에게 요청해 주세요.");
+    }
     participation.status = "cancelled";
     participation.cancelled_by = "reviewer";
     participation.rejection_reason = trimmedReason || "광고주가 선발을 취소했습니다.";
@@ -484,6 +502,18 @@ export function openDispute(
   // 이미 정산·환불·취소된 캠페인은 분쟁으로 되돌릴 수 없다 (관리자 문의로 처리)
   if (["completed", "refunded", "cancelled", "rejected"].includes(campaign.status)) {
     return fail(409, "이미 종료·정산된 캠페인입니다. 이의가 있으면 고객센터로 문의해 주세요.");
+  }
+  if (user.role !== "admin") {
+    // 수익이 이미 지급된(완료) 작업은 크리에이터가 분쟁으로 되돌릴 수 없다
+    if (user.role === "creator" && participation.status === "completed") {
+      return fail(409, "이미 완료·정산된 작업입니다. 이의가 있으면 고객센터로 문의해 주세요.");
+    }
+    // 회원 분쟁은 역할별(크리에이터·광고주 각각) 참여당 1회 — 처리 후 반복 신청으로 마감 정산을 계속 막는 것 방지
+    const role = user.role as "creator" | "advertiser";
+    if (hasDisputed(db, participation, role)) {
+      return fail(409, "이 참여에 대한 분쟁은 이미 한 번 신청하셨습니다. 추가 이의는 고객센터로 문의해 주세요.");
+    }
+    participation.disputed_by = [...(participation.disputed_by ?? []), role];
   }
 
   participation.dispute_previous_status = participation.status;
@@ -638,10 +668,25 @@ function reverseCampaignCommissions(db: Database, campaign: AdCampaign, ratio: n
   }
   for (const [recipientId, net] of byRecipient) {
     const want = r >= 1 ? net : Math.floor(net * r);
-    // 이미 사용해 잔액이 부족하면 남은 잔액까지만 회수한다 (음수 잔액 방지)
-    const balance = ensurePointWallet(db, recipientId).point_balance;
-    const amount = Math.min(want, Math.max(0, balance));
-    if (amount > 0) addPointTx(db, { advertiserId: recipientId, type: "commission", amount: -amount, campaignId: campaign.id, memo: amount < want ? `${memo} (잔액 부족으로 ${want - amount}P 미회수)` : memo });
+    if (want <= 0) continue;
+    // 받은 수수료를 이미 사용해 잔액이 부족해도 전액 회수한다 (잔액 마이너스 허용 → 다음 충전·적립에서 상계).
+    // 예전에는 잔액 한도까지만 회수해, 대행사는 전액 환불받고 실행사는 수수료를 그대로 갖는 손실이 생겼다.
+    const before = ensurePointWallet(db, recipientId).point_balance;
+    const txn = addPointTx(db, { advertiserId: recipientId, type: "commission", amount: -want, campaignId: campaign.id, memo, allowNegative: true });
+    if (txn.balance_after < 0) {
+      const shortfall = Math.min(want, want - Math.max(0, before));
+      notifyUser(db, {
+        recipientId,
+        title: "수수료 회수로 포인트 잔액이 마이너스가 되었습니다",
+        message: `${campaign.title} · 회수 ${want.toLocaleString()}P (현재 잔액 ${txn.balance_after.toLocaleString()}P). 다음 충전·수수료 적립에서 먼저 차감됩니다.`,
+        link: "/advertiser/points",
+      });
+      notifyAdmins(db, {
+        title: "실행사 수수료 회수 — 잔액 부족분 발생",
+        message: `${campaign.title} · 부족분 ${shortfall.toLocaleString()}P (실행사 잔액 ${txn.balance_after.toLocaleString()}P)`,
+        link: "/admin/points",
+      });
+    }
   }
   if (r >= 1) {
     cancelLegacyWalletCommissions(db, campaign.id);
@@ -714,7 +759,9 @@ export function campaignProgress(db: Database, campaign: AdCampaign) {
 /** 완료 작업량 기준 소진 포인트 (등록 시 결제 금액을 제작/배포 비율로 안분) */
 export function consumedCampaignPoints(db: Database, campaign: AdCampaign): number {
   const prog = campaignProgress(db, campaign);
-  const cost = computeCampaignCost(db, {
+  // 등록 시점 광고주 단가로 계산 (관리자가 이후 단가를 바꿔도 정산·환불액이 달라지지 않게)
+  const priceDb = pricingDbForCampaign(db, campaign);
+  const cost = computeCampaignCost(priceDb, {
     campaign_type: campaign.campaign_type,
     platforms: campaign.platforms,
     distribution_count: campaign.distribution_count,
@@ -750,7 +797,7 @@ export function consumedCampaignPoints(db: Database, campaign: AdCampaign): numb
     for (const [platform, target] of Object.entries(targets) as [SocialPlatform, number][]) {
       const n = Math.min(done[platform] ?? 0, target);
       attributed += n;
-      const rate = db.settings.distribution_rates.find((r) => r.platform === platform);
+      const rate = priceDb.settings.distribution_rates.find((r) => r.platform === platform);
       byPlatform += n * (rate?.advertiser_charge ?? 0) * ratio;
     }
     const legacy = Math.max(0, Math.min(prog.completedDeploys, prog.deployTarget) - attributed);
@@ -785,6 +832,10 @@ export function cancelCampaign(db: Database, actor: Profile, campaignId: string)
     );
   if (hasWork) {
     return fail(409, "제출 또는 완료된 작업이 있어 전액 취소할 수 없습니다. 관리자에게 부분 정산(완료 처리)을 요청하세요.");
+  }
+  // 배정 영상을 내려받은 진행 중 참여가 있으면 광고주는 전액 취소할 수 없다 (크리에이터가 이미 게시했을 수 있음 → 관리자 정산)
+  if (actor.role !== "admin" && (db.campaign_participations ?? []).some((p) => p.campaign_id === campaign.id && OPEN_PARTICIPATION_STATUSES.includes(p.status) && hasDownloadedVideo(db, p.id))) {
+    return fail(409, "배정 영상을 이미 내려받은 크리에이터가 있어 전액 취소할 수 없습니다. 관리자에게 정산(완료 처리)을 요청하세요.");
   }
 
   const wasPublished = !!campaign.published_at;
@@ -849,17 +900,17 @@ export function settleCampaign(
   }
 
   // 실행사 수수료: 기준별 처리
+  // - 이미 적립된 수수료(주문 차감액 기준·구버전)가 있으면 기준이 바뀌었어도 환불분 비율만큼 회수한다
   const basis = db.settings.advertiser_commission_basis;
-  if (basis === "campaign_completed") {
-    if (!hasLegacyWalletCommission(db, campaign.id) && netPointCommission(db, campaign.id) === 0) {
-      applyAgencyCommission(db, {
-        agencyId: campaign.advertiser_id,
-        baseAmount: consumed,
-        campaignId: campaign.id,
-        memo: `소속 대행사 캠페인 완료 수수료 (${campaign.title})`,
-      });
-    }
-  } else if (refund > 0 && campaign.point_spent > 0) {
+  const alreadyCommissioned = hasLegacyWalletCommission(db, campaign.id) || netPointCommission(db, campaign.id) !== 0;
+  if (basis === "campaign_completed" && !alreadyCommissioned) {
+    applyAgencyCommission(db, {
+      agencyId: campaign.advertiser_id,
+      baseAmount: consumed,
+      campaignId: campaign.id,
+      memo: `소속 대행사 캠페인 완료 수수료 (${campaign.title})`,
+    });
+  } else if (alreadyCommissioned && refund > 0 && campaign.point_spent > 0) {
     // 주문 차감액 기준으로 이미 적립된 수수료(포인트·구버전 수익지갑) 중 환불분 비율만큼 회수
     reverseCampaignCommissions(db, campaign, refund / campaign.point_spent, `캠페인 미집행분 환불에 따른 수수료 회수 (${campaign.title})`);
   }

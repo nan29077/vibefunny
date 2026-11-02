@@ -7,7 +7,7 @@ import { Field, Input } from "@/components/ui";
 import { SubmitButton, FormMessage, FieldError, initialActionState } from "@/components/form";
 import { formatKRW } from "@/lib/money";
 
-export function PayoutForm({ available }: { available: number }) {
+export function PayoutForm({ available, minPayout = 1 }: { available: number; minPayout?: number }) {
   const [state, formAction] = useFormState(requestPayoutAction, initialActionState);
   const [showRrn, setShowRrn] = useState(false);
 
@@ -15,9 +15,10 @@ export function PayoutForm({ available }: { available: number }) {
     <form action={formAction} className="space-y-4">
       <p className="text-sm text-gray-500">
         출금 가능 금액: <span className="font-bold text-brand-purple">{formatKRW(available)}</span>
+        {minPayout > 1 && <span className="ml-2 text-xs text-gray-400">(최소 출금액 {formatKRW(minPayout)})</span>}
       </p>
       <Field label="출금액(원)" required>
-        <Input type="number" name="amount" min={1} max={available} required />
+        <Input type="number" name="amount" min={minPayout} max={available} required />
         <FieldError state={state} name="amount" />
       </Field>
       <div className="grid gap-3 sm:grid-cols-3">

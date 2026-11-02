@@ -7,7 +7,7 @@ import { creatorDeployPayout, creatorVideoPayout } from "@/lib/queries";
 import { displayName } from "@/lib/schema";
 import { hasVideoPool, isDistributionUnlocked, poolStats, campaignPoolVideos } from "@/lib/distribution";
 import { participationCapacity } from "@/lib/campaign-eligibility";
-import { campaignAcceptsType, isPastDeadline } from "@/lib/campaign-workflow";
+import { campaignAcceptsType, hasDisputed, isPastDeadline } from "@/lib/campaign-workflow";
 import { VibeOnlyNotice } from "@/components/membership/vibe-only-notice";
 import { isVibeMember } from "@/lib/membership";
 
@@ -72,7 +72,9 @@ export default function CreatorCampaignsPage() {
 
   // 캠페인별 참여 인원 수 집계
   const participationCounts: Record<string, number> = {};
+  // 취소·미선발 건은 자리를 차지하지 않으므로 제외 (서버 정원 계산과 같은 기준)
   for (const p of (db.campaign_participations ?? [])) {
+    if (["cancelled", "application_rejected", "rejected"].includes(p.status)) continue;
     participationCounts[p.campaign_id] = (participationCounts[p.campaign_id] ?? 0) + 1;
   }
 
@@ -186,8 +188,9 @@ export default function CreatorCampaignsPage() {
           total_cost: 0,
           point_spent: 0,
           creator_rate_snapshot: undefined,
+          advertiser_rate_snapshot: undefined,
         }))}
-        myParticipations={myParticipations}
+        myParticipations={myParticipations.map((p) => ({ ...p, disputed_by: hasDisputed(db, p, "creator") ? ["creator" as const] : [] }))}
         canJoin={isVibeMember(db, user)}
         initialComments={initialComments}
         initialDirectMessages={initialDirectMessages}

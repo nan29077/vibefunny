@@ -8,6 +8,7 @@ import { PayoutForm } from "@/components/forms/payout-form";
 import { maskBankAccount } from "@/lib/crypto";
 import { VibeOnlyNotice } from "@/components/membership/vibe-only-notice";
 import { isVibeMember } from "@/lib/membership";
+import { DEFAULT_MIN_PAYOUT } from "@/lib/schema";
 
 export default function CreatorWalletPage() {
   const user = requireRole("creator");
@@ -37,7 +38,7 @@ export default function CreatorWalletPage() {
       <Card>
         <h2 className="mb-3 text-base font-bold">출금 신청</h2>
         {isVibeMember(db, user) ? (
-          <PayoutForm available={w.available_balance} />
+          <PayoutForm available={w.available_balance} minPayout={db.settings.min_payout_amount ?? DEFAULT_MIN_PAYOUT} />
         ) : (
           <VibeOnlyNotice feature="출금 신청" signupFee={db.settings.fees.creator.signup_fee_amount} compact />
         )}

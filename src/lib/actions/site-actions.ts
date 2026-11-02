@@ -34,6 +34,7 @@ export async function updateSupportHoursAction(fd: FormData): Promise<void> {
     db.settings.support_hours_start = normalizeTime(fd.get("support_hours_start"), "10:00");
     db.settings.support_hours_end = normalizeTime(fd.get("support_hours_end"), "17:00");
     db.settings.support_hours_timezone = "Asia/Seoul";
+    db.settings.support_weekdays_only = fd.get("support_weekdays_only") === "on";
     db.settings.updated_at = now();
     db.settings.updated_by = admin.id;
   });

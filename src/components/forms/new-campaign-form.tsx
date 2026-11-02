@@ -270,12 +270,18 @@ export function NewCampaignForm({
   categories,
   balance,
   videoPricingTiers = [],
+  defaultEndDate = "",
+  minEndDate = "",
 }: {
   rates: Rate[];
   extraCreationFee: number;
   categories: Cat[];
   balance: number;
   videoPricingTiers?: VideoTier[];
+  /** 종료일 기본값(서버가 한국 시간 기준으로 계산해 전달) */
+  defaultEndDate?: string;
+  /** 선택 가능한 가장 이른 종료일(오늘, 한국 시간) */
+  minEndDate?: string;
 }) {
   const [state, formAction] = useFormState(createCampaignAction, initialActionState);
   const [step, setStep] = useState(1);
@@ -299,7 +305,7 @@ export function NewCampaignForm({
     youtube: 10, instagram: 0, tiktok: 0, facebook: 0,
   });
   const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [endDate, setEndDate] = useState(defaultEndDate);
   const [targetKeywords, setTargetKeywords] = useState("");
   const [referenceLinks, setReferenceLinks] = useState("");
 
@@ -350,21 +356,27 @@ export function NewCampaignForm({
     return tier ? tier.advertiser_charge : extraCreationFee;
   }, [videoPricingTiers, durationTier, extraCreationFee]);
 
+  // 서버(computeCampaignCost)와 같은 방식: 플랫폼별 배포 건수 × 플랫폼별 청구단가 합산 (합이 0이면 평균 단가 × 건수)
   const estimate = useMemo(() => {
     const selected = rates.filter((r) => platforms.includes(r.platform));
     const perDist = selected.length > 0
       ? Math.round(selected.reduce((s, r) => s + r.advertiser_charge, 0) / selected.length)
       : 0;
+    const uniformRate = selected.length > 0 && selected.every((r) => r.advertiser_charge === selected[0].advertiser_charge);
     let distributionCost = 0;
     let creationCost = 0;
     if (type === "create_only") {
       creationCost = perCreation * videoProductionCount;
     } else {
-      distributionCost = perDist * deployCount;
+      const byPlatform = platforms.reduce((sum, p) => {
+        const rate = rates.find((r) => r.platform === p);
+        return sum + Math.max(0, Math.floor(distributions[p] ?? 0)) * (rate?.advertiser_charge ?? 0);
+      }, 0);
+      distributionCost = byPlatform > 0 ? byPlatform : perDist * deployCount;
       if (type === "create_and_distribute") creationCost = perCreation * videoProductionCount;
     }
-    return { perDist, distributionCost, creationCost, total: distributionCost + creationCost };
-  }, [rates, platforms, type, deployCount, videoProductionCount, perCreation]);
+    return { perDist, uniformRate, distributionCost, creationCost, total: distributionCost + creationCost };
+  }, [rates, platforms, distributions, type, deployCount, videoProductionCount, perCreation]);
 
   // 배포 건수를 선택된 플랫폼들에 최대한 균등하게 분배
   const distributeEven = (count: number, plats: SocialPlatform[]): Record<string, number> => {
@@ -706,8 +718,8 @@ export function NewCampaignForm({
                 <Field label="시작 희망일">
                   <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </Field>
-                <Field label="종료 희망일">
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                <Field label="모집 종료일" required hint="종료일이 지나면 완료된 작업분만 정산되고 미집행분은 자동 환불됩니다.">
+                  <Input type="date" value={endDate} min={minEndDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
                 </Field>
                 <Field label="타겟 키워드">
                   <Input value={targetKeywords} onChange={(e) => setTargetKeywords(e.target.value)} placeholder="예: 신상, 할인" />
@@ -737,7 +749,10 @@ export function NewCampaignForm({
                   platforms.length === 0 ||
                   !distValid ||
                   (needsDeployment && deployCount < 1) ||
-                  (needsVideoProduction && videoProductionCount < 1)
+                  (needsVideoProduction && videoProductionCount < 1) ||
+                  !endDate ||
+                  Boolean(minEndDate && endDate < minEndDate) ||
+                  Boolean(startDate && endDate && startDate > endDate)
                 }
               />
             </div>
@@ -939,6 +954,7 @@ export function NewCampaignForm({
                     { label: "캠페인 제목", value: title || "—" },
                     { label: "캠페인 유형", value: CAMPAIGN_TYPE_LABELS[type as keyof typeof CAMPAIGN_TYPE_LABELS] || type },
                     { label: "플랫폼", value: platforms.map((p) => PLATFORM_LABELS[p]).join(", ") || "—" },
+                    { label: "모집 종료일", value: endDate || "—" },
                     ...(needsDeployment ? [{ label: "배포 건수", value: `${deployCount}건` }] : []),
                     ...(needsVideoProduction ? [{ label: "영상제작 건수", value: `${videoProductionCount}건` }] : []),
                     ...(briefProductName ? [{ label: "제품/서비스명", value: briefProductName }] : []),
@@ -958,7 +974,7 @@ export function NewCampaignForm({
                 <div className="space-y-2 text-sm text-gray-600">
                   {estimate.distributionCost > 0 && (
                     <div className="flex justify-between">
-                      <span>배포 ({deployCount}건 × {formatPoint(estimate.perDist)})</span>
+                      <span>배포 ({deployCount}건{estimate.uniformRate ? ` × ${formatPoint(estimate.perDist)}` : " · 플랫폼별 단가 합산"})</span>
                       <span className="font-medium text-gray-800">{formatPoint(estimate.distributionCost)}</span>
                     </div>
                   )}

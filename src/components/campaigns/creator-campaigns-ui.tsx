@@ -873,7 +873,8 @@ export function CreatorCampaignsUI({
                 {["applied", "accepted", "video_rejected", "deploy_rejected"].includes(participation.status) && (
                   <button type="button" onClick={() => void cancelParticipation(participation.id)} className="mt-3 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">참여 취소</button>
                 )}
-                {["video_submitted", "deploy_submitted", "video_rejected", "deploy_rejected", "completed"].includes(participation.status) && (
+                {/* 분쟁은 참여당 1회, 완료·정산된 작업은 고객센터로 (서버 규칙과 동일) */}
+                {["video_submitted", "deploy_submitted", "video_rejected", "deploy_rejected"].includes(participation.status) && !(participation.disputed_by ?? []).includes("creator") && (
                   <button type="button" onClick={() => void openDispute(participation.id)} className="mt-3 ml-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">분쟁 신청</button>
                 )}
               </div>

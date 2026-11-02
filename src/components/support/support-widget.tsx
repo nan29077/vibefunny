@@ -320,7 +320,7 @@ export function SupportWidget({ isAuthenticated }: { isAuthenticated: boolean })
 
           {/* FAQ 탐색기 (토글 가능) */}
           {showFaq ? (
-            <FaqNavigator onSelect={handleFaqSelect} disabled={!supportOpen} />
+            <FaqNavigator onSelect={handleFaqSelect} disabled={false} />
           ) : (
             <button
               type="button"

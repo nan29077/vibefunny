@@ -8,7 +8,9 @@ import { formatKRW } from "@/lib/money";
 import {
   payReferralRewardAction,
   cancelReferralRewardAction,
+  createMissingReferralRewardAction,
 } from "@/lib/actions/admin-actions";
+import Link from "next/link";
 import { IconUsers, IconCheckCircle, IconX, IconChevronRight } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +35,18 @@ function formatDate(iso: string) {
   });
 }
 
-export default function AdminReferralsPage() {
+export default function AdminReferralsPage({ searchParams }: { searchParams?: { notice?: string; tone?: string } }) {
   const admin = requireAdmin();
   const db = getDb();
+  const notice = searchParams?.notice;
+  const referralOn = db.settings.referral_system_enabled;
+  const creatorRewardAmount = db.settings.fees.creator?.referral_reward_amount ?? 0;
+  // 가입비를 결제했는데 수당 기록이 없는 멘티 (추천인 제도가 꺼져 있을 때 결제 등) — 관리자가 소급 생성할 수 있다
+  const paidUserIds = new Set(db.payments.filter((p) => p.payment_type === "signup_fee" && p.status === "paid").map((p) => p.user_id));
+  const missingRewards = db.profiles
+    .filter((p) => p.role === "creator" && p.referred_by_user_id && paidUserIds.has(p.id))
+    .map((p) => ({ referee: p, mentor: db.profiles.find((m) => m.id === p.referred_by_user_id) }))
+    .filter(({ referee, mentor }) => mentor && mentor.role === "creator" && !db.referral_rewards.some((r) => r.referee_id === referee.id && r.referrer_id === mentor.id));
 
   const rewards = [...db.referral_rewards].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -49,8 +60,9 @@ export default function AdminReferralsPage() {
   const totalPaidAmount = paid.reduce((s, r) => s + r.amount, 0);
 
   // 추천 관계 (signup 타입)
+  // 크리에이터 멘토-멘티 관계만 (예전 데이터의 광고주 추천 기록은 제외 — 광고주 계층은 실행사 '소속 대행사'에서 관리)
   const signupRelations = db.referral_relations.filter(
-    (r) => r.referral_type === "signup"
+    (r) => r.referral_type === "signup" && db.profiles.find((p) => p.id === r.referee_id)?.role === "creator"
   );
 
   function getProfile(id: string) {
@@ -87,7 +99,7 @@ export default function AdminReferralsPage() {
       (rw) => rw.referrer_id === rel.referrer_id && rw.referee_id === rel.referee_id
     );
     entry.referees.push({ profile: referee, reward, joinedAt: rel.created_at });
-    if (reward) entry.totalReward += reward.amount;
+    if (reward && reward.status !== "CANCELLED") entry.totalReward += reward.amount;
   }
 
   const creatorTree = [...creatorMap.values()].sort(
@@ -100,6 +112,16 @@ export default function AdminReferralsPage() {
         title="추천인 수당 관리"
         description="추천인 관계, 수당 지급 현황을 관리합니다."
       />
+
+      {notice && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${searchParams?.tone === "error" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`} role={searchParams?.tone === "error" ? "alert" : "status"}>{notice}</div>
+      )}
+      {!referralOn && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          현재 <b>추천인 제도(수당 지급)가 꺼져 있습니다.</b> 멘티가 가입비를 결제해도 수당이 자동으로 생기지 않습니다.{" "}
+          <Link href="/admin/settings" className="font-semibold underline">정책 설정에서 켜기</Link>
+        </div>
+      )}
 
       {/* 회사 추천 코드: 크리에이터는 추천인 코드가 있어야 가입할 수 있으므로, 추천인이 없는 지원자에게 이 코드를 안내 */}
       <Card>
@@ -233,6 +255,31 @@ export default function AdminReferralsPage() {
           />
         )}
       </Card>
+
+      {/* 결제했지만 수당 기록이 없는 멘티 */}
+      {missingRewards.length > 0 && (
+        <Card>
+          <h2 className="mb-1 font-bold text-gray-900">수당 미생성 멘티 ({missingRewards.length})</h2>
+          <p className="mb-3 text-sm text-gray-500">가입비를 결제했지만 추천 수당이 생성되지 않은 멘티입니다(추천인 제도가 꺼져 있을 때 결제 등). 필요하면 현재 정책 금액({formatKRW(creatorRewardAmount)})으로 수당을 생성할 수 있습니다.</p>
+          <Table>
+            <thead><tr><Th>멘티</Th><Th>멘토</Th><Th>처리</Th></tr></thead>
+            <tbody>
+              {missingRewards.map(({ referee, mentor }) => (
+                <tr key={referee.id}>
+                  <Td><div className="font-semibold text-gray-800">{referee.name}</div><div className="text-xs text-gray-400">{referee.email}</div></Td>
+                  <Td><div className="font-semibold text-gray-800">{mentor?.name}</div><div className="text-xs text-gray-400">{mentor?.email}</div></Td>
+                  <Td>
+                    <form action={createMissingReferralRewardAction}>
+                      <input type="hidden" name="referee_id" value={referee.id} />
+                      <SubmitButton size="sm" confirmMessage={`${mentor?.name}님에게 추천 수당 ${formatKRW(creatorRewardAmount)}(지급 대기)을 생성할까요?`}>수당 생성</SubmitButton>
+                    </form>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
 
       {/* 미지급 수당 */}
       <Card>

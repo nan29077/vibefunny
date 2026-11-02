@@ -81,11 +81,16 @@ export async function saveCafe24SettingsAction(
   fd: FormData
 ): Promise<ActionState> {
   const admin = requireRole("admin");
+  // 쇼핑몰 ID 는 카페24 형식(영문 소문자·숫자·하이픈)만 — 다른 주소로 액세스 토큰이 전송되는 것 방지
+  const mallId = String(fd.get("mall_id") || "").trim().toLowerCase();
+  if (mallId && !/^[a-z0-9][a-z0-9-]{0,63}$/.test(mallId)) {
+    return { ok: false, message: "쇼핑몰 ID는 영문 소문자·숫자·하이픈만 입력하세요. (예: myshop)" };
+  }
   tx((db) => {
     const prev = db.settings.cafe24;
     db.settings.cafe24 = {
       enabled: fd.get("enabled") === "on",
-      mall_id: String(fd.get("mall_id") || "").trim(),
+      mall_id: mallId,
       client_id: String(fd.get("client_id") || "").trim(),
       // 비밀값: 새로 입력한 경우에만 교체, 비워 두면 기존 값 유지 (모두 암호화 저장)
       client_secret: keepOrReplaceSecret(fd, "client_secret", prev?.client_secret),

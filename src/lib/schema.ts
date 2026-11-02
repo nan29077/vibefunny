@@ -182,7 +182,9 @@ export interface AppSettings {
   video_pricing_tiers: VideoPricingTier[];
   distribution_rates: DistributionRate[];
   // 추천인 제도
-  referral_system_enabled: boolean; // 관리자가 ON/OFF – false면 추천 코드 처리 안 함
+  referral_system_enabled: boolean; // 관리자가 ON/OFF – false면 멘티 결제 시 추천 수당을 적립하지 않음
+  /** 최소 출금 신청 금액(원). 없으면 DEFAULT_MIN_PAYOUT */
+  min_payout_amount?: number;
   is_paid_model: boolean;           // 유료 부업 여부 (true 시 고정 추천 수당 지급)
   referral_bonus: number;           // 고정 추천인 수당 금액 (원, is_paid_model=true 일 때 사용)
   // 광고주 수직 수수료 (실행사 <- 대행사)
@@ -199,6 +201,8 @@ export interface AppSettings {
   support_hours_start?: string;
   support_hours_end?: string;
   support_hours_timezone?: string;
+  /** true(기본): 평일에만 문의 접수 (토·일 휴무) */
+  support_weekdays_only?: boolean;
   verification_sender_email?: string;
   // ── 유튜브 쇼츠 커머스 ──────────────────────────────────────────────
   cafe24?: Cafe24Settings;                  // 카페24 Open API 연동 설정
@@ -507,6 +511,12 @@ export interface AdCampaign {
     deploy_payouts: Partial<Record<SocialPlatform, number>>;
     captured_at: string;
   } | null;
+  /** 등록(결제) 시점의 광고주 청구 단가 — 정산 소진액·환불 계산은 이 값으로 (이후 관리자 단가 변경 영향 없음) */
+  advertiser_rate_snapshot?: {
+    video_charge: number;
+    deploy_charges: Partial<Record<SocialPlatform, number>>;
+    captured_at: string;
+  } | null;
 }
 
 // 6.17 campaign_applications ---------------------------------------------
@@ -645,6 +655,8 @@ export interface CampaignParticipation {
   video_file_type?: string | null;
   rejection_reason?: string;
   dispute_previous_status?: CampaignParticipationStatus;
+  /** 분쟁을 이미 신청한 회원 역할 — 크리에이터·광고주 각각 참여당 1회 (반복 분쟁으로 정산을 무기한 막는 것 방지) */
+  disputed_by?: Array<"creator" | "advertiser">;
   /** 취소 주체 — creator(본인 취소)만 재신청 가능. reviewer(광고주·관리자 선발 취소)·admin(분쟁 취소)·system(캠페인 종료)은 재신청 불가 */
   cancelled_by?: "creator" | "reviewer" | "admin" | "system";
   applied_at: string;
@@ -1126,4 +1138,16 @@ export interface Database {
   shorts_projects?: ShortsProject[];
   funny_wallets?: FunnyWallet[];
   funny_transactions?: FunnyTransaction[];
+}
+
+/** 최소 출금 신청 금액 기본값(원) */
+export const DEFAULT_MIN_PAYOUT = 10_000;
+
+/** 다른 회원에게 보여 줄 때의 이메일 가림 표시: "ab***@domain.com" */
+export function maskEmail(email: string | null | undefined): string {
+  if (!email) return "";
+  const at = email.indexOf("@");
+  if (at <= 0) return "***";
+  const local = email.slice(0, at);
+  return `${local.slice(0, Math.min(2, local.length))}***${email.slice(at)}`;
 }

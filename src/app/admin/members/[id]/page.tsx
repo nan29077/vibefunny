@@ -58,7 +58,12 @@ export default function MemberDetailPage({
   const mentees = referrals
     .map((r) => db.profiles.find((p) => p.id === r.referee_id))
     .filter((p): p is NonNullable<typeof p> => !!p)
-    .map((p) => ({ profile: p, paid: isVibeMember(db, p) }));
+    .map((p) => {
+      const vibe = isVibeMember(db, p);
+      // 실제 가입비 결제 기록이 있는지 — 없으면 관리자 면제(또는 가입비 제도 OFF 시 가입)
+      const feePaid = db.payments.some((x) => x.user_id === p.id && x.payment_type === "signup_fee" && x.status === "paid");
+      return { profile: p, paid: vibe, waived: vibe && !feePaid };
+    });
   const signupPayments = db.payments
     .filter((p) => p.user_id === member.id && p.payment_type === "signup_fee")
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -116,7 +121,7 @@ export default function MemberDetailPage({
                 </span>
               )}
               {referrals.length > 0 && (
-                <span className="flex items-center gap-1.5"><IconUsers size={13} />멘티: {referrals.length}명 (결제 완료 {mentees.filter((x) => x.paid).length} · 결제 전 {mentees.filter((x) => !x.paid).length})</span>
+                <span className="flex items-center gap-1.5"><IconUsers size={13} />멘티: {referrals.length}명 (결제 완료 {mentees.filter((x) => x.paid && !x.waived).length}{mentees.some((x) => x.waived) ? ` · 면제 ${mentees.filter((x) => x.waived).length}` : ""} · 결제 전 {mentees.filter((x) => !x.paid).length})</span>
               )}
             </div>
             <div className="mt-2">
@@ -182,12 +187,12 @@ export default function MemberDetailPage({
             <p className="text-sm text-gray-400">이 회원의 추천 코드로 가입한 회원이 없습니다.</p>
           ) : (
             <div className="space-y-1.5 text-sm">
-              {mentees.map(({ profile, paid }) => (
+              {mentees.map(({ profile, paid, waived }) => (
                 <div key={profile.id} className="flex flex-wrap items-center gap-2">
                   <Link href={`/admin/members/${profile.id}`} className="font-medium text-gray-800 hover:text-brand-purple hover:underline">{profile.name}</Link>
                   <span className="text-xs text-gray-400">{profile.email}</span>
                   {paid ? (
-                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">결제 완료 · {VIBE_MEMBER_LABEL}{profile.vibe_member_at ? ` (${formatDate(profile.vibe_member_at)})` : ""}</span>
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">{waived ? "가입비 면제" : "결제 완료"} · {VIBE_MEMBER_LABEL}{profile.vibe_member_at ? ` (${formatDate(profile.vibe_member_at)})` : ""}</span>
                   ) : (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">결제 전 · {GENERAL_MEMBER_LABEL}</span>
                   )}

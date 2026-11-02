@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { tx } from "../db";
 import { requireAdmin } from "../auth";
 import { genId } from "../crypto";
-import { audit, makeWalletTxAvailable, notifyUser } from "../services";
+import { audit, createReferralRewardRecord, makeWalletTxAvailable, notifyUser } from "../services";
+import { displayName } from "../schema";
+import { isVibeMember } from "../membership";
 import type { CommissionBasis, Platform, Role, UserStatus } from "../schema";
 
 const now = () => new Date().toISOString();
@@ -15,10 +17,43 @@ const num = (fd: FormData, k: string) => {
 };
 const bool = (fd: FormData, k: string) => fd.get(k) === "on" || fd.get(k) === "1";
 
+/**
+ * 정책 금액 입력 검증. 빈 칸은 0, 음수·소수·범위 초과·숫자가 아니면 오류 목록에 추가한다.
+ * (예전에는 음수를 조용히 0으로 바꿔 저장 → 청구단가 0원이 되어 배포마다 플랫폼이 손해를 보는 실수가 가능했다)
+ */
+function readAmount(fd: FormData, key: string, label: string, errors: string[], max = 100_000_000, min = 0): number {
+  const raw = String(fd.get(key) ?? "").trim();
+  if (raw === "") return 0;
+  const v = Number(raw);
+  if (!Number.isFinite(v) || !Number.isInteger(v) || v < 0 || v < min || v > max) {
+    errors.push(`${label}: ${min.toLocaleString()} ~ ${max.toLocaleString()} 사이의 정수로 입력하세요.`);
+    return 0;
+  }
+  return v;
+}
+function settingsNotice(errors: string[], warnings: string[] = []): never | void {
+  if (errors.length) redirect(`/admin/settings?${new URLSearchParams({ notice: `저장하지 않았습니다 — ${errors.join(" / ")}`, tone: "error" })}`);
+  if (warnings.length) redirect(`/admin/settings?${new URLSearchParams({ notice: `저장했습니다. 확인 필요: ${warnings.join(" / ")}`, tone: "warn" })}`);
+}
+/** 저장 성공 — 이전 오류 안내(?tone=error)가 주소에 남아 계속 보이지 않도록 성공 안내로 바꿔 이동 */
+function settingsSaved(): never {
+  redirect(`/admin/settings?${new URLSearchParams({ notice: "저장했습니다.", tone: "ok" })}`);
+}
+
 // === 4.1/4.2 가입비·추천수당 설정 (광고주 가입비 제외) ==================
 export async function updateFeesAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
   const roles: Role[] = ["creator", "advertiser"];
+  const errors: string[] = [];
+  for (const role of roles) {
+    if (!fd.has(`${role}_referral_amount`)) continue;
+    if (role === "creator") readAmount(fd, `${role}_signup_amount`, "가입비 금액", errors);
+    readAmount(fd, `${role}_referral_amount`, "추천 수당", errors);
+  }
+  if (bool(fd, "creator_signup_enabled") && fd.has("creator_signup_amount") && !(Number(fd.get("creator_signup_amount")) > 0)) {
+    errors.push("가입비 사용 시 가입비 금액은 1원 이상이어야 합니다.");
+  }
+  settingsNotice(errors);
   tx((db) => {
     for (const role of roles) {
       // 화면에 그 역할의 입력칸이 없으면 기존 값을 그대로 둔다 (빈 값이 0원으로 저장되던 문제 방지)
@@ -45,45 +80,65 @@ export async function updateFeesAction(fd: FormData): Promise<void> {
     audit(db, { actorId: admin.id, action: "update_fees", targetTable: "settings" });
   });
   revalidatePath("/admin/settings");
+  settingsSaved();
 }
 
 // === 4.3 영상 제작 단가 ================================================
 export async function updateVideoPricingAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
+  const errors: string[] = [];
+  const warnings: string[] = [];
   tx((db) => {
-    db.settings.video_pricing_tiers = db.settings.video_pricing_tiers.map((t) => ({
-      ...t,
-      amount: num(fd, `tier_${t.key}`),
-      advertiser_charge: num(fd, `tier_${t.key}_charge`),
-    }));
+    const next = db.settings.video_pricing_tiers.map((t) => {
+      const amount = fd.has(`tier_${t.key}`) ? readAmount(fd, `tier_${t.key}`, `${t.label} 크리에이터 제작 단가`, errors) : t.amount;
+      const charge = fd.has(`tier_${t.key}_charge`) ? readAmount(fd, `tier_${t.key}_charge`, `${t.label} 광고주 청구 단가`, errors) : t.advertiser_charge ?? 0;
+      if (t.max_seconds !== null && charge < amount) warnings.push(`${t.label}: 광고주 청구 단가가 크리에이터 제작 단가보다 낮습니다`);
+      return { ...t, amount, advertiser_charge: charge };
+    });
+    if (errors.length) return;
+    db.settings.video_pricing_tiers = next;
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_video_pricing", targetTable: "settings" });
   });
   revalidatePath("/admin/settings");
+  settingsNotice(errors, warnings);
+  settingsSaved();
 }
 
 // === 4.5 배포 단가 ====================================================
 export async function updateDistributionAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
+  const errors: string[] = [];
+  const warnings: string[] = [];
   tx((db) => {
-    db.settings.distribution_rates = db.settings.distribution_rates.map((r) => ({
-      ...r,
-      creator_payout: num(fd, `${r.platform}_payout`),
-      advertiser_charge: num(fd, `${r.platform}_charge`),
-    }));
-    db.settings.extra_creation_creator_payout = num(fd, "extra_creation_creator_payout");
-    db.settings.extra_creation_advertiser_charge = num(fd, "extra_creation_advertiser_charge");
+    const rates = db.settings.distribution_rates.map((r) => {
+      const creator_payout = fd.has(`${r.platform}_payout`) ? readAmount(fd, `${r.platform}_payout`, `${r.label} 크리에이터 지급액`, errors) : r.creator_payout;
+      const advertiser_charge = fd.has(`${r.platform}_charge`) ? readAmount(fd, `${r.platform}_charge`, `${r.label} 광고주 청구액`, errors) : r.advertiser_charge;
+      if (advertiser_charge < creator_payout) warnings.push(`${r.label}: 광고주 청구액이 크리에이터 지급액보다 낮습니다`);
+      return { ...r, creator_payout, advertiser_charge };
+    });
+    const extraPayout = fd.has("extra_creation_creator_payout") ? readAmount(fd, "extra_creation_creator_payout", "추가 제작비 크리에이터 지급액", errors) : db.settings.extra_creation_creator_payout;
+    const extraCharge = fd.has("extra_creation_advertiser_charge") ? readAmount(fd, "extra_creation_advertiser_charge", "추가 제작비 광고주 청구액", errors) : db.settings.extra_creation_advertiser_charge;
+    if (errors.length) return;
+    db.settings.distribution_rates = rates;
+    db.settings.extra_creation_creator_payout = extraPayout;
+    db.settings.extra_creation_advertiser_charge = extraCharge;
     db.settings.updated_at = now();
     audit(db, { actorId: admin.id, action: "update_distribution", targetTable: "settings" });
   });
   revalidatePath("/admin/settings");
+  settingsNotice(errors, warnings);
+  settingsSaved();
 }
 
 // === 4.6 광고주 수직 수수료 ===========================================
 export async function updateAdvertiserCommissionAction(fd: FormData): Promise<void> {
   const admin = requireAdmin();
+  const errors: string[] = [];
+  const rate = readAmount(fd, "commission_rate", "실행사 수수료율(%)", errors, 100); // 수수료율 0~100% 정수
+  settingsNotice(errors);
   tx((db) => {
-    db.settings.advertiser_commission_rate = Math.min(100, num(fd, "commission_rate")); // 수수료율 0~100%
+    db.settings.advertiser_commission_rate = rate;
     // 허용된 기준값만 저장 (그 밖의 값은 기존 설정 유지)
     const basis = String(fd.get("commission_basis") || "");
     if (["agency_charge", "agency_spend", "campaign_completed"].includes(basis)) {
@@ -93,6 +148,23 @@ export async function updateAdvertiserCommissionAction(fd: FormData): Promise<vo
     audit(db, { actorId: admin.id, action: "update_advertiser_commission", targetTable: "settings" });
   });
   revalidatePath("/admin/settings");
+  settingsSaved();
+}
+
+// === 출금 정책 (최소 출금액) ==========================================
+export async function updatePayoutPolicyAction(fd: FormData): Promise<void> {
+  const admin = requireAdmin();
+  const errors: string[] = [];
+  const min = readAmount(fd, "min_payout_amount", "최소 출금액", errors, 10_000_000, 1);
+  if (!errors.length && min < 1) errors.push("최소 출금액은 1원 이상 입력하세요.");
+  settingsNotice(errors);
+  tx((db) => {
+    db.settings.min_payout_amount = min;
+    db.settings.updated_at = now();
+    audit(db, { actorId: admin.id, action: "update_payout_policy", targetTable: "settings", after: { min_payout_amount: min } });
+  });
+  revalidatePath("/admin/settings");
+  settingsSaved();
 }
 
 // === 카테고리 관리 ====================================================
@@ -269,7 +341,7 @@ export async function processPayoutAction(fd: FormData): Promise<void> {
       recipientId: pr.user_id,
       title: decision === "approve" ? "출금 신청이 승인되었습니다" : decision === "paid" ? "출금이 완료되었습니다" : "출금 신청이 반려되었습니다",
       message: `${pr.amount.toLocaleString()}원${decision === "reject" ? " · 신청 금액은 지급가능 잔액으로 환원되었습니다." : ""}`,
-      link: "/creator/points",
+      link: "/creator/wallet",
     });
     audit(db, {
       actorId: admin.id,
@@ -293,20 +365,7 @@ export async function updateReferralSystemAction(fd: FormData): Promise<void> {
     audit(db, { actorId: admin.id, action: "update_referral_system", targetTable: "settings" });
   });
   revalidatePath("/admin/settings");
-}
-
-// === 유료 부업 정책 설정 ================================================
-export async function updatePolicyAction(fd: FormData): Promise<void> {
-  const admin = requireAdmin();
-  tx((db) => {
-    db.settings.is_paid_model = bool(fd, "is_paid_model");
-    db.settings.referral_bonus = num(fd, "referral_bonus");
-    db.settings.referral_system_enabled = bool(fd, "referral_system_enabled");
-    db.settings.updated_at = now();
-    audit(db, { actorId: admin.id, action: "update_policy", targetTable: "settings" });
-  });
-  revalidatePath("/admin/settings");
-  revalidatePath("/admin/referrals");
+  settingsSaved();
 }
 
 // === 추천인 수당 지급 처리 (PENDING → PAID) ============================
@@ -322,6 +381,13 @@ export async function payReferralRewardAction(fd: FormData): Promise<void> {
     if (reward.wallet_tx_id) {
       makeWalletTxAvailable(db, reward.wallet_tx_id);
     }
+    const referee = db.profiles.find((p) => p.id === reward.referee_id);
+    notifyUser(db, {
+      recipientId: reward.referrer_id,
+      title: "추천 수당이 지급되었습니다",
+      message: `${referee ? displayName(referee) : "멘티"}님 가입비 결제 수당 ${reward.amount.toLocaleString()}원 · 수익/출금에서 출금할 수 있습니다.`,
+      link: "/creator/wallet",
+    });
     audit(db, {
       actorId: admin.id,
       action: "pay_referral_reward",
@@ -330,6 +396,40 @@ export async function payReferralRewardAction(fd: FormData): Promise<void> {
     });
   });
   revalidatePath("/admin/referrals");
+  redirect(`/admin/referrals?${new URLSearchParams({ notice: "추천 수당을 지급 처리했습니다." })}`);
+}
+
+// === 추천 수당 수동 생성 (추천인 제도가 꺼져 있을 때 결제한 멘티 등 소급 지급) =============
+export async function createMissingReferralRewardAction(fd: FormData): Promise<void> {
+  const admin = requireAdmin();
+  const refereeId = String(fd.get("referee_id") || "");
+  let notice = "";
+  let created = false;
+  tx((db) => {
+    const referee = db.profiles.find((p) => p.id === refereeId);
+    if (!referee || referee.role !== "creator" || !referee.referred_by_user_id) { notice = "대상 멘티를 찾을 수 없습니다."; return; }
+    const paid = db.payments.some((p) => p.user_id === referee.id && p.payment_type === "signup_fee" && p.status === "paid");
+    if (!paid) { notice = "가입비 결제 기록이 있는 멘티만 수당을 생성할 수 있습니다."; return; }
+    const mentor = db.profiles.find((p) => p.id === referee.referred_by_user_id);
+    if (!mentor || mentor.role !== "creator") { notice = "회사 추천 코드로 가입한 멘티는 수당 대상이 아닙니다."; return; }
+    if (mentor.status !== "active") { notice = "멘토 계정이 활성 상태가 아닙니다."; return; }
+    if (!isVibeMember(db, mentor)) { notice = "멘토가 바이브회원이 아니어서 수당 대상이 아닙니다."; return; }
+    if (db.referral_rewards.some((r) => r.referee_id === referee.id && r.referrer_id === mentor.id)) { notice = "이미 수당 기록이 있습니다."; return; }
+    const amount = Math.max(0, db.settings.fees.creator?.referral_reward_amount ?? 0);
+    if (amount <= 0) { notice = "정책 설정의 크리에이터 추천 수당 금액이 0원입니다."; return; }
+    const reward = createReferralRewardRecord(db, mentor.id, referee.id, amount);
+    notifyUser(db, {
+      recipientId: mentor.id,
+      title: "추천 수당이 적립되었습니다",
+      message: `${displayName(referee)}님 가입비 결제 수당 ${amount.toLocaleString()}원 (지급 대기)`,
+      link: "/creator/referrals",
+    });
+    audit(db, { actorId: admin.id, action: "create_missing_referral_reward", targetTable: "referral_rewards", targetId: reward?.id, after: { referee_id: referee.id, amount } });
+    notice = `${displayName(mentor)}님에게 추천 수당 ${amount.toLocaleString()}원(지급 대기)을 생성했습니다.`;
+    created = true;
+  });
+  revalidatePath("/admin/referrals");
+  redirect(`/admin/referrals?${new URLSearchParams(created ? { notice } : { notice, tone: "error" })}`);
 }
 
 // === 추천인 수당 취소 (PENDING → CANCELLED) ============================
@@ -350,15 +450,21 @@ export async function cancelReferralRewardAction(fd: FormData): Promise<void> {
         wtx.updated_at = now();
       }
     }
+    notifyUser(db, {
+      recipientId: reward.referrer_id,
+      title: "추천 수당이 취소되었습니다",
+      message: `${reward.amount.toLocaleString()}원 · 문의는 고객센터로 연락해 주세요.`,
+      link: "/creator/referrals",
+    });
     audit(db, {
       actorId: admin.id,
       action: "cancel_referral_reward",
-      targetTable: "settings",
+      targetTable: "referral_rewards",
       targetId: id,
     });
-    db.settings.updated_at = now();
   });
   revalidatePath("/admin/referrals");
+  redirect(`/admin/referrals?${new URLSearchParams({ notice: "추천 수당을 취소했습니다." })}`);
 }
 
 // === 주민번호 삭제 (항목 4) =============================================

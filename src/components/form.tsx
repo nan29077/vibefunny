@@ -40,6 +40,8 @@ export function SubmitButton({
     if (pending) { wasPending.current = true; return; }
     if (wasPending.current && successMessage) {
       wasPending.current = false;
+      // 서버가 오류 안내(?tone=error)로 돌려보낸 경우에는 "저장되었습니다"를 띄우지 않는다
+      if (new URLSearchParams(window.location.search).get("tone") === "error") return;
       setToast(successMessage);
       const t = window.setTimeout(() => setToast(null), 2500);
       return () => window.clearTimeout(t);

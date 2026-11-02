@@ -5,7 +5,7 @@ import {
   audit,
   createSignupReferralReward,
 } from "../services";
-import { applyAgencyCommission } from "../campaign-workflow";
+import { applyAgencyCommission, notifyAdmins } from "../campaign-workflow";
 import { creditFunnyCharge, FUNNY_WON, formatFunny } from "../funny";
 import { funnyChargeAllowed } from "../ai/settings";
 import { notifyUser } from "../services";
@@ -32,9 +32,18 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
         break;
       }
       if (user) {
-        user.status = "active";
+        // 결제 대기(pending)만 활성으로 바꾼다 — 정지·탈퇴 회원이 결제했다고 해서 정지가 풀리면 안 된다
+        const blocked = user.status === "suspended" || user.status === "withdrawn";
+        if (user.status === "pending") user.status = "active";
         if (user.role === "creator") user.vibe_member_at = now();
         user.updated_at = now();
+        if (blocked) {
+          notifyAdmins(db, {
+            title: "정지·탈퇴 회원의 가입비 결제가 확인되었습니다",
+            message: `${user.nickname || user.name} (${user.email}) · ${payment.amount.toLocaleString()}원 · 계정 상태(${user.status})는 그대로입니다. 환불 또는 정지 해제를 검토하세요.`,
+            link: `/admin/members/${user.id}`,
+          });
+        }
         // 멘토에게 멘티 결제 완료 알림
         const mentor = user.referred_by_user_id ? db.profiles.find((p) => p.id === user.referred_by_user_id) : null;
         if (user.role === "creator" && mentor && mentor.role === "creator") {
@@ -45,7 +54,8 @@ export function applyPaymentEffects(db: Database, payment: Payment): void {
             link: "/creator/referrals",
           });
         }
-        createSignupReferralReward(db, user.id, payment.amount);
+        // 정지·탈퇴 회원 결제는 관리자 검토(환불 등) 대상 — 멘토 수당은 만들지 않는다
+        if (!blocked) createSignupReferralReward(db, user.id, payment.amount);
         audit(db, {
           actorId: user.id,
           action: "signup_fee_paid",

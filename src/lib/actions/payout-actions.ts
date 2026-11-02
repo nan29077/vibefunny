@@ -8,6 +8,7 @@ import { encryptSensitive, genId } from "../crypto";
 import { addWalletTx, audit, ensureWallet } from "../services";
 import type { ActionState } from "@/components/form";
 import { vibeOnlyError } from "../membership";
+import { DEFAULT_MIN_PAYOUT } from "../schema";
 
 const now = () => new Date().toISOString();
 
@@ -43,6 +44,10 @@ export async function requestPayoutAction(
     const vibeBlock = vibeOnlyError(db, user);
     if (vibeBlock) return { ok: false, message: vibeBlock };
     const w = ensureWallet(db, user.id);
+    const minPayout = db.settings.min_payout_amount ?? DEFAULT_MIN_PAYOUT;
+    if (d.amount < minPayout) {
+      return { ok: false, message: `최소 출금액은 ${minPayout.toLocaleString("ko-KR")}원입니다.`, fieldErrors: { amount: `${minPayout.toLocaleString("ko-KR")}원 이상 입력하세요.` } };
+    }
     if (d.amount > w.available_balance) {
       return { ok: false, message: "지급 가능 잔액을 초과했습니다." };
     }

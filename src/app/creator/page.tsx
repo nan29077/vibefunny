@@ -59,7 +59,7 @@ export default function CreatorDashboard() {
     (r) => r.referrer_id === user.id && r.referral_type === "signup"
   ).length;
   const referralEarnings = db.wallet_transactions
-    .filter((t) => t.user_id === user.id && t.type === "signup_referral")
+    .filter((t) => t.user_id === user.id && t.type === "signup_referral" && t.status !== "cancelled")
     .reduce((sum, t) => sum + t.amount, 0);
 
   // 회원 등급: 가입비 결제 전 일반회원 / 결제 후 바이브회원

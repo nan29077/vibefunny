@@ -50,7 +50,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         faqs: [
           {
             question: "정산은 언제 이루어지나요?",
-            keywords: ["정산", "언제", "정산 주기"],
+            keywords: ["정산", "언제", "정산 주기", "들어와", "입금", "지급일"],
             answer:
               "캠페인 광고주 검수 완료 후 수익이 확정되며, 매월 말일까지 신청된 출금 건은 익월 10영업일 이내에 처리됩니다.",
           },
@@ -58,13 +58,13 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
             question: "출금 신청은 어떻게 하나요?",
             keywords: ["출금", "신청", "인출"],
             answer:
-              "마이페이지 → 포인트 · 출금 → 출금 신청 버튼을 누르시면 됩니다. 최초 출금 시 계좌 정보와 신분증 확인이 필요합니다.",
+              "메뉴 → 수익 / 출금 화면에서 출금액과 계좌 정보를 입력하고 '출금 신청'을 누르시면 됩니다. 출금은 바이브회원만 신청할 수 있으며, 관리자 승인 후 지급됩니다.",
           },
           {
             question: "최소 출금 금액이 있나요?",
-            keywords: ["최소", "최소금액", "출금 조건"],
+            keywords: ["최소", "최소금액", "출금 조건", "최소 출금", "출금 금액", "출금금액"],
             answer:
-              "최소 출금 가능 금액은 10,000원입니다. 10,000원 미만의 잔액은 다음 수익과 합산 후 출금 신청하실 수 있습니다.",
+              "최소 출금 금액은 기본 10,000원이며, 정책에 따라 변경될 수 있습니다(수익 / 출금 화면에 현재 기준이 표시됩니다). 최소 금액 미만의 잔액은 다음 수익과 합산해 신청하실 수 있습니다.",
           },
           {
             question: "출금 수수료가 있나요?",
@@ -79,15 +79,15 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         faqs: [
           {
             question: "포인트와 수익금의 차이가 무엇인가요?",
-            keywords: ["포인트", "수익금", "차이"],
+            keywords: ["포인트", "수익금 차이", "포인트 차이"],
             answer:
-              "포인트는 플랫폼 내 활동 보상(댓글, 공유 등)으로 적립되며 서비스 내 혜택에 사용됩니다. 수익금은 캠페인 · 영상 납품 등 실제 업무를 통해 발생하며 현금 출금이 가능합니다.",
+              "포인트는 광고주가 충전해 캠페인 집행에 사용하는 금액입니다(1P = 1원). 크리에이터의 캠페인·영상 제작·추천 수당 수익은 포인트가 아니라 원화 수익으로 쌓이며, '수익 / 출금' 화면에서 출금할 수 있습니다.",
           },
           {
             question: "포인트는 어떻게 사용하나요?",
-            keywords: ["포인트 사용", "포인트 쓰기"],
+            keywords: ["포인트 사용", "포인트 쓰기", "포인트 충전", "충전 방법"],
             answer:
-              "적립된 포인트는 마이페이지 → 포인트 메뉴에서 확인하실 수 있으며, 향후 콘텐츠 구매·서비스 이용 할인 등에 활용될 예정입니다.",
+              "광고주는 포인트 메뉴에서 충전한 뒤 캠페인을 등록하면 비용이 자동 차감됩니다. 캠페인이 반려·취소되거나 미집행분이 있으면 포인트로 환불됩니다.",
           },
         ],
       },
@@ -101,9 +101,9 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         faqs: [
           {
             question: "캠페인 참여 방법이 궁금해요",
-            keywords: ["캠페인", "참여", "신청"],
+            keywords: ["캠페인", "참여", "신청", "캠페인 참여", "참여 방법"],
             answer:
-              "마이페이지 → 캠페인 메뉴에서 모집 중인 캠페인을 확인하고 참여 신청을 진행하세요. 승인 여부와 제출 일정도 같은 화면에서 확인할 수 있습니다.",
+              "메뉴 → 캠페인에서 모집 중인 캠페인을 확인하고 참여 신청을 진행하세요. 캠페인 참여는 바이브회원 전용이며, 해당 플랫폼 SNS 채널이 관리자 인증을 받아야 합니다. 선발 여부와 제출 일정도 같은 화면에서 확인할 수 있습니다.",
           },
           {
             question: "캠페인 신청 자격 조건이 있나요?",
@@ -113,7 +113,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
           },
           {
             question: "캠페인 신청을 취소할 수 있나요?",
-            keywords: ["취소", "신청 취소", "캠페인 취소"],
+            keywords: ["취소", "신청 취소", "캠페인 취소", "참여 취소"],
             answer:
               "캠페인 진행 상태에 따라 취소 가능 여부가 다릅니다. 광고주가 승인하기 전 단계에서는 취소 신청이 가능하며, 승인 후에는 관리자에게 별도 문의가 필요합니다.",
           },
@@ -124,9 +124,9 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         faqs: [
           {
             question: "영상은 어디에서 제출하나요?",
-            keywords: ["영상 제출", "업로드", "등록"],
+            keywords: ["영상 제출", "업로드", "등록", "영상 업로드", "결과물 제출"],
             answer:
-              "캠페인 상세 페이지 → '결과물 제출' 버튼을 통해 제출하시면 됩니다.",
+              "메뉴 → 캠페인에서 참여 중인 캠페인을 열고, 선발된 뒤 표시되는 제출란에 영상(또는 배포 게시물) 링크를 입력해 제출하시면 됩니다.",
           },
           {
             question: "영상 제출 기한이 언제까지인가요?",
@@ -147,7 +147,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         faqs: [
           {
             question: "캠페인 승인 결과는 어떻게 확인하나요?",
-            keywords: ["승인", "결과", "합격", "캠페인 결과"],
+            keywords: ["승인", "결과", "합격", "캠페인 결과", "선발"],
             answer:
               "캠페인 목록 → 신청한 캠페인 → 상태 항목에서 '검토 중', '승인', '반려' 등의 결과를 확인할 수 있습니다. 상태 변경 시 알림도 발송됩니다.",
           },
@@ -171,7 +171,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
             question: "크리에이터로 가입하려면 어떻게 하나요?",
             keywords: ["크리에이터 가입", "크리에이터 등록", "가입 방법"],
             answer:
-              "회원가입 화면에서 '숏폼 크리에이터'를 선택하고 이메일 인증 후 가입을 완료하세요. 가입 후 마이페이지에서 SNS 계정을 연결하면 캠페인 참여가 가능합니다.",
+              "회원가입 화면에서 '숏폼 크리에이터'를 선택하고, 바이브회원에게 받은 추천인 코드를 입력한 뒤 이메일 인증을 마치면 가입됩니다(일반회원). 가입비를 결제해 바이브회원이 되고 '내 SNS 계정'에서 채널 인증을 받으면 캠페인에 참여할 수 있습니다.",
           },
           {
             question: "크리에이터 인증 조건이 있나요?",
@@ -311,7 +311,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         faqs: [
           {
             question: "비밀번호를 잊었어요",
-            keywords: ["비밀번호 분실", "비밀번호 찾기", "비밀번호 잊어버림"],
+            keywords: ["비밀번호 분실", "비밀번호 찾기", "비밀번호 잊어버림", "비밀번호를 잊", "비밀번호 잊"],
             answer:
               "현재 비밀번호 찾기 기능은 관리자 지원으로 처리됩니다. 가입 시 사용한 이메일 주소를 문의 창에 남겨 주시면 재설정 안내를 보내드립니다.",
           },
@@ -452,13 +452,36 @@ export const SUPPORT_FAQS = FAQ_CATEGORIES.flatMap((c) =>
   c.subcategories.flatMap((s) => s.faqs)
 );
 
-export function getSupportBotReply(content: string): string {
+// 여러 질문에 공통으로 쓰이는 일반 단어 — 이것만 맞으면 엉뚱한 답을 확정처럼 보내므로 점수를 1점만 준다
+const GENERIC_KEYWORDS = new Set([
+  "돈", "얼마", "언제", "신청", "등록", "취소", "승인", "결과", "이유", "조건", "비용", "제한", "금지", "최소",
+  "차이", "공유", "확정", "길이", "참여", "캠페인", "수익", "포인트", "업로드", "마감", "기한", "인증",
+].map((k) => k.toLowerCase()));
+const BOT_FALLBACK = "문의가 정상적으로 접수되었습니다. 담당 관리자가 확인 후 이 대화창으로 답변드릴게요. 운영 시간에는 순서대로 빠르게 안내해 드립니다.";
+
+/** 문의 내용과 가장 잘 맞는 FAQ (구체적 키워드 일치 점수 기준). 확신이 낮으면 null */
+export function matchSupportFaq(content: string): FaqItem | null {
   const normalized = content.replace(/\s+/g, "").toLowerCase();
-  const matched = SUPPORT_FAQS.find((faq) =>
-    faq.keywords.some((keyword) => normalized.includes(keyword.replace(/\s+/g, "").toLowerCase()))
-  );
-  if (matched) return matched.answer;
-  return "문의가 정상적으로 접수되었습니다. 담당 관리자가 확인 후 이 대화창으로 답변드릴게요. 운영 시간에는 순서대로 빠르게 안내해 드립니다.";
+  let best: { faq: FaqItem; score: number } | null = null;
+  for (const faq of SUPPORT_FAQS) {
+    let specific = 0;
+    let generic = 0;
+    for (const keyword of faq.keywords) {
+      const k = keyword.replace(/\s+/g, "").toLowerCase();
+      if (!k || !normalized.includes(k)) continue;
+      if (GENERIC_KEYWORDS.has(k) || k.length < 2) generic = 1; // 일반 단어는 몇 개가 맞아도 1점
+      else specific += k.length;
+    }
+    const score = specific + generic;
+    if (specific > 0 && (!best || score > best.score)) best = { faq, score };
+  }
+  return best && best.score >= 2 ? best.faq : null;
+}
+
+export function getSupportBotReply(content: string): string {
+  const matched = matchSupportFaq(content);
+  if (matched) return `[자동 안내] ${matched.answer}\n\n더 궁금한 점은 담당 관리자가 이 대화창으로 이어서 답변드릴게요.`;
+  return BOT_FALLBACK;
 }
 
 // ─── FAQ 질문으로 바로 답변 가져오기 ─────────────────────────────────────────

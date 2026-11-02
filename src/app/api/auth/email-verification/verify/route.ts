@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { clientIp, formatWait, rateLimit } from "@/lib/rate-limit";
+import { formatWait, rateLimitIp } from "@/lib/rate-limit";
 import { z } from "zod";
 import { tx } from "@/lib/db";
-import { EMAIL_CODE_MAX_ATTEMPTS, EMAIL_VERIFIED_TTL_MS, EMAIL_VERIFY_COOKIE, emailCodeMatches, hashVerifyToken, normalizeEmail } from "@/lib/email-verification";
+import { EMAIL_CODE_MAX_ATTEMPTS, EMAIL_VERIFIED_TTL_MS, EMAIL_VERIFY_COOKIE, emailCodeMatches, hashVerifyToken, normalizeEmail, verifyTokenMatches } from "@/lib/email-verification";
+import { cookies } from "next/headers";
 
 const schema = z.object({
   email: z.string().email(),
@@ -15,10 +16,11 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "이메일과 6자리 인증번호를 확인하세요." }, { status: 400 });
   const email = normalizeEmail(parsed.data.email);
   // 같은 IP 에서 인증번호 대입 시도 제한 (10분 100회 — 이메일별 5회 제한은 별도)
-  const wait = rateLimit(`email-verify-ip:${clientIp()}`, 100, 10 * 60 * 1000);
+  const wait = rateLimitIp("email-verify-ip", 100, 10 * 60 * 1000);
   if (wait > 0) return NextResponse.json({ ok: false, error: `시도가 너무 많습니다. ${formatWait(wait)} 후 다시 시도하세요.` }, { status: 429 });
   const token = randomBytes(24).toString("base64url");
-  const result = tx<{ ok: boolean; error?: string; id?: string }>((db) => {
+  const existingCookie = cookies().get(EMAIL_VERIFY_COOKIE)?.value;
+  const result = tx<{ ok: boolean; error?: string; id?: string; keepCookie?: boolean }>((db) => {
     const item = [...db.email_verifications]
       .filter((entry) => entry.email === email && !entry.consumed_at)
       .sort((a, b) => Date.parse(b.requested_at) - Date.parse(a.requested_at))[0];
@@ -28,6 +30,11 @@ export async function POST(request: Request) {
     if (!emailCodeMatches(email, parsed.data.code, item.code_hash)) {
       item.attempts += 1;
       return { ok: false, error: "인증번호가 올바르지 않습니다." };
+    }
+    if (item.verified_at && item.verify_token_hash) {
+      // 이미 인증된 기록: 같은 브라우저면 그대로 통과, 다른 브라우저면 먼저 인증한 쪽의 가입을 막지 않도록 덮어쓰지 않는다
+      if (verifyTokenMatches(existingCookie, item)) return { ok: true, keepCookie: true };
+      return { ok: false, error: "이미 다른 화면(브라우저)에서 인증을 마친 이메일입니다. 그 화면에서 가입을 이어 가거나, 인증번호를 다시 요청해 주세요." };
     }
     item.verified_at = new Date().toISOString();
     item.verify_token_hash = hashVerifyToken(token);

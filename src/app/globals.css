@@ -1335,3 +1335,34 @@ body[data-vf-modal] .vf-support { display:none !important; }
   .vf-home .vf-support-launcher,
   .vf-home .vf-support-panel { right: max(22px, calc(50% - var(--vf-canvas) / 2 - 28px - 160px)) !important; }
 }
+
+/* ── PC 좌우 여백 사진: 살짝 흐리고 크림색으로 옅게 (2026-11-03) ──────────
+   가운데 콘텐츠 틀이 또렷하게 떠 보이도록 여백 사진만 블러 + 반투명 크림막 처리.
+   (광고주 페이지는 for-advertisers/advertisers.css 에서 같은 효과 적용) 모바일 제외. */
+@media (min-width:768px) {
+  body:has(.vf-home) { background: #f6ecdc !important; background-image: none !important; }
+  body:has(.vf-home)::before,
+  body:has(.vf-home)::after {
+    content: "" !important;
+    display: block !important;
+    position: fixed;
+    z-index: 0;
+    pointer-events: none;
+  }
+  /* 사진 레이어: 가장자리가 비지 않도록 화면보다 약간 크게 깔고 흐림 */
+  body:has(.vf-home)::before {
+    inset: -24px;
+    width: auto;
+    background: url('/images/marketing/creator-studio-wide-v2.webp') center center / cover no-repeat;
+    filter: blur(2px) saturate(.92);
+  }
+  /* 크림색 막: 사진을 옅게, 가운데 틀 쪽은 조금 더 밝게 */
+  body:has(.vf-home)::after {
+    inset: 0;
+    width: auto;
+    background:
+      radial-gradient(ellipse 60% 90% at 50% 50%, rgba(255,251,243,.55), rgba(255,251,243,0) 70%),
+      linear-gradient(rgba(255,249,238,.42), rgba(255,249,238,.42));
+  }
+  .vf-home { position: relative; z-index: 1; }
+}

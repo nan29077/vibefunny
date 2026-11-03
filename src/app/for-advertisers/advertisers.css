@@ -308,25 +308,20 @@ body:has(.vf-adv) { background: var(--vfa-paper, #fffdf7); }
 @media (min-width: 768px) {
   .vf-adv { --vfa-w: min(640px, calc(100vw - 260px)); --vfa-nav: 104px; width: var(--vfa-w); margin: 0 auto; overflow: visible; }
 
-  /* 좌우 여백: 캠페인 사진을 양쪽에 고정 */
+  /* 좌우 여백: 작업실 사진 한 장을 화면 전체에 고정하고, 살짝 흐리게 + 크림색 막으로 옅게 */
   body:has(.vf-adv) { background: #f3e6d2; }
   body:has(.vf-adv)::before,
-  body:has(.vf-adv)::after {
-    content: ""; position: fixed; z-index: 0; top: 0; bottom: 0;
-    width: calc((100% - min(640px, calc(100vw - 260px))) / 2 + 16px);
-    background-image: url('/images/marketing/creator-sidejob-margin.webp');
-    background-repeat: no-repeat; background-size: auto 100%;
-    pointer-events: none;
-  }
-  body:has(.vf-adv)::before { left: -16px; background-position: center, left center; }
-  body:has(.vf-adv)::after { right: -16px; background-position: center, right center; }
-  /* 여백 사진: 살짝 흐리고 크림색 막을 덮어 옅게 → 가운데 틀이 또렷하게 보이도록 */
-  body:has(.vf-adv)::before,
-  body:has(.vf-adv)::after {
-    top: -16px; bottom: -16px;
-    background-image: linear-gradient(rgba(255,249,238,.45), rgba(255,249,238,.45)), url('/images/marketing/creator-sidejob-margin.webp');
-    background-size: cover, auto 100%;
+  body:has(.vf-adv)::after { content: ""; position: fixed; z-index: 0; pointer-events: none; }
+  body:has(.vf-adv)::before {
+    inset: -24px;
+    background: url('/images/marketing/advertiser-margin-wide.webp') center center / cover no-repeat;
     filter: blur(2px) saturate(.92);
+  }
+  body:has(.vf-adv)::after {
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 90% at 50% 50%, rgba(255,251,243,.55), rgba(255,251,243,0) 70%),
+      linear-gradient(rgba(255,249,238,.4), rgba(255,249,238,.4));
   }
   .vf-adv > * { position: relative; z-index: 1; }
 
@@ -440,8 +435,6 @@ body:has(.vf-adv) { background: var(--vfa-paper, #fffdf7); }
 /* 넓은 PC: 메뉴를 메인페이지와 같은 크기로, 로고 전체 표시 */
 @media (min-width: 1024px) {
   .vf-adv { --vfa-w: min(640px, calc(100vw - 360px)); --vfa-nav: 160px; }
-  body:has(.vf-adv)::before,
-  body:has(.vf-adv)::after { width: calc((100% - min(640px, calc(100vw - 360px))) / 2 + 16px); }
   .vf-adv .vfa-side-nav { padding: 1.05rem .75rem; }
   .vf-adv .vfa-side-nav a { min-height: 54px; justify-content: center; font-size: .76rem; }
   .vf-adv .vfa-side-nav a svg { width: 21px; height: 21px; }

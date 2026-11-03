@@ -1306,3 +1306,32 @@ body[data-vf-modal] .vf-support { display:none !important; }
 @media (min-width:768px) {
   .vf-home section .vf-grid-2d > :last-child:nth-child(odd) { grid-column:1 / -1; }
 }
+
+/* ── PC 콘텐츠 틀 폭 확대 (2026-11-03) ───────────────────────────────
+   메인·수익 상세: 560px → 640px / 로그인·회원가입: 520px → 600px
+   (광고주 페이지는 for-advertisers/advertisers.css 에서 같은 폭을 사용)
+   모바일(767px 이하)은 이 블록의 영향을 받지 않는다. */
+@media (min-width:768px) {
+  :root { --vf-canvas: min(640px, calc(100vw - 260px)); }
+  .vf-home { width: var(--vf-canvas) !important; }
+  .vf-revenue-detail,
+  .vf-revenue-detail > header { width: var(--vf-canvas) !important; }
+  .vf-revenue-detail > section:first-of-type .grid-cols-3.max-w-lg { max-width: none; }
+  .vf-auth-page { width: min(600px, calc(100vw - 2rem)) !important; max-width: min(600px, calc(100vw - 2rem)) !important; }
+
+  /* 사진 배경 섹션: 넓어진 틀에 맞추고, 화면 높이보다 짧아지지 않게 */
+  .vf-home section[style*="background-image"] { background-size: max(var(--vf-canvas), 56.3vh) auto !important; }
+
+  /* 상단 배너: 틀 폭에 비례해 높이를 키워 사진이 위아래로 더 잘리지 않게 (기존 560×480 비율 유지) */
+  .vf-home .vf-honey-hero { min-height: calc(var(--vf-canvas) * .857) !important; }
+
+  /* 오른쪽 메뉴·문의하기: 틀 오른쪽에 붙여 겹치지 않게 */
+  .vf-home > header.vf-home-side-menu,
+  .vf-home .vf-support-launcher { right: max(8px, calc(50% - var(--vf-canvas) / 2 - 16px - 116px)) !important; }
+}
+@media (min-width:1024px) {
+  :root { --vf-canvas: min(640px, calc(100vw - 360px)); }
+  .vf-home > header.vf-home-side-menu,
+  .vf-home .vf-support-launcher,
+  .vf-home .vf-support-panel { right: max(22px, calc(50% - var(--vf-canvas) / 2 - 28px - 160px)) !important; }
+}

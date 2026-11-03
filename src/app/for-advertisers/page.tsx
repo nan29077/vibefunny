@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import "./advertisers.css";
 import Link from "next/link";
 import {
   IconMegaphone, IconBuilding, IconBarChart, IconUsers, IconGlobe,
   IconZap, IconShield, IconGem, IconCheckCircle, IconDollarSign,
-  IconTrendingUp, IconFilm, IconStar, IconPlay,
+  IconTrendingUp, IconFilm, IconStar, IconCheck,
   IconHome, IconLogIn,
 } from "@/components/icons";
 
@@ -29,16 +30,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Generated campaign photography, composed for the narrow site canvas.
+// Generated campaign photography (portrait). PC canvas: 640px, mobile: full width.
 const ADVERTISER_BG = "/images/marketing/advertiser-campaign-studio.webp";
-const BG = {
-  hero: ADVERTISER_BG,
-  why: ADVERTISER_BG,
-  benefits: ADVERTISER_BG,
-  process: ADVERTISER_BG,
-  testimonials: ADVERTISER_BG,
-  cta: ADVERTISER_BG,
-};
 
 // ─── Data ──────────────────────────────────────────────────────────────────
 const EXEC_ITEMS = [
@@ -124,48 +117,109 @@ const FAQS = [
   { q: "포인트는 만료되나요?", a: "충전된 포인트는 만료 기간 없이 유지됩니다. 실제 배포 건수가 완료될 때마다 포인트가 차감되며, 캠페인 종료 후 잔여 포인트는 다음 캠페인에 그대로 사용 가능합니다." },
 ];
 
+const EXEC_TYPE_ITEMS = [
+  "대행사 모집·초대 권한 보유",
+  "하위 대행사 자동 수수료 수익",
+  "우선 크리에이터 매칭 혜택",
+  "전담 캠페인 매니저 배정 (예정)",
+  "4대 플랫폼 동시 집행 전권",
+];
+
+const AGENCY_TYPE_ITEMS = [
+  "실행사 코드 입력 또는 추천인 없음 가입",
+  "복수 클라이언트 통합 관리",
+  "클라이언트별 예산·성과 분리",
+  "통합 리포트 제공",
+  "대행사 전용 대시보드",
+];
+
+const TIERS = [
+  { label: "스타터", range: "₩150,000 ~ ₩499,999", tone: "base",  items: ["캠페인 1건 집행 가능", "기본 리포트 제공", "자동 크리에이터 매칭"] },
+  { label: "그로스", range: "₩500,000 ~ ₩999,999", tone: "mid",   items: ["멀티 캠페인 동시 운영", "상세 분석 리포트", "우선 매칭 신청 가능"] },
+  { label: "스케일", range: "₩1,000,000+",         tone: "top",   items: ["대규모 멀티 캠페인 운영", "플랫폼별 상세 리포트", "전담 매니저 배정 예정", "최우선 크리에이터 배정"] },
+];
+
+const WHY_STATS = [
+  { num: "60%+", label: "모바일 동영상 중 숏폼 비중", Icon: IconTrendingUp },
+  { num: "80억+", label: "4대 플랫폼 월 활성 사용자", Icon: IconUsers },
+  { num: "4.2×", label: "일반 영상 대비 도달률", Icon: IconStar },
+];
+
+const HERO_STATS = [
+  { v: "12,000+", l: "크리에이터" },
+  { v: "4대", l: "플랫폼 동시 집행" },
+  { v: "₩150K~", l: "최소 시작 예산" },
+];
+
+const KPIS = [
+  { value: "4.2×", label: "일반 영상 대비 도달률", sub: "숏폼 포맷 알고리즘 우선 노출" },
+  { value: "24H", label: "캠페인 집행 시작", sub: "관리자 심사 후 즉시 모집 시작" },
+  { value: "98%", label: "광고주 재집행률", sub: "첫 캠페인 집행 후 재이용 비율" },
+  { value: "3배", label: "CTR 개선 효과", sub: "배너 광고 대비 숏폼 클릭률" },
+];
+
+const LIVE_STATS = [
+  { label: "진행 중인 캠페인", value: "142건" },
+  { label: "이번 달 배포 완료", value: "8,420건" },
+  { label: "참여 크리에이터", value: "12,000+명" },
+  { label: "4대 플랫폼 누적 도달", value: "2.4억회+" },
+];
+
+const BRAND_CATS = [
+  { cat: "뷰티 / 코스메틱", desc: "제품 리뷰·튜토리얼 영상 숏폼 배포" },
+  { cat: "식품 / 음료", desc: "먹방·레시피 콘텐츠 바이럴 마케팅" },
+  { cat: "IT / 앱 서비스", desc: "앱 소개·기능 데모 숏폼 광고" },
+  { cat: "패션 / 라이프스타일", desc: "트렌드 코디·하울 영상 배포" },
+  { cat: "교육 / 자기계발", desc: "강의 홍보·지식 콘텐츠 마케팅" },
+];
+
+const MARQUEE_WORDS = ["숏폼 광고", "크리에이터 매칭", "4대 플랫폼", "실시간 리포트", "SHORTFORM MARKETING", "CAMPAIGN PLATFORM"];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-/** 풀스크린 배경 이미지 섹션 */
-function FullBg({
-  src, overlay = "rgba(0,0,0,0.68)", children, id, className = "",
+/** 사진 배경 섹션 (PC: 640px 틀에 맞춘 고정 배경, 모바일: 고정 레이어) */
+function PhotoSection({
+  id, tone = "dark", children, className = "",
 }: {
-  src: string; overlay?: string; children: React.ReactNode; id?: string; className?: string;
+  id?: string; tone?: "dark" | "deep"; children: React.ReactNode; className?: string;
 }) {
   return (
-    <section
-      id={id}
-      className={`vfa-photo-section relative flex min-h-screen items-center overflow-hidden ${className}`}
-      style={{
-        backgroundImage: `url('${src}')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div className="vfa-mobile-fixed-section-bg" aria-hidden />
-      <div className="absolute inset-0 z-0" style={{ background: overlay }} />
-      <div className="relative z-10 w-full">{children}</div>
+    <section id={id} className={`vfa-photo vfa-photo--${tone} ${className}`} style={{ backgroundImage: `url('${ADVERTISER_BG}')` }}>
+      <div className="vfa-photo-layer" aria-hidden />
+      <div className="vfa-photo-shade" aria-hidden />
+      <div className="vfa-photo-inner">{children}</div>
     </section>
   );
 }
 
-/** 라이트 배경용 로고 (VIBE=다크, FUNNY=옐로우) */
-function LogoLight() {
+function SectionHead({ eyebrow, title, desc, light = false }: { eyebrow: string; title: React.ReactNode; desc?: React.ReactNode; light?: boolean }) {
   return (
-    <span className="vf-site-logo text-xl font-black tracking-tight">
-      <span className="text-gray-900">VIBE</span>
-      <span style={{ color: "#f59e0b" }}>FUNNY</span>
-    </span>
+    <div className={`vfa-head ${light ? "is-light" : ""}`}>
+      <p className="vfa-eyebrow">{eyebrow}</p>
+      <h2 className="vfa-h2">{title}</h2>
+      {desc && <p className="vfa-lead">{desc}</p>}
+    </div>
   );
 }
 
-/** 다크 배경용 로고 (VIBE=흰색, FUNNY=옐로우) */
-function LogoDark() {
+function CheckList({ items, tone = "exec" }: { items: string[]; tone?: "exec" | "agency" | "light" }) {
   return (
-    <span className="vf-site-logo text-xl font-black tracking-tight">
-      <span className="text-white">VIBE</span>
-      <span style={{ color: "#f59e0b" }}>FUNNY</span>
+    <ul className={`vfa-checks vfa-checks--${tone}`}>
+      {items.map((item) => (
+        <li key={item}>
+          <IconCheckCircle size={16} strokeWidth={2} aria-hidden />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 라이트 배경용 로고 (마크 + 워드마크) */
+function LogoLight() {
+  return (
+    <span className="vf-site-logo vfa-logo">
+      <span>VIBE</span><b>FUNNY</b>
     </span>
   );
 }
@@ -174,24 +228,29 @@ function LogoDark() {
 
 export default function ForAdvertisersPage() {
   return (
-    <div className="vf-marketing vf-advertisers">
-      {/* Main-site style navigation: compact top actions and a right-side menu. */}
+    <div className="vf-adv">
+      {/* 상단 바 */}
       <div className="vfa-topbar">
         <Link href="/" aria-label="바이브퍼니 홈"><LogoLight /></Link>
-        <div className="vfa-topbar-actions">
-          <Link href="/login" className="vfa-topbar-login"><IconLogIn size={16} />로그인</Link>
-        </div>
+        <Link href="/login" className="vfa-topbar-login"><IconLogIn size={16} />로그인</Link>
       </div>
 
+      {/* PC 오른쪽 메뉴 */}
       <nav className="vfa-side-nav" aria-label="광고주 페이지 메뉴">
-        <Link href="/" className="vfa-side-brand">VIBE<span>FUNNY</span></Link>
-        <Link href="/"><IconHome size={18} /><span>홈</span></Link>
-        <Link href="#types"><IconBuilding size={18} /><span>광고 유형</span></Link>
-        <Link href="#benefits"><IconGem size={18} /><span>주요 혜택</span></Link>
-        <Link href="#process"><IconBarChart size={18} /><span>진행 과정</span></Link>
-        <Link href="/signup?role=advertiser"><IconBuilding size={18} /><span>광고주 가입</span></Link>
+        <Link href="/" className="vfa-side-brand" aria-label="바이브퍼니 홈">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/brand/vibefunny-logo.svg" alt="VIBEFUNNY" className="vfa-side-logo-full" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/brand/vibefunny-mark.svg" alt="" aria-hidden className="vfa-side-logo-mark" />
+        </Link>
+        <Link href="/"><IconHome size={20} /><span>홈</span></Link>
+        <Link href="#types"><IconBuilding size={20} /><span>광고 유형</span></Link>
+        <Link href="#benefits"><IconGem size={20} /><span>주요 혜택</span></Link>
+        <Link href="#process"><IconBarChart size={20} /><span>진행 과정</span></Link>
+        <Link href="/signup?role=advertiser" className="vfa-side-cta"><IconMegaphone size={20} /><span>광고주 가입</span></Link>
       </nav>
 
+      {/* 모바일 하단 메뉴 */}
       <nav className="vfa-mobile-nav" aria-label="광고주 모바일 메뉴">
         <Link href="/"><IconHome size={20} /><span>홈</span></Link>
         <Link href="#types"><IconBuilding size={20} /><span>광고 유형</span></Link>
@@ -201,94 +260,54 @@ export default function ForAdvertisersPage() {
       </nav>
 
       {/* -------------- HERO -------------- */}
-      <FullBg
-        src={BG.hero}
-        overlay="linear-gradient(155deg, rgba(0,0,0,0.78) 0%, rgba(10,0,30,0.72) 100%)"
-        className=""
-      >
-        <div className="mx-auto max-w-5xl px-6 py-28 md:px-16">
-          {/* label */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ borderColor: "rgba(245,158,11,0.35)", color: "#f59e0b" }}>
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            For Advertisers · 광고주 전용 플랫폼
-          </div>
-
-          <h1 className="text-[clamp(44px,8vw,100px)] font-black leading-[1.12] tracking-tight text-white">
-            숏폼 광고,<br />
-            <span style={{ color: "#f59e0b" }}>더 스마트하게</span>
-          </h1>
-
-          <p className="mt-8 max-w-xl text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
+      <PhotoSection tone="deep" className="vfa-hero">
+        <div className="vfa-wrap">
+          <p className="vfa-pill"><span aria-hidden />For Advertisers · 광고주 전용 플랫폼</p>
+          <h1 className="vfa-h1">숏폼 광고,<br /><em>더 스마트하게</em></h1>
+          <p className="vfa-hero-lead">
             12,000명의 크리에이터가 브랜드를 알립니다.<br />
             YouTube · Instagram · TikTok · Facebook을 하나의 캠페인으로.
           </p>
-
-          {/* quick stats */}
-          <div className="mt-10 grid max-w-2xl grid-cols-3 gap-4">
-            {[
-              { v: "12,000+", l: "크리에이터" },
-              { v: "4대",     l: "플랫폼 동시 집행" },
-              { v: "₩150K~", l: "최소 시작 예산" },
-            ].map((s) => (
-              <div key={s.l} className="rounded-2xl border p-5 text-center" style={{ background: "rgba(255,255,255,0.06)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.1)" }}>
-                <div className="text-2xl font-black" style={{ color: "#f59e0b" }}>{s.v}</div>
-                <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>{s.l}</div>
+          <div className="vfa-hero-stats">
+            {HERO_STATS.map((s) => (
+              <div key={s.l}>
+                <strong>{s.v}</strong>
+                <span>{s.l}</span>
               </div>
             ))}
           </div>
-
-          {/* CTA */}
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Link href="/signup?role=advertiser&type=execution_company" className="inline-flex items-center gap-2 rounded-full px-8 py-4 text-base font-black text-black transition hover:scale-105 hover:opacity-90" style={{ background: "#f59e0b" }}>
-              <IconMegaphone size={16} strokeWidth={1.5} />
-              실행사로 가입하기
+          <div className="vfa-actions">
+            <Link href="/signup?role=advertiser&type=execution_company" className="vfa-btn vfa-btn--primary">
+              <IconMegaphone size={17} strokeWidth={1.8} />실행사로 가입하기
             </Link>
-            <Link href="/signup?role=advertiser&type=agency" className="inline-flex items-center gap-2 rounded-full border px-8 py-4 text-base font-semibold text-white transition hover:border-white/50" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
-              <IconBuilding size={16} strokeWidth={1.5} />
-              대행사로 가입하기
+            <Link href="/signup?role=advertiser&type=agency" className="vfa-btn vfa-btn--ghost">
+              <IconBuilding size={17} strokeWidth={1.8} />대행사로 가입하기
             </Link>
           </div>
         </div>
-
-        {/* bottom marquee */}
-        <div className="absolute bottom-0 left-0 right-0 overflow-hidden py-4" style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="vfa-marquee-bar" aria-hidden>
           <div className="vfa-marquee">
             {Array.from({ length: 8 }).flatMap((_, i) =>
-              ["숏폼 광고", "크리에이터 매칭", "4대 플랫폼", "실시간 리포트", "SHORTFORM MARKETING", "CAMPAIGN PLATFORM"].map((w) => (
-                <span key={`${i}-${w}`} className="mr-10 whitespace-nowrap text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>{w} ·</span>
-              ))
+              MARQUEE_WORDS.map((w) => <span key={`${i}-${w}`}>{w} ·</span>)
             )}
           </div>
         </div>
-      </FullBg>
+      </PhotoSection>
 
-      {/* -------------- WHY SHORTFORM (white bg) -------------- */}
-      <section className="px-6 py-24 md:px-16" style={{ background: "#fafafa" }}>
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Why Shortform</p>
-            <h2 className="text-4xl font-black text-gray-900 md:text-6xl leading-[1.2]">
-              왜 숏폼인가요?
-            </h2>
-            <p className="mx-auto mt-4 max-w-lg text-base text-gray-500">
-              모바일 시청 시간의 60% 이상이 숏폼. 가장 빠르게 성장하는 광고 채널입니다.
-            </p>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              { num: "60%+", label: "모바일 동영상 중 숏폼 비중", Icon: IconTrendingUp },
-              { num: "80억+", label: "4대 플랫폼 월 활성 사용자", Icon: IconUsers },
-              { num: "4.2×", label: "일반 영상 대비 도달률", Icon: IconStar },
-            ].map((s) => (
-              <div key={s.label} className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-                <div className="mb-3 flex justify-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-50">
-                    <s.Icon size={26} strokeWidth={1.5} className="text-yellow-500" />
-                  </div>
-                </div>
-                <div className="text-5xl font-black text-gray-900">{s.num}</div>
-                <div className="mt-3 text-sm text-gray-500">{s.label}</div>
+      {/* -------------- WHY SHORTFORM -------------- */}
+      <section className="vfa-section">
+        <div className="vfa-wrap">
+          <SectionHead
+            eyebrow="Why Shortform"
+            title="왜 숏폼인가요?"
+            desc="모바일 시청 시간의 60% 이상이 숏폼. 가장 빠르게 성장하는 광고 채널입니다."
+          />
+          <div className="vfa-why-grid">
+            {WHY_STATS.map((s) => (
+              <div key={s.label} className="vfa-card vfa-why">
+                <div className="vfa-icon"><s.Icon size={22} strokeWidth={1.7} /></div>
+                <strong>{s.num}</strong>
+                <span>{s.label}</span>
               </div>
             ))}
           </div>
@@ -296,202 +315,112 @@ export default function ForAdvertisersPage() {
       </section>
 
       {/* -------------- TYPE CARDS — 실행사 vs 대행사 -------------- */}
-      <section id="types" className="px-6 py-24 md:px-16" style={{ background: "#f0f0f0" }}>
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Advertiser Types</p>
-            <h2 className="text-4xl font-black text-gray-900 md:text-5xl leading-[1.25]">
-              실행사와 대행사,<br />무엇이 다른가요?
-            </h2>
-            <p className="mx-auto mt-4 max-w-md text-base text-gray-500">
-              자사 브랜드를 직접 홍보하는 실행사, 복수 클라이언트를 대신 집행하는 대행사.
-            </p>
-          </div>
-
-          {/* Equal-height grid: items-stretch + flex flex-col on cards */}
-          <div className="grid items-stretch gap-6 sm:grid-cols-2">
-
-            {/* 실행사 */}
-            <div className="flex flex-col overflow-hidden rounded-3xl border-2 border-yellow-300 bg-white p-8 shadow-sm">
-              {/* header */}
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" style={{ background: "#f59e0b" }}>
-                  <IconMegaphone size={22} strokeWidth={1.5} className="text-gray-900" />
-                </div>
+      <section id="types" className="vfa-section vfa-section--alt">
+        <div className="vfa-wrap">
+          <SectionHead
+            eyebrow="Advertiser Types"
+            title={<>실행사와 대행사,<br />무엇이 다른가요?</>}
+            desc="자사 브랜드를 직접 홍보하는 실행사, 복수 클라이언트를 대신 집행하는 대행사."
+          />
+          <div className="vfa-stack">
+            <article className="vfa-card vfa-type vfa-type--exec">
+              <header className="vfa-type-head">
+                <div className="vfa-icon vfa-icon--solid"><IconMegaphone size={22} strokeWidth={1.7} /></div>
                 <div>
-                  <div className="text-xl font-black text-gray-900">실행사</div>
-                  <div className="text-xs font-medium text-gray-400">Execution Company</div>
+                  <h3>실행사</h3>
+                  <p>Execution Company</p>
                 </div>
-              </div>
-
-              {/* description */}
-              <p className="mt-5 text-sm leading-[1.7] text-gray-600">
+              </header>
+              <p className="vfa-body">
                 자사 브랜드의 광고를 직접 집행하는 기업·개인 사업자. 포인트를 충전하고 캠페인을 생성하면 플랫폼이 크리에이터를 자동 매칭합니다.
               </p>
-
-              {/* feature list — flex-1 pushes button to bottom */}
-              <ul className="mt-6 flex-1 space-y-3">
-                {EXEC_ITEMS.map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
-                    <IconCheckCircle size={15} className="mt-0.5 shrink-0 text-yellow-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-
-              {/* button always at bottom */}
-              <Link
-                href="/signup?role=advertiser&type=execution_company"
-                className="mt-8 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-black text-black transition hover:opacity-80"
-                style={{ background: "#f59e0b" }}
-              >
-                <IconMegaphone size={15} strokeWidth={1.5} />
-                실행사로 가입하기
+              <CheckList items={EXEC_ITEMS} tone="exec" />
+              <Link href="/signup?role=advertiser&type=execution_company" className="vfa-btn vfa-btn--primary vfa-btn--block">
+                <IconMegaphone size={16} strokeWidth={1.8} />실행사로 가입하기
               </Link>
-            </div>
+            </article>
 
-            {/* 대행사 */}
-            <div className="flex flex-col overflow-hidden rounded-3xl border-2 border-orange-300 bg-white p-8 shadow-sm">
-              {/* header */}
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-400">
-                  <IconBuilding size={22} strokeWidth={1.5} className="text-white" />
-                </div>
+            <article className="vfa-card vfa-type vfa-type--agency">
+              <header className="vfa-type-head">
+                <div className="vfa-icon vfa-icon--solid"><IconBuilding size={22} strokeWidth={1.7} /></div>
                 <div>
-                  <div className="text-xl font-black text-gray-900">대행사</div>
-                  <div className="text-xs font-medium text-gray-400">Agency</div>
+                  <h3>대행사</h3>
+                  <p>Agency</p>
                 </div>
-              </div>
-
-              {/* description */}
-              <p className="mt-5 text-sm leading-[1.7] text-gray-600">
+              </header>
+              <p className="vfa-body">
                 복수 클라이언트의 광고를 대신 집행하는 광고 대행사. 실행사 추천 코드로 가입하면 계층 관계가 자동으로 설정되며, 코드 없이 &lsquo;추천인 없음&rsquo;으로도 가입할 수 있습니다.
               </p>
-
-              {/* feature list — flex-1 pushes button to bottom */}
-              <ul className="mt-6 flex-1 space-y-3">
-                {AGENCY_ITEMS.map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
-                    <IconCheckCircle size={15} className="mt-0.5 shrink-0 text-orange-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-
-              {/* button always at bottom */}
-              <Link
-                href="/signup?role=advertiser&type=agency"
-                className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-orange-400 py-3.5 text-sm font-black text-white transition hover:bg-orange-500"
-              >
-                <IconBuilding size={15} strokeWidth={1.5} />
-                대행사로 가입하기
+              <CheckList items={AGENCY_ITEMS} tone="agency" />
+              <Link href="/signup?role=advertiser&type=agency" className="vfa-btn vfa-btn--agency vfa-btn--block">
+                <IconBuilding size={16} strokeWidth={1.8} />대행사로 가입하기
               </Link>
-            </div>
-
+            </article>
           </div>
         </div>
       </section>
 
-
       {/* -------------- ADVERTISER TYPE — 가입 유형 기준 -------------- */}
-      <section className="px-6 py-20 md:px-16" style={{ background: "#fff7e6" }}>
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-12 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-yellow-600">Advertiser Type</p>
-            <h2 className="text-3xl font-black text-gray-900 md:text-5xl leading-[1.25]">
-              가입 유형에 따른<br />
-              <span style={{ color: "#f59e0b" }}>실행사 · 대행사 구분</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-lg text-base text-gray-500">
-              VIBEFUNNY 광고주 유형은 회원가입 시 직접 선택합니다.<br />포인트 충전 금액에 따라 유형이 자동으로 바뀌지 않습니다.
-            </p>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2 mb-10">
-            {/* 실행사 */}
-            <div className="relative overflow-hidden rounded-3xl border-2 border-yellow-400 bg-white p-8 shadow-md">
-              <div className="absolute right-0 top-0 rounded-bl-2xl px-4 py-2 text-xs font-black text-black" style={{ background: "#f59e0b" }}>
-                EXECUTOR
-              </div>
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "#f59e0b" }}>
-                <IconMegaphone size={24} strokeWidth={1.5} className="text-black" />
-              </div>
-              <h3 className="text-2xl font-black text-gray-900">실행사</h3>
-              <div className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}>
-                <span className="text-sm font-medium text-gray-600">가입 방법</span>
-                <span className="text-lg font-black" style={{ color: "#f59e0b" }}>직접 가입</span>
-              </div>
-              <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                가입 시 <strong className="text-gray-900">실행사</strong>를 선택하면 별도 코드 없이 바로 가입됩니다.
-                실행사는 추천 코드로 하위 대행사를 모집·관리하고, 연결된 대행사의 캠페인 집행에서 <strong className="text-gray-900">자동 수수료 수익</strong>을 받을 수 있습니다.
+      <section className="vfa-section vfa-section--warm">
+        <div className="vfa-wrap">
+          <SectionHead
+            eyebrow="Advertiser Type"
+            title={<>가입 유형에 따른<br /><em>실행사 · 대행사 구분</em></>}
+            desc={<>VIBEFUNNY 광고주 유형은 회원가입 시 직접 선택합니다.<br />포인트 충전 금액에 따라 유형이 자동으로 바뀌지 않습니다.</>}
+          />
+          <div className="vfa-stack">
+            <article className="vfa-card vfa-type vfa-type--exec">
+              <header className="vfa-type-head">
+                <div className="vfa-icon vfa-icon--solid"><IconMegaphone size={22} strokeWidth={1.7} /></div>
+                <div>
+                  <h3>실행사</h3>
+                  <p>Executor</p>
+                </div>
+              </header>
+              <dl className="vfa-join">
+                <dt>가입 방법</dt>
+                <dd>직접 가입</dd>
+              </dl>
+              <p className="vfa-body">
+                가입 시 <strong>실행사</strong>를 선택하면 별도 코드 없이 바로 가입됩니다.
+                실행사는 추천 코드로 하위 대행사를 모집·관리하고, 연결된 대행사의 캠페인 집행에서 <strong>자동 수수료 수익</strong>을 받을 수 있습니다.
               </p>
-              <ul className="mt-5 space-y-2.5">
-                {[
-                  "대행사 모집·초대 권한 보유",
-                  "하위 대행사 자동 수수료 수익",
-                  "우선 크리에이터 매칭 혜택",
-                  "전담 캠페인 매니저 배정 (예정)",
-                  "4대 플랫폼 동시 집행 전권",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
-                    <IconCheckCircle size={15} className="mt-0.5 shrink-0 text-yellow-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+              <CheckList items={EXEC_TYPE_ITEMS} tone="exec" />
+            </article>
 
-            {/* 대행사 */}
-            <div className="relative overflow-hidden rounded-3xl border-2 border-orange-300 bg-white p-8 shadow-md">
-              <div className="absolute right-0 top-0 rounded-bl-2xl bg-orange-400 px-4 py-2 text-xs font-black text-white">
-                AGENCY
-              </div>
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-400">
-                <IconBuilding size={24} strokeWidth={1.5} className="text-white" />
-              </div>
-              <h3 className="text-2xl font-black text-gray-900">대행사</h3>
-              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2">
-                <span className="text-sm font-medium text-gray-600">가입 방법</span>
-                <span className="text-lg font-black text-orange-500">실행사 코드 · 추천인 없음</span>
-              </div>
-              <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                가입 시 <strong className="text-gray-900">대행사</strong>를 선택하고 실행사 추천 코드를 입력하거나 &lsquo;추천인 없음&rsquo;을 선택하면 됩니다.
+            <article className="vfa-card vfa-type vfa-type--agency">
+              <header className="vfa-type-head">
+                <div className="vfa-icon vfa-icon--solid"><IconBuilding size={22} strokeWidth={1.7} /></div>
+                <div>
+                  <h3>대행사</h3>
+                  <p>Agency</p>
+                </div>
+              </header>
+              <dl className="vfa-join">
+                <dt>가입 방법</dt>
+                <dd>실행사 코드 · 추천인 없음</dd>
+              </dl>
+              <p className="vfa-body">
+                가입 시 <strong>대행사</strong>를 선택하고 실행사 추천 코드를 입력하거나 &lsquo;추천인 없음&rsquo;을 선택하면 됩니다.
                 대행사는 복수 클라이언트의 캠페인을 효율적으로 운영하는 데 최적화되어 있습니다.
               </p>
-              <ul className="mt-5 space-y-2.5">
-                {[
-                  "실행사 코드 입력 또는 추천인 없음 가입",
-                  "복수 클라이언트 통합 관리",
-                  "클라이언트별 예산·성과 분리",
-                  "통합 리포트 제공",
-                  "대행사 전용 대시보드",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
-                    <IconCheckCircle size={15} className="mt-0.5 shrink-0 text-orange-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+              <CheckList items={AGENCY_TYPE_ITEMS} tone="agency" />
+            </article>
           </div>
 
           {/* 포인트 충전 단계 안내 */}
-          <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-8">
-            <h3 className="mb-5 text-center text-lg font-black text-gray-900">포인트 충전 단계별 혜택</h3>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {[
-                { range: "₩150,000 ~ ₩499,999", label: "스타터", color: "#6b7280", items: ["캠페인 1건 집행 가능", "기본 리포트 제공", "자동 크리에이터 매칭"] },
-                { range: "₩500,000 ~ ₩999,999", label: "그로스", color: "#f97316", items: ["멀티 캠페인 동시 운영", "상세 분석 리포트", "우선 매칭 신청 가능"] },
-                { range: "₩1,000,000+", label: "스케일", color: "#f59e0b", items: ["대규모 멀티 캠페인 운영", "플랫폼별 상세 리포트", "전담 매니저 배정 예정", "최우선 크리에이터 배정"] },
-              ].map((tier) => (
-                <div key={tier.label} className="rounded-xl p-5 bg-white border" style={{ borderColor: tier.color === "#f59e0b" ? "#f59e0b" : "#e5e7eb", boxShadow: tier.color === "#f59e0b" ? "0 0 0 2px rgba(245,158,11,0.2)" : "none" }}>
-                  <div className="mb-2 text-xs font-black uppercase tracking-widest" style={{ color: tier.color }}>{tier.label}</div>
-                  <div className="mb-3 text-sm font-bold text-gray-900">{tier.range}</div>
-                  <ul className="space-y-1.5">
+          <div className="vfa-tiers">
+            <h3 className="vfa-h3">포인트 충전 단계별 혜택</h3>
+            <div className="vfa-tier-list">
+              {TIERS.map((tier) => (
+                <div key={tier.label} className={`vfa-tier vfa-tier--${tier.tone}`}>
+                  <div className="vfa-tier-top">
+                    <span className="vfa-tier-label">{tier.label}</span>
+                    <span className="vfa-tier-range">{tier.range}</span>
+                  </div>
+                  <ul>
                     {tier.items.map((item) => (
-                      <li key={item} className="flex items-start gap-1.5 text-xs text-gray-600">
-                        <span className="mt-0.5 shrink-0 font-black" style={{ color: tier.color }}>✓</span>{item}
-                      </li>
+                      <li key={item}><IconCheck size={13} strokeWidth={2.4} aria-hidden />{item}</li>
                     ))}
                   </ul>
                 </div>
@@ -501,253 +430,203 @@ export default function ForAdvertisersPage() {
         </div>
       </section>
 
-      {/* -------------- BENEFITS (dark image bg) -------------- */}
-      <FullBg id="benefits" src={BG.benefits} overlay="rgba(0,0,0,0.80)">
-        <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Why VIBEFUNNY</p>
-            <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.2]">
-              왜 VIBEFUNNY<br />여야 하나요?
-            </h2>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* -------------- BENEFITS -------------- */}
+      <PhotoSection id="benefits">
+        <div className="vfa-wrap">
+          <SectionHead light eyebrow="Why VIBEFUNNY" title={<>왜 VIBEFUNNY<br />여야 하나요?</>} />
+          <div className="vfa-benefit-grid">
             {BENEFITS.map((b) => (
-              <div key={b.title} className="vfa-card rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(245,158,11,0.15)" }}>
-                  <b.Icon size={20} strokeWidth={1.5} className="text-yellow-400" />
+              <div key={b.title} className="vfa-glass vfa-benefit">
+                <div className="vfa-icon vfa-icon--glass"><b.Icon size={20} strokeWidth={1.7} /></div>
+                <div>
+                  <h3>{b.title}</h3>
+                  <p>{b.desc}</p>
                 </div>
-                <h3 className="mt-4 font-bold text-white">{b.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>{b.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </FullBg>
+      </PhotoSection>
 
-      {/* -------------- PROCESS (white bg) -------------- */}
-      <section id="process" className="px-6 py-24 md:px-16" style={{ background: "#fafafa" }}>
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">How It Works</p>
-            <h2 className="text-4xl font-black text-gray-900 md:text-5xl leading-[1.25]">
-              4단계로<br />캠페인을 시작하세요
-            </h2>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* -------------- PROCESS -------------- */}
+      <section id="process" className="vfa-section">
+        <div className="vfa-wrap">
+          <SectionHead eyebrow="How It Works" title={<>4단계로<br />캠페인을 시작하세요</>} />
+          <ol className="vfa-steps">
             {PROCESS.map((s) => (
-              <div key={s.n} className="rounded-2xl border border-gray-100 bg-white p-7 shadow-sm">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-sm font-black text-black" style={{ background: "#f59e0b" }}>
-                  {s.n}
+              <li key={s.n} className="vfa-card vfa-step">
+                <span className="vfa-step-num">{s.n}</span>
+                <div>
+                  <h3>{s.title}</h3>
+                  <p>{s.desc}</p>
                 </div>
-                <h3 className="font-black text-gray-900">{s.title}</h3>
-                <p className="mt-2 text-sm leading-[1.7] text-gray-500">{s.desc}</p>
-              </div>
+              </li>
             ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* -------------- COMPARISON TABLE -------------- */}
+      <section className="vfa-section vfa-section--dark">
+        <div className="vfa-wrap">
+          <SectionHead light eyebrow="Comparison" title="실행사 vs 대행사" />
+          <div className="vfa-table-wrap">
+            <table className="vfa-table">
+              <thead>
+                <tr>
+                  <th scope="col">항목</th>
+                  <th scope="col" className="is-exec">실행사</th>
+                  <th scope="col" className="is-agency">대행사</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON.map((row) => (
+                  <tr key={row.feature}>
+                    <th scope="row">{row.feature}</th>
+                    <td>{row.exec}</td>
+                    <td>{row.agency}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      {/* -------------- COMPARISON TABLE (dark bg) -------------- */}
-      <section className="px-6 py-24 md:px-16" style={{ background: "#0a0a0a" }}>
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-600">Comparison</p>
-            <h2 className="text-4xl font-black text-white md:text-5xl">실행사 vs 대행사</h2>
-          </div>
-          <div className="overflow-hidden rounded-2xl border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-            {/* header row */}
-            <div className="grid grid-cols-3 px-6 py-4 text-xs font-black uppercase tracking-widest" style={{ background: "rgba(255,255,255,0.06)" }}>
-              <span className="text-gray-500">항목</span>
-              <span className="text-center" style={{ color: "#f59e0b" }}>실행사</span>
-              <span className="text-center text-orange-400">대행사</span>
-            </div>
-            {COMPARISON.map((row, i) => (
-              <div
-                key={row.feature}
-                className="grid grid-cols-3 px-6 py-4 text-sm"
-                style={{ background: i % 2 === 0 ? "rgba(255,255,255,0.03)" : "transparent", borderTop: "1px solid rgba(255,255,255,0.04)" }}
-              >
-                <span className="text-gray-500">{row.feature}</span>
-                <span className="text-center font-medium text-white">{row.exec}</span>
-                <span className="text-center font-medium text-white">{row.agency}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* -------------- TESTIMONIALS (dark image bg) -------------- */}
-      <FullBg src={BG.testimonials} overlay="rgba(0,0,0,0.82)">
-        <div className="mx-auto max-w-6xl px-6 py-24 md:px-16">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Advertiser Voice</p>
-            <h2 className="text-4xl font-black text-white md:text-6xl leading-[1.2]">
-              이미 사용 중인<br />광고주들의 이야기
-            </h2>
-          </div>
-          <div className="grid gap-5 md:grid-cols-3">
+      {/* -------------- TESTIMONIALS -------------- */}
+      <PhotoSection>
+        <div className="vfa-wrap">
+          <SectionHead light eyebrow="Advertiser Voice" title={<>이미 사용 중인<br />광고주들의 이야기</>} />
+          <div className="vfa-stack">
             {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="vfa-card rounded-2xl p-7" style={{ background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <div className="flex gap-1">
+              <figure key={t.name} className="vfa-glass vfa-quote">
+                <div className="vfa-stars" aria-label="별점 5점">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <IconStar key={i} size={13} strokeWidth={1.5} className="text-yellow-400" />
+                    <IconStar key={i} size={14} strokeWidth={1.6} aria-hidden />
                   ))}
                 </div>
-                <p className="mt-4 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>&quot;{t.text}&quot;</p>
-                <div className="mt-6 flex items-center justify-between border-t pt-5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                  <div className="flex items-center gap-3">
+                <blockquote>&ldquo;{t.text}&rdquo;</blockquote>
+                <figcaption>
+                  <span className="vfa-avatar" aria-hidden>
+                    {t.name.slice(0, 1)}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={t.avatar} alt={t.name} loading="lazy" decoding="async" className="h-10 w-10 rounded-full object-cover" />
-                    <div>
-                      <div className="text-sm font-bold text-white">{t.name}</div>
-                      <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{t.role}</div>
-                    </div>
-                  </div>
-                  <span className="rounded-full px-3 py-1 text-xs font-bold text-black" style={{ background: "#f59e0b" }}>{t.badge}</span>
-                </div>
-              </div>
+                    <img src={t.avatar} alt="" loading="lazy" decoding="async" />
+                  </span>
+                  <span className="vfa-who">
+                    <strong>{t.name}</strong>
+                    <span>{t.role}</span>
+                  </span>
+                  <span className="vfa-badge">{t.badge}</span>
+                </figcaption>
+              </figure>
             ))}
           </div>
         </div>
-      </FullBg>
+      </PhotoSection>
 
-
-      {/* -------------- CAMPAIGN ROI SECTION -------------- */}
-      <section className="px-6 py-20 md:px-16" style={{ background: "#0a0a0a" }}>
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-12 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-600">Campaign Performance</p>
-            <h2 className="text-3xl font-black text-white md:text-5xl leading-[1.25]">
-              숏폼 캠페인,<br /><span style={{ color: "#f59e0b" }}>이런 성과가 나옵니다</span>
-            </h2>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-10">
-            {[
-              { value: "4.2×", label: "일반 영상 대비 도달률", sub: "숏폼 포맷 알고리즘 우선 노출" },
-              { value: "24H", label: "캠페인 집행 시작", sub: "관리자 심사 후 즉시 모집 시작" },
-              { value: "98%", label: "광고주 재집행률", sub: "첫 캠페인 집행 후 재이용 비율" },
-              { value: "3배", label: "CTR 개선 효과", sub: "배너 광고 대비 숏폼 클릭률" },
-            ].map((kpi) => (
-              <div key={kpi.label} className="rounded-2xl p-6 text-center" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div className="text-4xl font-black mb-2" style={{ color: "#f59e0b" }}>{kpi.value}</div>
-                <div className="text-sm font-bold text-white mb-1">{kpi.label}</div>
-                <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{kpi.sub}</div>
+      {/* -------------- CAMPAIGN ROI -------------- */}
+      <section className="vfa-section vfa-section--dark">
+        <div className="vfa-wrap">
+          <SectionHead light eyebrow="Campaign Performance" title={<>숏폼 캠페인,<br /><em>이런 성과가 나옵니다</em></>} />
+          <div className="vfa-kpi-grid">
+            {KPIS.map((kpi) => (
+              <div key={kpi.label} className="vfa-kpi">
+                <strong>{kpi.value}</strong>
+                <span className="vfa-kpi-label">{kpi.label}</span>
+                <span className="vfa-kpi-sub">{kpi.sub}</span>
               </div>
             ))}
           </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="rounded-2xl p-7" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <h3 className="text-lg font-black text-white mb-5">캠페인 진행 현황 (실시간)</h3>
-              <div className="space-y-4">
-                {[
-                  { label: "진행 중인 캠페인", value: "142건", color: "#10b981" },
-                  { label: "이번 달 배포 완료", value: "8,420건", color: "#f59e0b" },
-                  { label: "참여 크리에이터", value: "12,000+명", color: "#3b82f6" },
-                  { label: "4대 플랫폼 누적 도달", value: "2.4억회+", color: "#ef4444" },
-                ].map((stat) => (
-                  <div key={stat.label} className="flex items-center justify-between border-b pb-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                    <span className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>{stat.label}</span>
-                    <span className="font-black text-sm" style={{ color: stat.color }}>{stat.value}</span>
+          <div className="vfa-stack">
+            <div className="vfa-dark-card">
+              <h3 className="vfa-h3 is-light">캠페인 진행 현황 (실시간)</h3>
+              <dl className="vfa-live">
+                {LIVE_STATS.map((stat) => (
+                  <div key={stat.label}>
+                    <dt>{stat.label}</dt>
+                    <dd>{stat.value}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             </div>
-            <div className="rounded-2xl p-7" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-              <h3 className="text-lg font-black text-white mb-4">이런 브랜드가 이용합니다</h3>
-              <div className="space-y-3">
-                {[
-                  { cat: "뷰티 / 코스메틱", desc: "제품 리뷰·튜토리얼 영상 숏폼 배포" },
-                  { cat: "식품 / 음료", desc: "먹방·레시피 콘텐츠 바이럴 마케팅" },
-                  { cat: "IT / 앱 서비스", desc: "앱 소개·기능 데모 숏폼 광고" },
-                  { cat: "패션 / 라이프스타일", desc: "트렌드 코디·하울 영상 배포" },
-                  { cat: "교육 / 자기계발", desc: "강의 홍보·지식 콘텐츠 마케팅" },
-                ].map((cat) => (
-                  <div key={cat.cat} className="flex items-start gap-3 rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
-                    <span className="mt-0.5 shrink-0 font-black text-xs" style={{ color: "#f59e0b" }}>✓</span>
+            <div className="vfa-dark-card vfa-dark-card--honey">
+              <h3 className="vfa-h3 is-light">이런 브랜드가 이용합니다</h3>
+              <ul className="vfa-cats">
+                {BRAND_CATS.map((cat) => (
+                  <li key={cat.cat}>
+                    <IconCheck size={14} strokeWidth={2.4} aria-hidden />
                     <div>
-                      <div className="text-sm font-bold text-white">{cat.cat}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{cat.desc}</div>
+                      <strong>{cat.cat}</strong>
+                      <span>{cat.desc}</span>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* -------------- FAQ (white bg) -------------- */}
-      <section className="px-6 py-24 md:px-16" style={{ background: "#fafafa" }}>
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-16 text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">FAQ</p>
-            <h2 className="text-4xl font-black text-gray-900 md:text-5xl">자주 묻는 질문</h2>
-          </div>
-          <div className="space-y-3">
-            {FAQS.map((faq, i) => (
-              <details key={i} className="vfa-faq overflow-hidden rounded-xl border border-gray-200 bg-white">
-                <summary className="flex cursor-pointer select-none items-center justify-between px-6 py-5 font-bold text-gray-900 transition hover:bg-gray-50">
+      {/* -------------- FAQ -------------- */}
+      <section className="vfa-section">
+        <div className="vfa-wrap">
+          <SectionHead eyebrow="FAQ" title="자주 묻는 질문" />
+          <div className="vfa-faqs">
+            {FAQS.map((faq) => (
+              <details key={faq.q} className="vfa-faq">
+                <summary>
                   <span>{faq.q}</span>
-                  <span className="vfa-plus ml-4 shrink-0 text-2xl font-light text-gray-400">+</span>
+                  <span className="vfa-plus" aria-hidden>+</span>
                 </summary>
-                <div className="border-t border-gray-100 px-6 py-5 text-sm leading-relaxed text-gray-600">{faq.a}</div>
+                <div>{faq.a}</div>
               </details>
             ))}
           </div>
         </div>
       </section>
 
-      {/* -------------- FINAL CTA (dramatic bg) -------------- */}
-      <FullBg src={BG.cta} overlay="rgba(0,0,0,0.65)">
-        <div className="mx-auto max-w-4xl px-6 py-32 text-center md:px-16">
-          <p className="mb-6 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Start Now</p>
-          <h2 className="text-[clamp(44px,8vw,100px)] font-black leading-[1.12] text-white">
-            지금 바로<br /><span style={{ color: "#f59e0b" }}>캠페인을</span><br />시작하세요
-          </h2>
-          <p className="mx-auto mt-8 max-w-md text-lg" style={{ color: "rgba(255,255,255,0.55)" }}>
-            최소 ₩150,000 예산 · 심사 후 24시간 내 크리에이터 모집 시작
-          </p>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/signup?role=advertiser&type=execution_company" className="inline-flex items-center gap-2 rounded-full px-8 py-4 text-base font-black text-black transition hover:scale-105" style={{ background: "#f59e0b" }}>
-              <IconMegaphone size={16} strokeWidth={1.5} />
-              실행사로 가입
+      {/* -------------- FINAL CTA -------------- */}
+      <PhotoSection className="vfa-cta">
+        <div className="vfa-wrap">
+          <p className="vfa-eyebrow is-light">Start Now</p>
+          <h2 className="vfa-h1">지금 바로<br /><em>캠페인을</em><br />시작하세요</h2>
+          <p className="vfa-hero-lead">최소 ₩150,000 예산 · 심사 후 24시간 내 크리에이터 모집 시작</p>
+          <div className="vfa-actions is-center">
+            <Link href="/signup?role=advertiser&type=execution_company" className="vfa-btn vfa-btn--primary">
+              <IconMegaphone size={17} strokeWidth={1.8} />실행사로 가입
             </Link>
-            <Link href="/signup?role=advertiser&type=agency" className="inline-flex items-center gap-2 rounded-full border px-8 py-4 text-base font-bold text-white transition hover:border-white/50" style={{ borderColor: "rgba(255,255,255,0.3)" }}>
-              <IconBuilding size={16} strokeWidth={1.5} />
-              대행사로 가입
+            <Link href="/signup?role=advertiser&type=agency" className="vfa-btn vfa-btn--ghost">
+              <IconBuilding size={17} strokeWidth={1.8} />대행사로 가입
             </Link>
           </div>
-          <p className="mt-6 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-            이미 계정이 있으신가요?{" "}
-            <Link href="/login" className="font-semibold underline hover:no-underline" style={{ color: "rgba(255,255,255,0.65)" }}>로그인</Link>
+          <p className="vfa-login-hint">
+            이미 계정이 있으신가요? <Link href="/login">로그인</Link>
           </p>
         </div>
-      </FullBg>
+      </PhotoSection>
 
-      {/* -------------- FOOTER (dark bg → white logo) -------------- */}
-      <footer className="border-t px-6 py-12 md:px-12" style={{ background: "#060606", borderColor: "rgba(255,255,255,0.05)" }}>
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <div>
-            <Link href="/"><LogoDark /></Link>
-            <p className="mt-3 max-w-xs text-sm text-gray-600">숏폼 광고 크리에이터 플랫폼 · 광고주 전용</p>
+      {/* -------------- FOOTER -------------- */}
+      <footer className="vfa-footer">
+        <div className="vfa-wrap">
+          <div className="vfa-footer-brand">
+            <Link href="/" aria-label="바이브퍼니 홈">
+              <span className="vf-site-logo vfa-logo is-dark"><span>VIBE</span><b>FUNNY</b></span>
+            </Link>
+            <p>숏폼 광고 크리에이터 플랫폼 · 광고주 전용</p>
           </div>
-          <div className="flex gap-12 text-sm text-gray-600">
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-700">광고주</p>
-              <div className="space-y-2">
-                <div><Link href="/signup?role=advertiser&type=execution_company" className="hover:text-white transition-colors">실행사 가입</Link></div>
-                <div><Link href="/signup?role=advertiser&type=agency" className="hover:text-white transition-colors">대행사 가입</Link></div>
-                <div><Link href="/login" className="hover:text-white transition-colors">로그인</Link></div>
-              </div>
+          <div className="vfa-footer-cols">
+            <div>
+              <p className="vfa-footer-title">광고주</p>
+              <Link href="/signup?role=advertiser&type=execution_company">실행사 가입</Link>
+              <Link href="/signup?role=advertiser&type=agency">대행사 가입</Link>
+              <Link href="/login">로그인</Link>
             </div>
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-700">플랫폼</p>
-              <div className="space-y-2">
-                <div>YouTube Shorts</div>
-                <div>Instagram Reels</div>
-                <div>TikTok</div>
-                <div>Facebook Reels</div>
-              </div>
+            <div>
+              <p className="vfa-footer-title">플랫폼</p>
+              <span>YouTube Shorts</span>
+              <span>Instagram Reels</span>
+              <span>TikTok</span>
+              <span>Facebook Reels</span>
             </div>
           </div>
         </div>

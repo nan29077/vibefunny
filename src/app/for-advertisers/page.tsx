@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./advertisers.css";
 import Link from "next/link";
-import { SITE_SHARE_IMAGE } from "@/lib/share-metadata";
+import { getSiteShareImage, getSiteUrl } from "@/lib/share-metadata";
 import { DesktopMarginImage } from "@/components/marketing/desktop-margin-image";
 import { getDb } from "@/lib/db";
 import { getSiteImage, MARGIN_IMAGE_SLOTS } from "@/lib/site-images";
@@ -14,25 +14,27 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "광고주 센터",
-  description:
-    "VIBEFUNNY 광고주 센터 - 숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
-  alternates: { canonical: "/for-advertisers" },
-  openGraph: {
-    title: "광고주 센터 · VIBEFUNNY",
+export function generateMetadata(): Metadata {
+  const shareImage = getSiteShareImage(getSiteUrl());
+  return {
+    title: "광고주 센터",
     description:
-      "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
-    url: "/for-advertisers",
-    images: [SITE_SHARE_IMAGE],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "광고주 센터 · VIBEFUNNY",
-    description: "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
-    images: [SITE_SHARE_IMAGE],
-  },
-};
+      "VIBEFUNNY 광고주 센터 - 숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
+    alternates: { canonical: "/for-advertisers" },
+    openGraph: {
+      title: "광고주 센터 · VIBEFUNNY",
+      description: "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
+      url: "/for-advertisers",
+      images: [shareImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "광고주 센터 · VIBEFUNNY",
+      description: "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
+      images: [shareImage],
+    },
+  };
+}
 
 // Generated campaign photography (portrait). PC canvas: 640px, mobile: full width.
 const ADVERTISER_BG = "/images/marketing/advertiser-campaign-studio.webp";

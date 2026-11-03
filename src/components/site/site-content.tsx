@@ -24,9 +24,10 @@ export function SiteBanners({ banners }: { banners: SiteBanner[] | undefined }) 
         const href = bannerHref(b.cta_href);
         const external = href ? isHttpUrl(href) : false;
         const background = SAFE_GRADIENT.test(b.gradient ?? "") ? b.gradient : DEFAULT_GRADIENT;
+        const isMainBanner = b.id === "banner-1";
         return (
-          <div key={b.id} className="flex flex-col gap-3 rounded-2xl px-6 py-5 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between" style={{ background }}>
-            <div className="min-w-0">
+          <div key={b.id} className={`flex flex-col gap-3 rounded-2xl py-5 text-white shadow-lg ${isMainBanner ? "px-3 sm:px-6 lg:flex-row lg:items-center" : "px-6 sm:flex-row sm:items-center sm:justify-between"}`} style={{ background }}>
+            <div className={isMainBanner ? "vf-main-banner-copy min-w-0 lg:flex-1" : "min-w-0"}>
               <p className="text-lg font-black leading-snug">{b.title}</p>
               {b.subtitle && <p className="mt-1 text-sm text-white/85">{b.subtitle}</p>}
             </div>

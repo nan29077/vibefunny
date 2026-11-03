@@ -3,6 +3,8 @@
 // 모든 금액은 KRW 정수(원) 단위로 저장한다.
 // ===========================================================================
 
+import type { SiteImageSelections } from "./site-images";
+
 export type Role = "admin" | "creator" | "advertiser";
 export type AdvertiserType = "execution_company" | "agency";
 export type UserStatus = "pending" | "active" | "suspended" | "withdrawn";
@@ -194,6 +196,7 @@ export interface AppSettings {
   extra_creation_advertiser_charge: number; // 영상 제작 포함 시 광고주 청구액(1건)
   // 사이트 관리
   site_banners: SiteBanner[];
+  site_image_selections?: SiteImageSelections;
   site_announcement: string | null;
   site_howto_blocks: SiteHowtoBlock[];
   site_revenue_stats: SiteRevenueStat[];

@@ -308,21 +308,7 @@ body:has(.vf-adv) { background: var(--vfa-paper, #fffdf7); }
 @media (min-width: 768px) {
   .vf-adv { --vfa-w: min(640px, calc(100vw - 260px)); --vfa-nav: 104px; width: var(--vfa-w); margin: 0 auto; overflow: visible; }
 
-  /* 좌우 여백: 작업실 사진 한 장을 화면 전체에 고정하고, 살짝 흐리게 + 크림색 막으로 옅게 */
   body:has(.vf-adv) { background: #f3e6d2; }
-  body:has(.vf-adv)::before,
-  body:has(.vf-adv)::after { content: ""; position: fixed; z-index: 0; pointer-events: none; }
-  body:has(.vf-adv)::before {
-    inset: -24px;
-    background: url('/images/marketing/advertiser-margin-wide.webp') center center / cover no-repeat;
-    filter: blur(2px) saturate(.92);
-  }
-  body:has(.vf-adv)::after {
-    inset: 0;
-    background:
-      radial-gradient(ellipse 60% 90% at 50% 50%, rgba(255,251,243,.55), rgba(255,251,243,0) 70%),
-      linear-gradient(rgba(255,249,238,.4), rgba(255,249,238,.4));
-  }
   .vf-adv > * { position: relative; z-index: 1; }
 
   .vf-adv .vfa-topbar { min-height: 68px; padding: .8rem 1.5rem; }

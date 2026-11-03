@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { SITE_SHARE_IMAGE } from "@/lib/share-metadata";
 import "./globals.css";
 
 const SITE_NAME = "VIBEFUNNY";
 const SITE_TITLE = "VIBEFUNNY | 숏폼 영상 부업 플랫폼";
 const SITE_DESCRIPTION =
   "AI 영상 제작부터 숏폼 배포·쇼츠 커머스·추천 수익까지, 나만의 영상 부업을 시작하는 VIBEFUNNY입니다.";
+const SHARE_TITLE = `숏폼으로 시작하는 나만의 영상 부업 | ${SITE_NAME}`;
+const SHARE_DESCRIPTION = "AI로 영상을 만들고, 숏폼 캠페인과 쇼츠 커머스에 참여해 보세요.";
 
 function getSiteUrl(): URL {
   const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
@@ -25,7 +28,6 @@ function getSiteUrl(): URL {
 
 export function generateMetadata(): Metadata {
   const metadataBase = getSiteUrl();
-  const shareImage = new URL("/og.png", metadataBase).toString();
   return {
     metadataBase,
     title: {
@@ -47,17 +49,17 @@ export function generateMetadata(): Metadata {
     openGraph: {
       type: "website",
       siteName: SITE_NAME,
-      title: SITE_TITLE,
-      description: SITE_DESCRIPTION,
+      title: SHARE_TITLE,
+      description: SHARE_DESCRIPTION,
       locale: "ko_KR",
       url: "/",
-      images: [{ url: shareImage, width: 1200, height: 630, alt: "VIBEFUNNY 숏폼 영상 부업 플랫폼" }],
+      images: [SITE_SHARE_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
-      title: SITE_TITLE,
-      description: SITE_DESCRIPTION,
-      images: [shareImage],
+      title: SHARE_TITLE,
+      description: SHARE_DESCRIPTION,
+      images: [SITE_SHARE_IMAGE],
     },
     robots: {
       index: true,

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import "./advertisers.css";
 import Link from "next/link";
+import { SITE_SHARE_IMAGE } from "@/lib/share-metadata";
+import { DesktopMarginImage } from "@/components/marketing/desktop-margin-image";
+import { getDb } from "@/lib/db";
+import { getSiteImage, MARGIN_IMAGE_SLOTS } from "@/lib/site-images";
 import {
   IconMegaphone, IconBuilding, IconBarChart, IconUsers, IconGlobe,
   IconZap, IconShield, IconGem, IconCheckCircle, IconDollarSign,
@@ -20,13 +24,13 @@ export const metadata: Metadata = {
     description:
       "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
     url: "/for-advertisers",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "VIBEFUNNY 숏폼 영상 부업 플랫폼" }],
+    images: [SITE_SHARE_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "광고주 센터 · VIBEFUNNY",
     description: "숏폼 배포 광고, AI 영상 제작 의뢰, 캠페인으로 브랜드를 알리세요.",
-    images: ["/og.png"],
+    images: [SITE_SHARE_IMAGE],
   },
 };
 
@@ -227,7 +231,10 @@ function LogoLight() {
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function ForAdvertisersPage() {
+  const marginImage = getSiteImage(MARGIN_IMAGE_SLOTS[1], getDb().settings.site_image_selections);
   return (
+    <>
+    <DesktopMarginImage src={marginImage.src} />
     <div className="vf-adv">
       {/* 상단 바 */}
       <div className="vfa-topbar">
@@ -632,5 +639,6 @@ export default function ForAdvertisersPage() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

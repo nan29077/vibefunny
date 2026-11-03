@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { roleHome } from "@/lib/routes";
 import { logoutAction } from "@/lib/actions/auth-actions";
 import { HoneyHeroCarousel } from "@/components/marketing/honey-hero-carousel";
+import { DesktopMarginImage } from "@/components/marketing/desktop-margin-image";
+import { BANNER_IMAGE_SLOTS, getSiteImage, MARGIN_IMAGE_SLOTS } from "@/lib/site-images";
 import { SiteBanners } from "@/components/site/site-content";
 import { MobileMainMenu, MobilePublicNav } from "@/components/marketing/mobile-main-menu";
 import { SupportWidget } from "@/components/support/support-widget";
@@ -316,8 +318,13 @@ export default function HomePage() {
     { key: "d", label: "기본 가입비",             value: signupFee.toLocaleString("ko-KR"), suffix: "원" },
   ];
   const stats = revenueStats.length > 0 ? revenueStats : defaultStats;
+  const imageSelections = db.settings.site_image_selections;
+  const marginImage = getSiteImage(MARGIN_IMAGE_SLOTS[0], imageSelections);
+  const bannerImages = BANNER_IMAGE_SLOTS.map((slot) => getSiteImage(slot, imageSelections).src);
 
   return (
+    <>
+    <DesktopMarginImage src={marginImage.src} />
     <div className="vf-marketing vf-home">
       <div className="vf-site-topbar">
         <MobileMainMenu myPageHref={dashHref ?? "/login"} />
@@ -363,7 +370,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <HoneyHeroCarousel ctaHref={creatorCtaHref} />
+      <HoneyHeroCarousel ctaHref={creatorCtaHref} images={bannerImages} />
       <SiteBanners banners={db.settings.site_banners} />
       {/* <FullBg
         src={BG.hero}
@@ -1173,5 +1180,6 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

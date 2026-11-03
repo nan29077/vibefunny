@@ -1,6 +1,8 @@
 import { getDb } from "@/lib/db";
 import { PageHeader, Card, Field, Input, Textarea } from "@/components/ui";
 import { SubmitButton } from "@/components/form";
+import { SiteImageManager } from "@/components/site/site-image-manager";
+import { BANNER_IMAGE_SLOTS, MARGIN_IMAGE_SLOTS } from "@/lib/site-images";
 import {
   updateAnnouncementAction,
   addBannerAction,
@@ -40,7 +42,25 @@ export default function SiteManagementPage() {
 
   return (
     <div className="space-y-10">
-      <PageHeader title="사이트 관리" description="공지사항, 배너, 이용 방법, 수익 현황 콘텐츠를 관리합니다." />
+      <PageHeader title="사이트 관리" description="여백 이미지, 배너, 공지사항, 이용 방법, 수익 현황 콘텐츠를 관리합니다." />
+
+      <section aria-labelledby="margin-images-heading">
+        <h2 id="margin-images-heading" className="mb-2 flex items-center gap-2 text-base font-bold text-gray-800">
+          <IconGlobe size={16} className="text-brand-purple" />
+          여백 이미지 관리
+        </h2>
+        <p className="mb-3 text-xs text-gray-500">홈과 광고주 센터에서 PC 좌우 여백에 표시할 사진을 각각 선택할 수 있습니다.</p>
+        <SiteImageManager slots={MARGIN_IMAGE_SLOTS} selections={s.site_image_selections} />
+      </section>
+
+      <section aria-labelledby="banner-images-heading">
+        <h2 id="banner-images-heading" className="mb-2 flex items-center gap-2 text-base font-bold text-gray-800">
+          <IconFilm size={16} className="text-brand-pink" />
+          배너 이미지 관리
+        </h2>
+        <p className="mb-3 text-xs text-gray-500">홈 상단 배너의 슬라이드별 배경을 선택할 수 있습니다. 아래 메인 배너 관리는 상단 슬라이드 아래의 배너에 적용됩니다.</p>
+        <SiteImageManager slots={BANNER_IMAGE_SLOTS} selections={s.site_image_selections} />
+      </section>
 
       {/* ── 공지사항 ── */}
       <section>

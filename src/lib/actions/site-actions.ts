@@ -4,11 +4,30 @@ import { revalidatePath } from "next/cache";
 import { tx } from "../db";
 import { requireAdmin } from "../auth";
 import { isHttpUrl, isInternalPath } from "../url";
+import { BANNER_IMAGE_SLOTS, getSiteImageOptions, MARGIN_IMAGE_SLOTS } from "../site-images";
 import type { SiteBanner, SiteHowtoBlock, SiteRevenueStat } from "../schema";
 
 const now = () => new Date().toISOString();
 let _id = 0;
 const uid = () => `banner-${Date.now()}-${++_id}`;
+
+export async function updateSiteImageAction(fd: FormData): Promise<void> {
+  const admin = requireAdmin();
+  const slotId = fd.get("slot");
+  const slot = [...MARGIN_IMAGE_SLOTS, ...BANNER_IMAGE_SLOTS].find(({ id }) => id === slotId);
+  const imageId = fd.get("image_id");
+  if (!slot || typeof imageId !== "string" || !getSiteImageOptions(slot).some(({ id }) => id === imageId)) {
+    throw new Error("적용할 이미지를 다시 선택해 주세요.");
+  }
+
+  tx((db) => {
+    db.settings.site_image_selections = { ...db.settings.site_image_selections, [slot.id]: imageId };
+    db.settings.updated_at = now();
+    db.settings.updated_by = admin.id;
+  });
+  revalidatePath("/admin/site");
+  revalidatePath(slot.id === "advertiser-margin" ? "/for-advertisers" : "/");
+}
 
 const normalizeTime = (value: FormDataEntryValue | null, fallback: string) => {
   const time = String(value ?? "");
